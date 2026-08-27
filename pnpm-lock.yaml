@@ -26,6 +26,9 @@ importers:
       '@bettergravity/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@electron/asar':
+        specifier: ^3.4.1
+        version: 3.4.1
     devDependencies:
       electron:
         specifier: ^38.0.0

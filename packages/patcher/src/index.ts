@@ -1,13 +1,17 @@
 import { BETTERGRAVITY_VERSION, SUPPORTED_HOST } from "@bettergravity/shared";
 
 export type InstallOperation = "install" | "update" | "reinstall" | "repair";
-export type InstallationKind = "not-found" | "detected" | "patched";
+export type InstallationKind = "not-found" | "detected" | "patched" | "needs-repatch" | "corrupted";
+
+export type PatchState = "unpatched" | "patched" | "needs-repatch" | "corrupted" | "unknown";
 
 export interface InstallationState {
   readonly kind: InstallationKind;
   readonly path?: string;
   readonly antigravityVersion?: string;
   readonly betterGravityVersion?: string;
+  readonly patchState?: PatchState;
+  readonly nativePatchAvailable?: boolean;
 }
 
 export interface OperationProgress {

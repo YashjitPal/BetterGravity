@@ -9,7 +9,7 @@ The installer does not contain the Marketplace. The Marketplace belongs inside t
 
 ## First Light status
 
-The repository currently contains a professional monorepo skeleton and a safe browser preview of the installer flow. The preview adapter does not read or modify local Antigravity files yet.
+The repository contains a professional monorepo and a safe browser preview. The Windows executable also includes a native, reversible Electron-bundle patcher with automatic version and patch-state detection.
 
 ## Repository map
 
@@ -45,7 +45,7 @@ Build the Windows executable with:
 pnpm build:installer
 ```
 
-The resulting unsigned installer is placed in `release/`. Release binaries should be attached to a GitHub Release instead of committed to the source repository.
+The resulting unsigned portable executable is placed in `release-<version>/`. Release binaries should be attached to a GitHub Release instead of committed to the source repository.
 
 ## Important safety note
 

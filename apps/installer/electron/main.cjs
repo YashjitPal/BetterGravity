@@ -1,29 +1,15 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
-const fs = require("node:fs");
 const path = require("node:path");
+const nativePatcher = require("./native-patcher.cjs");
 
 const isDevelopment = !app.isPackaged;
 
-function isAntigravityInstallation(directory) {
-  return Boolean(directory) && fs.existsSync(path.join(directory, "Antigravity.exe"));
-}
-
-function findAntigravityInstallation() {
-  const candidates = [
-    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Antigravity"),
-    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Antigravity"),
-    process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"], "Antigravity")
-  ].filter(Boolean);
-
-  return candidates.find(isAntigravityInstallation);
-}
-
 function createWindow() {
   const window = new BrowserWindow({
-    width: 900,
-    height: 720,
-    minWidth: 720,
-    minHeight: 620,
+    width: 720,
+    height: 610,
+    minWidth: 620,
+    minHeight: 540,
     show: false,
     title: "BetterGravity Installer",
     backgroundColor: "#080b12",
@@ -57,7 +43,10 @@ ipcMain.handle("installer:choose-directory", async () => {
   return result.canceled ? undefined : result.filePaths[0];
 });
 
-ipcMain.handle("installer:detect-installation", () => findAntigravityInstallation());
+ipcMain.handle("installer:detect-installation", () => nativePatcher.findAntigravityInstallation());
+ipcMain.handle("installer:inspect-installation", (_event, installationPath) => nativePatcher.inspectInstallation(installationPath));
+ipcMain.handle("installer:run-operation", (event, operation, installationPath) => nativePatcher.runOperation(operation, installationPath, (progress) => event.sender.send("installer:progress", progress)));
+ipcMain.on("installer:close", () => app.quit());
 
 app.whenReady().then(() => {
   createWindow();

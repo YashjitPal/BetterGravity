@@ -6,12 +6,18 @@ export function createPatcherGateway(): Patcher {
   const previewPatcher = createPreviewPatcher();
   return {
     async detect() {
-      const detectedPath = await window.betterGravityDesktop?.detectInstallation();
-      if (detectedPath) {
-        return { kind: "detected", path: detectedPath, antigravityVersion: "Unknown" };
-      }
-      return previewPatcher.detect();
+      const detected = await window.betterGravityDesktop?.detectInstallation();
+      if (!detected) return previewPatcher.detect();
+      return window.betterGravityDesktop?.inspectInstallation(detected) ?? previewPatcher.detect();
     },
-    run: (operation, path, onProgress) => previewPatcher.run(operation, path, onProgress)
+    async run(operation, path, onProgress) {
+      if (!window.betterGravityDesktop) return previewPatcher.run(operation, path, onProgress);
+      const unsubscribe = window.betterGravityDesktop.onProgress(onProgress ?? (() => undefined));
+      try {
+        return await window.betterGravityDesktop.runOperation(operation, path);
+      } finally {
+        unsubscribe();
+      }
+    }
   };
 }

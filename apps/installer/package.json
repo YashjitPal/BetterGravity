@@ -1,6 +1,6 @@
 {
   "name": "@bettergravity/installer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -9,12 +9,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "build:desktop": "pnpm build && electron-builder --win nsis",
+    "build:desktop": "pnpm build && electron-builder --win portable",
     "start:desktop": "electron electron/main.cjs",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@electron/asar": "^3.4.1",
     "@bettergravity/core": "workspace:*",
     "@bettergravity/patcher": "workspace:*",
     "@bettergravity/shared": "workspace:*"
@@ -31,7 +32,7 @@
     "artifactName": "BetterGravity-Installer-${version}.${ext}",
     "asar": true,
     "directories": {
-      "output": "../../release"
+      "output": "../../release-0.1.2-final"
     },
     "files": [
       "dist/**/*",
@@ -39,21 +40,8 @@
       "package.json"
     ],
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ],
+      "target": [{ "target": "portable", "arch": ["x64"] }],
       "requestedExecutionLevel": "asInvoker"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "BetterGravity Installer",
-      "deleteAppDataOnUninstall": false
     }
   }
 }

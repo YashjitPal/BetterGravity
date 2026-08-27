@@ -25,6 +25,7 @@ Thumbs.db
 *.zip
 *.app/
 release/
+release-*/
 artifacts/
 electron-builder.yml
 
