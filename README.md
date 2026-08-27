@@ -39,6 +39,14 @@ pnpm check
 
 Open the local Vite URL printed by `pnpm dev` to preview the installer.
 
+Build the Windows executable with:
+
+```text
+pnpm build:installer
+```
+
+The resulting unsigned installer is placed in `release/`. Release binaries should be attached to a GitHub Release instead of committed to the source repository.
+
 ## Important safety note
 
 BetterGravity is an unofficial community project. We will not distribute Google's proprietary Antigravity files. Before implementing native patching, we must document Antigravity's installation format, update behavior, and relevant terms so the adapter can be reversible and respectful of user data.

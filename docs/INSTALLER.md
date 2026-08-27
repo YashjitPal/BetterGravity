@@ -10,3 +10,7 @@ The BetterGravity Installer is intentionally focused. It is not the Marketplace,
 - **Repair** restores missing or corrupted BetterGravity files.
 
 Every operation must confirm the path, validate compatibility, create a recoverable backup, apply changes atomically where possible, and verify the result. The current First Light build demonstrates this flow with a no-op preview adapter; it does not patch a real installation yet.
+
+## Windows executable
+
+Run `pnpm build:installer` from the repository root. The generated NSIS installer is written to `release/BetterGravity-Installer-<version>.exe` and is intentionally ignored by Git. Local builds are unsigned until the public release-signing pipeline is configured.

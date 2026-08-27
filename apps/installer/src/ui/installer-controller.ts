@@ -15,13 +15,24 @@ export class InstallerController {
   public constructor(private readonly patcher: Patcher) {}
 
   public async start(): Promise<void> {
-    byId<HTMLButtonElement>("chooseFolderButton").addEventListener("click", () => byId<HTMLInputElement>("folderPicker").click());
+    byId<HTMLButtonElement>("chooseFolderButton").addEventListener("click", () => void this.chooseFolder());
     byId<HTMLInputElement>("folderPicker").addEventListener("change", (event) => this.onFolderChosen(event));
     document.querySelectorAll<HTMLButtonElement>("[data-operation]").forEach((button) => {
       button.addEventListener("click", () => void this.run(button.dataset.operation as InstallOperation));
     });
     this.installation = await this.patcher.detect();
     this.renderInstallation();
+  }
+
+  private async chooseFolder(): Promise<void> {
+    const selectedPath = await window.betterGravityDesktop?.chooseDirectory();
+    if (selectedPath) {
+      this.installation = { kind: "detected", path: selectedPath, antigravityVersion: "Unknown" };
+      this.renderInstallation();
+      this.showToast("Antigravity folder selected.");
+      return;
+    }
+    if (!window.betterGravityDesktop) byId<HTMLInputElement>("folderPicker").click();
   }
 
   private onFolderChosen(event: Event): void {
@@ -38,7 +49,7 @@ export class InstallerController {
     if (this.busy) return;
     if (this.installation.kind === "not-found") {
       this.showToast("Choose the Antigravity installation folder first.");
-      byId<HTMLInputElement>("folderPicker").click();
+      void this.chooseFolder();
       return;
     }
     this.busy = true;

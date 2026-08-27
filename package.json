@@ -10,6 +10,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter @bettergravity/installer dev",
+    "build:installer": "pnpm --filter @bettergravity/installer build:desktop",
+    "start:installer": "pnpm --filter @bettergravity/installer start:desktop",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "verify:structure": "node scripts/verify-structure.mjs",
@@ -18,5 +20,12 @@
   "devDependencies": {
     "typescript": "^5.9.2",
     "vite": "^7.1.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller",
+      "esbuild"
+    ]
   }
 }

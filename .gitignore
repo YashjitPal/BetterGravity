@@ -2,6 +2,7 @@ node_modules/
 dist/
 .vite/
 .playwright-cli/
+.electron-builder-cache/
 output/
 coverage/
 *.log
@@ -25,6 +26,7 @@ Thumbs.db
 *.app/
 release/
 artifacts/
+electron-builder.yml
 
 # Private local configuration and credentials. Never commit these.
 .env
