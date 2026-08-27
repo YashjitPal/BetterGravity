@@ -1,7 +1,22 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const fs = require("node:fs");
 const path = require("node:path");
 
 const isDevelopment = !app.isPackaged;
+
+function isAntigravityInstallation(directory) {
+  return Boolean(directory) && fs.existsSync(path.join(directory, "Antigravity.exe"));
+}
+
+function findAntigravityInstallation() {
+  const candidates = [
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Antigravity"),
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Antigravity"),
+    process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"], "Antigravity")
+  ].filter(Boolean);
+
+  return candidates.find(isAntigravityInstallation);
+}
 
 function createWindow() {
   const window = new BrowserWindow({
@@ -41,6 +56,8 @@ ipcMain.handle("installer:choose-directory", async () => {
   });
   return result.canceled ? undefined : result.filePaths[0];
 });
+
+ipcMain.handle("installer:detect-installation", () => findAntigravityInstallation());
 
 app.whenReady().then(() => {
   createWindow();

@@ -14,3 +14,5 @@ Every operation must confirm the path, validate compatibility, create a recovera
 ## Windows executable
 
 Run `pnpm build:installer` from the repository root. The generated NSIS installer is written to `release/BetterGravity-Installer-<version>.exe` and is intentionally ignored by Git. Local builds are unsigned until the public release-signing pipeline is configured.
+
+On Windows, the desktop installer automatically checks the standard per-user and system Antigravity installation locations and validates that `Antigravity.exe` is present. The folder picker remains available as a fallback for portable or non-standard installations.

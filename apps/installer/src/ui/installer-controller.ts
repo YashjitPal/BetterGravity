@@ -80,6 +80,7 @@ export class InstallerController {
     }
     path.textContent = this.installation.path ?? "Selected Antigravity folder";
     summary.textContent = this.installation.kind === "patched" ? `BetterGravity ${this.installation.betterGravityVersion} installed` : "Antigravity detected";
+    byId<HTMLButtonElement>("chooseFolderButton").textContent = "Change";
   }
 
   private renderProgress(operation: InstallOperation, progress: OperationProgress): void {
