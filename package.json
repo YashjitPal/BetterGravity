@@ -1,0 +1,22 @@
+{
+  "name": "bettergravity",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An open community modification platform for Google Antigravity.",
+  "license": "GPL-3.0-or-later",
+  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @bettergravity/installer dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "verify:structure": "node scripts/verify-structure.mjs",
+    "check": "pnpm verify:structure && pnpm typecheck && pnpm build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vite": "^7.1.3"
+  }
+}

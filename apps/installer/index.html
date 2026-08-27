@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b12" />
+    <title>BetterGravity Installer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <main class="installer-shell">
+      <header class="titlebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div><strong>BetterGravity</strong><span>Installer</span></div>
+        </div>
+        <div class="version">v0.1.0 · First Light</div>
+      </header>
+
+      <section class="welcome">
+        <div>
+          <div class="eyebrow">ANTIGRAVITY MOD LOADER</div>
+          <h1>Ready when you are.</h1>
+          <p>Install or maintain BetterGravity without touching your personal Antigravity data.</p>
+        </div>
+        <div class="installation-pill" id="installationPill"><span class="status-dot"></span><span id="installationSummary">Checking Antigravity…</span></div>
+      </section>
+
+      <section class="location-panel" aria-labelledby="locationTitle">
+        <div class="location-icon">AG</div>
+        <div class="location-copy"><span id="locationTitle">Antigravity installation</span><strong id="installPath">No installation selected</strong></div>
+        <button class="secondary-button" id="chooseFolderButton">Choose folder</button>
+      </section>
+
+      <section class="actions" aria-label="Installer actions">
+        <button class="action-card primary-action" data-operation="install"><span class="action-icon">↓</span><span class="action-copy"><strong>Install</strong><small>Add BetterGravity for the first time.</small></span><span class="action-arrow">→</span></button>
+        <button class="action-card" data-operation="update"><span class="action-icon">↗</span><span class="action-copy"><strong>Update</strong><small>Move to the newest available version.</small></span><span class="action-arrow">→</span></button>
+        <button class="action-card" data-operation="reinstall"><span class="action-icon">↻</span><span class="action-copy"><strong>Reinstall</strong><small>Replace the current installation cleanly.</small></span><span class="action-arrow">→</span></button>
+        <button class="action-card" data-operation="repair"><span class="action-icon">◇</span><span class="action-copy"><strong>Repair</strong><small>Fix missing or corrupted files.</small></span><span class="action-arrow">→</span></button>
+      </section>
+
+      <section class="progress-panel" id="progressPanel" hidden>
+        <div class="progress-header"><div><span id="progressEyebrow">PREPARING</span><strong id="progressTitle">Getting things ready…</strong></div><span id="progressPercent">0%</span></div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+        <p id="progressMessage">Nothing has been changed yet.</p>
+      </section>
+
+      <footer><span><span class="shield">◆</span> Automatic backup before every change</span><span>Unofficial community project · Open source</span></footer>
+    </main>
+    <input id="folderPicker" type="file" webkitdirectory directory multiple hidden />
+    <div class="toast" id="toast" role="status"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

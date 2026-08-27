@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible BetterGravity problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include tokens, credentials, personal Antigravity data, or private configuration.
+  - type: input
+    id: version
+    attributes:
+      label: BetterGravity version
+    validations:
+      required: true
+  - type: input
+    id: host-version
+    attributes:
+      label: Antigravity version
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Installer, Patcher, Runtime, Plugin, Theme, Marketplace, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true

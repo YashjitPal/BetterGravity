@@ -1,0 +1,9 @@
+{
+  "name": "@bettergravity-example/hello-world",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "typecheck": "tsc --noEmit -p tsconfig.json" },
+  "dependencies": { "@bettergravity/plugin-api": "workspace:*" },
+  "devDependencies": { "typescript": "^5.9.2" }
+}

@@ -1,0 +1,35 @@
+node_modules/
+dist/
+.vite/
+.playwright-cli/
+output/
+coverage/
+*.log
+*.local
+.DS_Store
+Thumbs.db
+
+# Local desktop/editor state
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# Generated installer and release artifacts
+*.dmg
+*.exe
+*.msi
+*.zip
+*.app/
+release/
+artifacts/
+
+# Private local configuration and credentials. Never commit these.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
