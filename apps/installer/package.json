@@ -1,6 +1,6 @@
 {
   "name": "@bettergravity/installer",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -32,7 +32,7 @@
     "artifactName": "BetterGravity-Installer-${version}.${ext}",
     "asar": true,
     "directories": {
-      "output": "../../release-0.1.2-final"
+      "output": "../../release-0.1.3"
     },
     "files": [
       "dist/**/*",

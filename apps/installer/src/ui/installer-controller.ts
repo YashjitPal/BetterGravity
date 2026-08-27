@@ -75,7 +75,8 @@ export class InstallerController {
       this.showToast(result.message);
       window.setTimeout(() => window.betterGravityDesktop?.closeInstaller(), 1100);
     } catch (error) {
-      this.showToast(error instanceof Error ? error.message : "The operation could not be completed.");
+      const message = error instanceof Error ? error.message : "The operation could not be completed.";
+      this.showToast(message.replace(/^Error invoking remote method '[^']+': Error: /, ""));
     } finally {
       this.busy = false;
       this.setBusy(false);
