@@ -1,22 +1,20 @@
 {
-  "name": "@bettergravity/patcher",
+  "name": "@bettergravity/runtime",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "The BetterGravity layer that runs inside Antigravity.",
   "exports": {
-    ".": "./src/index.ts",
-    "./native": "./src/native/index.ts"
+    "./protocol": "./src/protocol.ts"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
-  },
-  "dependencies": {
-    "@bettergravity/shared": "workspace:*",
-    "@electron/asar": "^3.4.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "electron": "^38.0.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
