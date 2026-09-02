@@ -11,6 +11,7 @@
     "build": "pnpm typecheck && vite build && node build-electron.mjs",
     "build:desktop": "pnpm build && electron-builder --win portable",
     "start:desktop": "electron dist-electron/main.cjs",
+    "dev:desktop": "cross-env BG_DEV_SERVER_URL=http://127.0.0.1:4173 electron dist-electron/main.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
     "preview": "vite preview"
   },
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "cross-env": "^10.1.0",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12",
     "esbuild": "^0.25.0",
@@ -41,7 +43,14 @@
       "package.json"
     ],
     "win": {
-      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "requestedExecutionLevel": "asInvoker"
     }
   }

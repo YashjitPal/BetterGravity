@@ -10,7 +10,9 @@ import {
 } from "@bettergravity/patcher/native";
 import { INSTALLER_CHANNEL } from "./ipc.js";
 
-const isDevelopment = !app.isPackaged;
+// Set only by the dev script. Without it the built files are loaded, so the
+// packaged app and a local `start:desktop` behave identically.
+const devServerUrl = process.env["BG_DEV_SERVER_URL"];
 
 // The runtime bundles sit next to the compiled main process in both the dev and
 // the packaged layout, so one path works for each.
@@ -40,8 +42,9 @@ function createWindow(): void {
     return { action: "deny" };
   });
 
-  if (isDevelopment) {
-    void window.loadURL("http://127.0.0.1:4173");
+  if (devServerUrl) {
+    void window.loadURL(devServerUrl);
+    window.webContents.openDevTools({ mode: "detach" });
   } else {
     void window.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }

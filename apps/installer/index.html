@@ -27,14 +27,15 @@
       </section>
       <section class="decision-panel" id="decisionPanel" hidden>
         <button class="main-action" id="primaryAction"><span id="primaryIcon">↓</span><span><strong id="primaryLabel">Install BetterGravity</strong><small id="primaryHint">Create a backup and patch Antigravity.</small></span><b>→</b></button>
-        <button class="quiet-action" id="secondaryAction">Choose a different location</button>
+        <div class="secondary-actions" id="secondaryActions"></div>
+        <button class="quiet-action" id="chooseLocation">Choose a different location</button>
       </section>
       <section class="progress-panel" id="progressPanel" hidden>
         <div class="progress-header"><div><span id="progressEyebrow">PREPARING</span><strong id="progressTitle">Getting things ready…</strong></div><span id="progressPercent">0%</span></div>
         <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
         <p id="progressMessage">Nothing has been changed yet.</p>
       </section>
-      <footer><span><span class="shield">◆</span> Original app bundle is backed up before patching</span><button id="changeLocationButton">Location options</button></footer>
+      <footer><span><span class="shield">◆</span> Original app bundle is backed up before patching</span><span class="footer-actions"><button id="openLogButton">Runtime log</button><button id="closeButton">Close</button></span></footer>
     </main>
     <input id="folderPicker" type="file" webkitdirectory directory multiple hidden />
     <div class="toast" id="toast" role="status"></div>
