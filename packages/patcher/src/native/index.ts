@@ -16,9 +16,20 @@ export const RUNTIME_FILES = ["main.cjs", "preload.cjs"] as const;
 
 const MAX_RETAINED_BACKUPS = 5;
 
+export type HostController = (installationPath: string, onProgress: ProgressReporter) => Promise<void>;
+
 export interface PatcherOptions {
   /** Directory holding the built runtime bundles. */
   readonly runtimeSource: string;
+  /**
+   * Overridden by the test suite so the filesystem state machine can be
+   * exercised without shelling out to PowerShell for process discovery.
+   */
+  readonly closeHost?: HostController;
+}
+
+export interface UninstallOptions {
+  readonly closeHost?: HostController;
 }
 
 export function inspectInstallation(installationPath: string): InstallationState {
@@ -130,7 +141,7 @@ export async function runOperation(
     throw new Error(`Antigravity ${before.antigravityVersion ?? "unknown"} has not been marked compatible yet.`);
   }
 
-  await closeAntigravity(installationPath, onProgress);
+  await (options.closeHost ?? closeAntigravity)(installationPath, onProgress);
   onProgress({ percent: 16, stage: "inspect", message: `Detected Antigravity ${before.antigravityVersion}.` });
 
   snapshot(paths.currentAsar, paths, "app");
@@ -180,13 +191,17 @@ export async function runOperation(
  * Restores the host bundle. Content under .bettergravity (themes, plugins,
  * settings, backups) is deliberately left in place so reinstalling is lossless.
  */
-export async function uninstall(installationPath: string, onProgress: ProgressReporter = () => undefined): Promise<OperationResult> {
+export async function uninstall(
+  installationPath: string,
+  onProgress: ProgressReporter = () => undefined,
+  options: UninstallOptions = {}
+): Promise<OperationResult> {
   const paths = installationPaths(installationPath);
   if (!fs.existsSync(paths.originalAsar)) {
     throw new Error("BetterGravity is not installed at the selected location.");
   }
 
-  await closeAntigravity(installationPath, onProgress);
+  await (options.closeHost ?? closeAntigravity)(installationPath, onProgress);
   onProgress({ percent: 20, stage: "inspect", message: "Preparing to restore the original bundle." });
 
   const restored = readHostManifest(paths.originalAsar);
