@@ -24,6 +24,14 @@ describe("normalizeSettings", () => {
   it("always reports the current schema version", () => {
     expect(normalizeSettings({ schemaVersion: 99 }).schemaVersion).toBe(1);
   });
+
+  // Opt-out, not opt-in: an Antigravity update otherwise removes BetterGravity
+  // silently, which reads as a crash rather than a choice.
+  it("keeps reapplying after host updates unless explicitly disabled", () => {
+    expect(normalizeSettings({}).reapplyAfterHostUpdate).toBe(true);
+    expect(normalizeSettings({ reapplyAfterHostUpdate: "no" }).reapplyAfterHostUpdate).toBe(true);
+    expect(normalizeSettings({ reapplyAfterHostUpdate: false }).reapplyAfterHostUpdate).toBe(false);
+  });
 });
 
 describe("applyPatch", () => {
@@ -50,5 +58,11 @@ describe("applyPatch", () => {
   it("normalises whatever the patch contains", () => {
     const patched = applyPatch(current, { themes: { enabled: ["x.css", "x.css"] } });
     expect(patched.themes.enabled).toEqual(["x.css"]);
+  });
+
+  it("carries the reapply preference through unrelated changes", () => {
+    const off = applyPatch(current, { reapplyAfterHostUpdate: false });
+    expect(off.reapplyAfterHostUpdate).toBe(false);
+    expect(applyPatch(off, { themes: { enabled: [] } }).reapplyAfterHostUpdate).toBe(false);
   });
 });

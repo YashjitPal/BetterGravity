@@ -1,6 +1,6 @@
-import fs from "node:fs";
 import path from "node:path";
 import { BETTERGRAVITY_VERSION, isSupportedHostVersion } from "@bettergravity/shared";
+import { fs } from "./fs.js";
 import type { InstallOperation, InstallationState, OperationResult, ProgressReporter } from "../types.js";
 import { createBootstrapArchive } from "./bootstrap.js";
 import { isBootstrapArchive, readHostManifest, readMarker, sha256, uncacheAll } from "./archive.js";
@@ -11,8 +11,11 @@ export { findAntigravityInstallation, installationPaths } from "./paths.js";
 export { closeAntigravity } from "./process.js";
 export { bootstrapSource } from "./bootstrap.js";
 
-/** Files the runtime is made of, copied verbatim into the installation. */
-export const RUNTIME_FILES = ["main.cjs", "preload.cjs"] as const;
+/**
+ * Files copied verbatim into the installation. `repair.cjs` is the guardian the
+ * runtime spawns before quitting, so it must live alongside the runtime.
+ */
+export const RUNTIME_FILES = ["main.cjs", "preload.cjs", "repair.cjs"] as const;
 
 const MAX_RETAINED_BACKUPS = 5;
 

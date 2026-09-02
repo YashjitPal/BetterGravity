@@ -14,6 +14,7 @@ import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, ty
 import { applyPatch, readSettings, writeSettings } from "./settings.js";
 import { attachPreload, relaxContentSecurityPolicy } from "./session.js";
 import { PluginStorageStore } from "./storage.js";
+import { spawnGuardian } from "./guardian.js";
 
 const WATCH_DEBOUNCE_MS = 150;
 
@@ -108,9 +109,20 @@ export function activate(context: RuntimeContext): void {
   if (!fs.existsSync(paths.settings)) writeSettings(paths.settings, readSettings(paths.settings));
 
   const storage = new PluginStorageStore(paths.storage);
-  // Storage writes are debounced, so a quit has to force the last one out.
-  app.on("before-quit", () => storage.flush());
   registerChannels(paths, context, storage);
+
+  // Antigravity's own before-quit handler cancels the first quit to run its
+  // shutdown, so this fires more than once.
+  let shuttingDown = false;
+  app.on("before-quit", () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    // Storage writes are debounced, so a quit has to force the last one out.
+    storage.flush();
+    if (readSettings(paths.settings).reapplyAfterHostUpdate) {
+      spawnGuardian(path.join(context.runtimeDirectory, "runtime"), paths.log);
+    }
+  });
 
   app.whenReady().then(
     () => {

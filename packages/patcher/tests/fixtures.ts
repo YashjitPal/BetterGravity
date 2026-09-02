@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import asar from "@electron/asar";
+import { RUNTIME_FILES } from "../src/native/index.js";
 
 export interface Fixture {
   readonly root: string;
@@ -55,9 +56,12 @@ export async function createFixture(version = "2.11.0"): Promise<Fixture> {
   fs.writeFileSync(path.join(root, "Antigravity.exe"), "");
   await writeHostArchive(path.join(root, "resources", "app.asar"), version);
 
+  // Derived from the real list so a new runtime file cannot silently go
+  // untested here.
   fs.mkdirSync(runtimeSource, { recursive: true });
-  fs.writeFileSync(path.join(runtimeSource, "main.cjs"), "exports.activate = () => undefined;\n");
-  fs.writeFileSync(path.join(runtimeSource, "preload.cjs"), "// preload\n");
+  for (const file of RUNTIME_FILES) {
+    fs.writeFileSync(path.join(runtimeSource, file), `// ${file}\n`);
+  }
 
   return {
     root,

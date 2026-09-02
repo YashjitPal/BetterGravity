@@ -20,7 +20,10 @@ export function normalizeSettings(value: unknown): RuntimeSettings {
     plugins: {
       developerMode: plugins["developerMode"] === true,
       enabled: uniqueStrings(plugins["enabled"], DEFAULT_SETTINGS.plugins.enabled)
-    }
+    },
+    // Opt-out rather than opt-in: without this an Antigravity update silently
+    // removes BetterGravity, which looks like a crash rather than a choice.
+    reapplyAfterHostUpdate: candidate["reapplyAfterHostUpdate"] !== false
   };
 }
 
@@ -42,6 +45,7 @@ export function applyPatch(current: RuntimeSettings, patch: SettingsPatch): Runt
     plugins: {
       developerMode: patch.plugins?.developerMode ?? current.plugins.developerMode,
       enabled: patch.plugins?.enabled ?? current.plugins.enabled
-    }
+    },
+    reapplyAfterHostUpdate: patch.reapplyAfterHostUpdate ?? current.reapplyAfterHostUpdate
   });
 }

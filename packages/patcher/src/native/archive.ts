@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 import asar from "@electron/asar";
+import { fs } from "./fs.js";
 import type { InstallationMarker } from "@bettergravity/shared";
 import { MARKER_NAME } from "./paths.js";
 

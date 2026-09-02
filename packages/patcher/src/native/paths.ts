@@ -1,5 +1,5 @@
-import fs from "node:fs";
 import path from "node:path";
+import { fs } from "./fs.js";
 
 export interface InstallationPaths {
   readonly root: string;

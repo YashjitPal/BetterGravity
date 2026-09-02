@@ -18,10 +18,12 @@ import os from "node:os";
 import path from "node:path";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const runtimeSource = path.join(root, "packages", "runtime", "dist");
+// The installer's staging directory rather than the runtime package's own
+// output, so this deploys exactly the file set a released installer would.
+const runtimeSource = path.join(root, "apps", "installer", "dist-electron", "runtime");
 
 if (!existsSync(runtimeSource)) {
-  console.error("The runtime has not been built. Run `pnpm build` first.");
+  console.error("The installer has not been built. Run `pnpm build` first.");
   process.exit(1);
 }
 
