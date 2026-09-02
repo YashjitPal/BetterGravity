@@ -8,8 +8,13 @@ export const CHANNEL = {
   setSettings: "bettergravity:set-settings",
   openDirectory: "bettergravity:open-directory",
   stateChanged: "bettergravity:state-changed",
+  readStorage: "bettergravity:read-storage",
+  writeStorage: "bettergravity:write-storage",
   log: "bettergravity:log"
 } as const;
+
+/** Persisted per-plugin key/value data, keyed by plugin id. */
+export type PluginStorageSnapshot = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 
 export type DirectoryKey = "themes" | "plugins" | "root";
 
@@ -22,6 +27,10 @@ export interface RuntimeContext {
 export interface ThemeRecord {
   readonly id: string;
   readonly name: string;
+  readonly description: string;
+  readonly author: string;
+  readonly version: string;
+  readonly source?: string;
   readonly css: string;
   readonly enabled: boolean;
 }

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parseThemeMetadata } from "@bettergravity/theme-api";
 import type { PluginRecord, RuntimeDiagnostic, RuntimeSettings, ThemeRecord } from "../protocol.js";
 
 const MAX_THEME_BYTES = 2 * 1024 * 1024;
@@ -40,9 +41,14 @@ export function readThemes(directory: string, settings: RuntimeSettings): Catalo
     if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".css")) continue;
     try {
       const css = readBounded(path.join(directory, entry.name), MAX_THEME_BYTES);
+      const metadata = parseThemeMetadata(css);
       entries.push({
         id: entry.name,
-        name: path.basename(entry.name, path.extname(entry.name)),
+        name: metadata.name ?? path.basename(entry.name, path.extname(entry.name)),
+        description: metadata.description ?? "",
+        author: metadata.author ?? "Unknown",
+        version: metadata.version ?? "0.0.0",
+        ...(metadata.source ? { source: metadata.source } : {}),
         css,
         enabled: settings.themes.enabled.includes(entry.name)
       });

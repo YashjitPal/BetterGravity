@@ -1,20 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { CHANNEL, type DirectoryKey, type RuntimeState, type SettingsPatch } from "../protocol.js";
-import { PluginHost } from "./plugins.js";
+import { BRIDGE_GLOBAL, type RuntimeBridge } from "../world/bridge.js";
 import { applyThemes } from "./themes.js";
 
-const pluginHost = new PluginHost();
-const listeners = new Set<(state: RuntimeState) => void>();
-let latest: RuntimeState | undefined;
-
-/** The renderer console is unreachable in a packaged build. */
-function report(message: string): void {
-  try {
-    ipcRenderer.send(CHANNEL.log, message);
-  } catch {
-    // Diagnostics must never break injection.
-  }
-}
+/** The bundled page-world runtime, inlined at build time by build.mjs. */
+declare const __WORLD_SOURCE__: string;
 
 // Antigravity's own iframes are left alone; only the top document is modified.
 const isTopFrame = (() => {
@@ -25,58 +15,82 @@ const isTopFrame = (() => {
   }
 })();
 
+/** The renderer console is unreachable in a packaged build. */
+function report(message: string): void {
+  try {
+    ipcRenderer.send(CHANNEL.log, message);
+  } catch {
+    // Diagnostics must never break injection.
+  }
+}
+
 function whenDocumentReady(): Promise<void> {
   if (document.readyState !== "loading") return Promise.resolve();
   return new Promise((resolve) => document.addEventListener("DOMContentLoaded", () => resolve(), { once: true }));
 }
 
-async function render(state: RuntimeState): Promise<void> {
-  await whenDocumentReady();
-  latest = state;
-  document.documentElement.setAttribute("data-bettergravity", state.version);
-
-  const applied = applyThemes(state.themes);
-  const launched = pluginHost.start(state.plugins);
-
-  report(`applied ${applied}/${state.themes.length} theme(s); started ${launched.length} plugin(s)`);
-  for (const diagnostic of state.diagnostics) report(`diagnostic — ${diagnostic.source}: ${diagnostic.message}`);
-
-  for (const listener of listeners) {
-    try {
-      listener(state);
-    } catch (error) {
-      report(`a state listener threw: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+/**
+ * Plugins need Antigravity's own globals and live DOM objects, neither of which
+ * survive the context bridge, so the plugin runtime is injected into the page's
+ * world and talks back through the JSON-only bridge below.
+ */
+function injectWorldRuntime(): void {
+  const script = document.createElement("script");
+  script.setAttribute("data-bettergravity", "runtime");
+  script.textContent = __WORLD_SOURCE__;
+  (document.head ?? document.documentElement).appendChild(script);
+  script.remove();
 }
 
-const api = {
-  getState: (): Promise<RuntimeState> => ipcRenderer.invoke(CHANNEL.getState),
-  /** Last state delivered to this window, for synchronous reads by plugins. */
-  currentState: (): RuntimeState | undefined => latest,
-  setSettings: (patch: SettingsPatch): Promise<RuntimeState> => ipcRenderer.invoke(CHANNEL.setSettings, patch),
-  openDirectory: (key: DirectoryKey): Promise<string> => ipcRenderer.invoke(CHANNEL.openDirectory, key),
-  onStateChanged: (listener: (state: RuntimeState) => void): (() => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  },
-  isPluginRunning: (id: string): boolean => pluginHost.isRunning(id),
-  reportPluginError: (id: string, message: string): void => report(`plugin ${id} error: ${message}`)
+const stateListeners = new Set<(state: RuntimeState) => void>();
+
+const bridge: RuntimeBridge = {
+  getState: () => ipcRenderer.invoke(CHANNEL.getState),
+  setSettings: (patch: SettingsPatch) => ipcRenderer.invoke(CHANNEL.setSettings, patch),
+  openDirectory: (key: DirectoryKey) => ipcRenderer.invoke(CHANNEL.openDirectory, key),
+  readStorage: () => ipcRenderer.invoke(CHANNEL.readStorage),
+  writeStorage: (pluginId, key, value) => ipcRenderer.send(CHANNEL.writeStorage, pluginId, key, value),
+  log: (message) => report(message),
+  onStateChanged: (listener) => {
+    stateListeners.add(listener);
+  }
 };
 
-export type BetterGravityRendererApi = typeof api;
+async function start(): Promise<void> {
+  await whenDocumentReady();
+
+  const state = await ipcRenderer.invoke(CHANNEL.getState).catch(() => undefined);
+  document.documentElement.setAttribute("data-bettergravity", (state as RuntimeState | undefined)?.version ?? "unknown");
+
+  // Themes are applied from here rather than from the page world: they are plain
+  // CSS, so they keep working even if the plugin runtime fails to boot.
+  if (state) {
+    applyThemes((state as RuntimeState).themes);
+    for (const diagnostic of (state as RuntimeState).diagnostics) {
+      report(`diagnostic — ${diagnostic.source}: ${diagnostic.message}`);
+    }
+  }
+
+  injectWorldRuntime();
+}
 
 if (isTopFrame) {
   try {
-    contextBridge.exposeInMainWorld("BetterGravity", api);
+    contextBridge.exposeInMainWorld(BRIDGE_GLOBAL, bridge);
   } catch (error) {
-    report(`exposeInMainWorld failed: ${error instanceof Error ? error.message : String(error)}`);
+    report(`could not expose the runtime bridge: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  ipcRenderer.on(CHANNEL.stateChanged, (_event, state: RuntimeState) => void render(state));
+  ipcRenderer.on(CHANNEL.stateChanged, (_event, state: RuntimeState) => {
+    applyThemes(state.themes);
+    for (const listener of stateListeners) {
+      try {
+        listener(state);
+      } catch (error) {
+        report(`a bridge listener threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  });
 
-  ipcRenderer
-    .invoke(CHANNEL.getState)
-    .then((state: RuntimeState) => render(state))
-    .catch((error: unknown) => report(`could not load runtime state: ${error instanceof Error ? error.message : String(error)}`));
+  void start().catch((error: unknown) => report(`startup failed: ${error instanceof Error ? error.message : String(error)}`));
 }

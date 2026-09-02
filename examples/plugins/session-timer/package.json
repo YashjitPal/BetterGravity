@@ -1,0 +1,14 @@
+{
+  "name": "@bettergravity-example/session-timer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reference BetterGravity plugin.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@bettergravity/plugin-api": "workspace:*",
+    "typescript": "^5.9.2"
+  }
+}

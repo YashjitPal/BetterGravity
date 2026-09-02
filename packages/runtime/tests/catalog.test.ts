@@ -49,6 +49,26 @@ describe("readThemes", () => {
     expect(readThemes(path.join(root, "themes"), DEFAULT_SETTINGS).entries.map((theme) => theme.id)).toEqual(["theme.CSS"]);
   });
 
+  it("prefers the metadata header over the file name", () => {
+    fs.writeFileSync(
+      path.join(root, "themes", "file-name.css"),
+      "/**\n * @name Pretty Name\n * @author someone\n * @version 2.0.0\n */\nbody {}"
+    );
+
+    const [theme] = readThemes(path.join(root, "themes"), DEFAULT_SETTINGS).entries;
+
+    expect(theme).toMatchObject({ id: "file-name.css", name: "Pretty Name", author: "someone", version: "2.0.0" });
+  });
+
+  it("falls back to the file name when there is no header", () => {
+    fs.writeFileSync(path.join(root, "themes", "bare.css"), "body {}");
+    expect(readThemes(path.join(root, "themes"), DEFAULT_SETTINGS).entries[0]).toMatchObject({
+      name: "bare",
+      author: "Unknown",
+      version: "0.0.0"
+    });
+  });
+
   it("reports oversized themes as diagnostics rather than dropping them silently", () => {
     fs.writeFileSync(path.join(root, "themes", "huge.css"), "a".repeat(3 * 1024 * 1024));
     const { entries, diagnostics } = readThemes(path.join(root, "themes"), DEFAULT_SETTINGS);

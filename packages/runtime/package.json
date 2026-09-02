@@ -11,6 +11,10 @@
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
+  "dependencies": {
+    "@bettergravity/plugin-api": "workspace:*",
+    "@bettergravity/theme-api": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "electron": "^38.0.0",

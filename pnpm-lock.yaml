@@ -64,12 +64,11 @@ importers:
         specifier: ^7.1.3
         version: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)
 
-  examples/plugins/hello-world:
-    dependencies:
+  examples/plugins/session-timer:
+    devDependencies:
       '@bettergravity/plugin-api':
         specifier: workspace:*
         version: link:../../../packages/plugin-api
-    devDependencies:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
@@ -120,6 +119,13 @@ importers:
         version: 5.9.3
 
   packages/runtime:
+    dependencies:
+      '@bettergravity/plugin-api':
+        specifier: workspace:*
+        version: link:../plugin-api
+      '@bettergravity/theme-api':
+        specifier: workspace:*
+        version: link:../theme-api
     devDependencies:
       '@types/node':
         specifier: ^22.10.2
@@ -158,6 +164,9 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@30.0.1(@noble/hashes@2.3.0))
 
 packages:
 

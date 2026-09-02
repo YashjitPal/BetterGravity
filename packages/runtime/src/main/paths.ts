@@ -7,6 +7,7 @@ export interface RuntimePaths {
   readonly themes: string;
   readonly plugins: string;
   readonly settings: string;
+  readonly storage: string;
 }
 
 export function runtimePaths(runtimeDirectory: string): RuntimePaths {
@@ -14,7 +15,8 @@ export function runtimePaths(runtimeDirectory: string): RuntimePaths {
     root: runtimeDirectory,
     themes: path.join(runtimeDirectory, "themes"),
     plugins: path.join(runtimeDirectory, "plugins"),
-    settings: path.join(runtimeDirectory, "settings.json")
+    settings: path.join(runtimeDirectory, "settings.json"),
+    storage: path.join(runtimeDirectory, "storage.json")
   };
 }
 

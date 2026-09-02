@@ -13,6 +13,7 @@ import { logger } from "./logger.js";
 import { directoryFor, ensureDirectories, runtimePaths, type RuntimePaths } from "./paths.js";
 import { applyPatch, readSettings, writeSettings } from "./settings.js";
 import { attachPreload, relaxContentSecurityPolicy } from "./session.js";
+import { PluginStorageStore } from "./storage.js";
 
 const WATCH_DEBOUNCE_MS = 150;
 
@@ -52,8 +53,14 @@ function watchForChanges(paths: RuntimePaths, onChange: () => void): void {
   }
 }
 
-function registerChannels(paths: RuntimePaths, context: RuntimeContext): void {
+function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage: PluginStorageStore): void {
   ipcMain.handle(CHANNEL.getState, () => buildState(paths, context));
+
+  ipcMain.handle(CHANNEL.readStorage, () => storage.snapshot());
+
+  ipcMain.on(CHANNEL.writeStorage, (_event, pluginId: string, key: string, value: unknown) => {
+    storage.write(pluginId, key, value);
+  });
 
   ipcMain.handle(CHANNEL.setSettings, (_event, patch: SettingsPatch) => {
     const next = applyPatch(readSettings(paths.settings), patch ?? {});
@@ -84,7 +91,11 @@ export function activate(context: RuntimeContext): void {
   logger.info(`Activating ${context.version} on Antigravity ${context.hostVersion} (Electron ${process.versions.electron}).`);
 
   if (!fs.existsSync(paths.settings)) writeSettings(paths.settings, readSettings(paths.settings));
-  registerChannels(paths, context);
+
+  const storage = new PluginStorageStore(paths.storage);
+  // Storage writes are debounced, so a quit has to force the last one out.
+  app.on("before-quit", () => storage.flush());
+  registerChannels(paths, context, storage);
 
   app.whenReady().then(
     () => {
