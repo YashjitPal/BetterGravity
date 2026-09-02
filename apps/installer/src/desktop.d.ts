@@ -3,17 +3,18 @@ import type { InstallOperation, InstallationState, OperationProgress, OperationR
 export {};
 
 declare global {
-interface BetterGravityDesktopBridge {
-  detectInstallation(): Promise<string | undefined>;
-  inspectInstallation(path: string): Promise<InstallationState>;
-  runOperation(operation: InstallOperation, path: string): Promise<OperationResult>;
-  onProgress(callback: (progress: OperationProgress) => void): () => void;
-  chooseDirectory(): Promise<string | undefined>;
-  closeInstaller(): void;
-  readonly platform: string;
-}
+  interface BetterGravityDesktopBridge {
+    detectInstallation(): Promise<string | undefined>;
+    inspectInstallation(path: string): Promise<InstallationState>;
+    runOperation(operation: InstallOperation, path: string): Promise<OperationResult>;
+    onProgress(callback: (progress: OperationProgress) => void): () => void;
+    chooseDirectory(): Promise<string | undefined>;
+    openRuntimeLog(path: string): Promise<string>;
+    closeInstaller(): void;
+    readonly platform: string;
+  }
 
-interface Window {
-  readonly betterGravityDesktop?: BetterGravityDesktopBridge;
-}
+  interface Window {
+    readonly betterGravityDesktop?: BetterGravityDesktopBridge;
+  }
 }

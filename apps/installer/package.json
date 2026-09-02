@@ -3,26 +3,27 @@
   "version": "0.1.3",
   "private": true,
   "type": "module",
-  "main": "electron/main.cjs",
+  "main": "dist-electron/main.cjs",
   "description": "The BetterGravity Windows installer.",
   "author": "BetterGravity Contributors",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "pnpm typecheck && vite build && node build-electron.mjs",
     "build:desktop": "pnpm build && electron-builder --win portable",
-    "start:desktop": "electron electron/main.cjs",
-    "typecheck": "tsc --noEmit",
+    "start:desktop": "electron dist-electron/main.cjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@electron/asar": "^3.4.1",
-    "@bettergravity/core": "workspace:*",
     "@bettergravity/patcher": "workspace:*",
+    "@bettergravity/runtime": "workspace:*",
     "@bettergravity/shared": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.3"
   },
@@ -36,7 +37,7 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
+      "dist-electron/**/*",
       "package.json"
     ],
     "win": {
