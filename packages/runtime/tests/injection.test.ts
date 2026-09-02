@@ -104,6 +104,27 @@ describe("PluginHost lifecycle", () => {
     expect(host.isRunning("one")).toBe(false);
   });
 
+  it("restarts a plugin when its source changes on disk", () => {
+    const host = createHost();
+    host.sync([plugin("edited", true, "globalThis.__generation = 1;")]);
+    expect((globalThis as Record<string, unknown>)["__generation"]).toBe(1);
+
+    const outcome = host.sync([plugin("edited", true, "globalThis.__generation = 2;")]);
+
+    expect(outcome).toEqual({ started: ["edited"], stopped: ["edited"] });
+    expect((globalThis as Record<string, unknown>)["__generation"]).toBe(2);
+  });
+
+  it("cleans up the previous instance when restarting", () => {
+    const host = createHost();
+    host.sync([plugin("edited", true, "plugin.styles.add('body { color: red; }');")]);
+    host.sync([plugin("edited", true, "plugin.styles.add('body { color: blue; }');")]);
+
+    const styles = [...document.querySelectorAll("style[data-bettergravity-plugin-style]")];
+    expect(styles).toHaveLength(1);
+    expect(styles[0]?.textContent).toBe("body { color: blue; }");
+  });
+
   it("hands the plugin its context and the shared api", () => {
     const host = createHost();
     host.sync([plugin("probe", true, "globalThis.__seen = { api: BetterGravity.marker, id: plugin.manifest.id };")]);
@@ -168,6 +189,28 @@ describe("plugin capabilities", () => {
   it("falls back when a storage key is absent", () => {
     createHost().sync([plugin("fallback", true, "globalThis.__fb = plugin.storage.get('missing', 'default');")]);
     expect((globalThis as Record<string, unknown>)["__fb"]).toBe("default");
+  });
+
+  // Regression: a restart used to hand back the page-load snapshot, so a plugin
+  // that had saved something during the session read a stale value.
+  it("shows a restarted plugin the values it saved during the session", () => {
+    const host = createHost();
+    host.useStorage({ counter: { runs: 1 } });
+    host.sync([plugin("counter", true, "plugin.storage.set('runs', plugin.storage.get('runs', 0) + 1);")]);
+
+    host.sync([plugin("counter", true, "globalThis.__runs = plugin.storage.get('runs', 0); // edited")]);
+
+    expect((globalThis as Record<string, unknown>)["__runs"]).toBe(2);
+  });
+
+  it("forgets a deleted key on restart", () => {
+    const host = createHost();
+    host.useStorage({ forgetful: { temp: "value" } });
+    host.sync([plugin("forgetful", true, "plugin.storage.delete('temp');")]);
+
+    host.sync([plugin("forgetful", true, "globalThis.__temp = plugin.storage.get('temp', 'gone'); // edited")]);
+
+    expect((globalThis as Record<string, unknown>)["__temp"]).toBe("gone");
   });
 
   it("returns the declared default until a setting is changed", () => {

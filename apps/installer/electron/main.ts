@@ -65,8 +65,10 @@ ipcMain.handle(INSTALLER_CHANNEL.runOperation, (event, operation: InstallOperati
   return runOperation(operation, installationPath, { runtimeSource }, onProgress);
 });
 
-ipcMain.handle(INSTALLER_CHANNEL.openLogs, (_event, installationPath: string) =>
-  shell.openPath(path.join(installationPaths(installationPath).runtimeRoot, "runtime.log"))
+// The runtime writes its log beside the user's content, not into the
+// installation, so this does not depend on which Antigravity was patched.
+ipcMain.handle(INSTALLER_CHANNEL.openLogs, () =>
+  shell.openPath(path.join(app.getPath("appData"), "BetterGravity", "runtime.log"))
 );
 
 ipcMain.on(INSTALLER_CHANNEL.close, () => app.quit());

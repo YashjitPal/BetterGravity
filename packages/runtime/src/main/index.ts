@@ -10,7 +10,7 @@ import {
 } from "../protocol.js";
 import { readPlugins, readThemes } from "./catalog.js";
 import { logger } from "./logger.js";
-import { directoryFor, ensureDirectories, runtimePaths, type RuntimePaths } from "./paths.js";
+import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, type RuntimePaths } from "./paths.js";
 import { applyPatch, readSettings, writeSettings } from "./settings.js";
 import { attachPreload, relaxContentSecurityPolicy } from "./session.js";
 import { PluginStorageStore } from "./storage.js";
@@ -41,14 +41,23 @@ function broadcast(state: RuntimeState): void {
 
 function watchForChanges(paths: RuntimePaths, onChange: () => void): void {
   for (const directory of [paths.themes, paths.plugins]) {
+    let timer: NodeJS.Timeout | undefined;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(onChange, WATCH_DEBOUNCE_MS);
+    };
+
+    // Plugins are directories, so a plugin's entry script is a level down and
+    // a non-recursive watch would never see it being edited.
     try {
-      let timer: NodeJS.Timeout | undefined;
-      fs.watch(directory, { persistent: false }, () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(onChange, WATCH_DEBOUNCE_MS);
-      });
-    } catch (error) {
-      logger.error(`Could not watch ${directory}. Live reload is unavailable for it.`, error);
+      fs.watch(directory, { persistent: false, recursive: true }, schedule);
+    } catch {
+      try {
+        fs.watch(directory, { persistent: false }, schedule);
+        logger.info(`Watching ${directory} without recursion; edits inside a plugin folder need a restart.`);
+      } catch (error) {
+        logger.error(`Could not watch ${directory}. Live reload is unavailable for it.`, error);
+      }
     }
   }
 }
@@ -85,10 +94,16 @@ function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage:
  * into a stock launch.
  */
 export function activate(context: RuntimeContext): void {
-  const paths = runtimePaths(context.runtimeDirectory);
+  // Deliberately not app.getPath("userData"): the bootstrap restores the host's
+  // app name, so that path belongs to Antigravity. BetterGravity keeps its own.
+  const paths = runtimePaths(path.join(app.getPath("appData"), "BetterGravity"));
   ensureDirectories(paths);
-  logger.open(context.runtimeDirectory);
+  logger.open(paths.log);
   logger.info(`Activating ${context.version} on Antigravity ${context.hostVersion} (Electron ${process.versions.electron}).`);
+  logger.info(`Content directory: ${paths.root}`);
+
+  const migrated = migrateLegacyContent(context.runtimeDirectory, paths);
+  if (migrated.length > 0) logger.info(`Moved ${migrated.join(", ")} out of the installation directory.`);
 
   if (!fs.existsSync(paths.settings)) writeSettings(paths.settings, readSettings(paths.settings));
 

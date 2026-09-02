@@ -4,12 +4,13 @@
 //   node scripts/dev-inspect.mjs launch          restart Antigravity with a debug port
 //   node scripts/dev-inspect.mjs shot [file]     screenshot the renderer
 //   node scripts/dev-inspect.mjs eval "<expr>"   evaluate an expression in the page
+//   node scripts/dev-inspect.mjs run <file.js>   evaluate a file, avoiding shell quoting
 //
 // Antigravity always enables remote debugging (main.js appends the switch when
 // it is absent), so `launch` only pins it to a predictable port.
 
 import { spawn } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const PORT = 9333;
@@ -86,19 +87,25 @@ if (command === "launch") {
   const file = argument ?? "antigravity.png";
   await writeFile(file, Buffer.from(result.data, "base64"));
   console.log(`Saved ${file}`);
-} else if (command === "eval") {
+} else if (command === "eval" || command === "run") {
   if (!argument) {
-    console.error('Provide an expression, for example: eval "document.title"');
+    console.error(command === "run" ? "Provide a file to evaluate." : 'Provide an expression, for example: eval "document.title"');
     process.exit(1);
   }
+  // Wrapped so a file can use statements and `return` rather than one expression.
+  const body = command === "run" ? await readFile(argument, "utf8") : `return (${argument});`;
   const page = await waitForPage(20_000);
   const result = await send(page.webSocketDebuggerUrl, "Runtime.evaluate", {
-    expression: argument,
+    expression: `(async () => { ${body} })()`,
     returnByValue: true,
     awaitPromise: true
   });
-  console.log(JSON.stringify(result.result?.value ?? result.result, null, 2));
+  if (result.exceptionDetails) {
+    console.error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
+    process.exit(1);
+  }
+  console.log(JSON.stringify(result.result?.value ?? null, null, 2));
 } else {
-  console.error(`Unknown command "${command}". Use launch, shot, or eval.`);
+  console.error(`Unknown command "${command}". Use launch, shot, eval, or run.`);
   process.exit(1);
 }
