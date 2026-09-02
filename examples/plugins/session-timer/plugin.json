@@ -1,0 +1,7 @@
+{
+  "name": "Session Timer",
+  "description": "Shows how long the current Antigravity session has been running.",
+  "version": "1.0.0",
+  "author": "BetterGravity Contributors",
+  "main": "index.js"
+}

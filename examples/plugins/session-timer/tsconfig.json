@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    // Plugin sources are evaluated as scripts, not modules.
+    "moduleDetection": "force"
+  },
+  "include": ["index.js", "globals.d.ts"]
+}
