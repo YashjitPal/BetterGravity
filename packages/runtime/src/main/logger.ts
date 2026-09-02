@@ -11,10 +11,9 @@ const MAX_LOG_BYTES = 512 * 1024;
 export class RuntimeLogger {
   private file: string | undefined;
 
-  open(runtimeDirectory: string): void {
-    const target = path.join(runtimeDirectory, "runtime.log");
+  open(target: string): void {
     try {
-      fs.mkdirSync(runtimeDirectory, { recursive: true });
+      fs.mkdirSync(path.dirname(target), { recursive: true });
       if (fs.existsSync(target) && fs.statSync(target).size > MAX_LOG_BYTES) fs.rmSync(target, { force: true });
       fs.appendFileSync(target, `\n--- session started ${new Date().toISOString()} ---\n`);
       this.file = target;

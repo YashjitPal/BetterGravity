@@ -1,35 +1,11 @@
-import type { BetterGravityGlobal, PluginSettingsSchema } from "@bettergravity/plugin-api";
-import type { DirectoryKey, RuntimeState, SettingsPatch } from "../protocol.js";
+import type { BetterGravityGlobal } from "@bettergravity/plugin-api";
+import type { RuntimeState } from "../protocol.js";
+import type { BetterGravityApi } from "./api.js";
 import { resolveBridge, type RuntimeBridge } from "./bridge.js";
+import { createPanel } from "./panel/index.js";
 import { PluginHost } from "./plugins.js";
 
-export interface PluginSummary {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly version: string;
-  readonly author: string;
-  readonly enabled: boolean;
-  readonly running: boolean;
-  readonly schema: PluginSettingsSchema;
-}
-
-/** The `BetterGravity` global available to plugins and to the settings panel. */
-export interface BetterGravityApi {
-  readonly version: string;
-  readonly hostVersion: string;
-  state(): RuntimeState | undefined;
-  getState(): Promise<RuntimeState>;
-  setSettings(patch: SettingsPatch): Promise<RuntimeState>;
-  openDirectory(key: DirectoryKey): Promise<string>;
-  onStateChanged(listener: (state: RuntimeState) => void): () => void;
-  plugins: {
-    list(): readonly PluginSummary[];
-    isRunning(id: string): boolean;
-    getSetting(pluginId: string, key: string): unknown;
-    setSetting(pluginId: string, key: string, value: unknown): void;
-  };
-}
+export type { BetterGravityApi, PluginSummary } from "./api.js";
 
 // Keeps the implementation from drifting away from the contract that plugin
 // authors compile against.
@@ -42,7 +18,7 @@ declare global {
   var BetterGravity: BetterGravityApi | undefined;
 }
 
-function boot(bridge: RuntimeBridge, initial: RuntimeState): void {
+async function boot(bridge: RuntimeBridge, initial: RuntimeState): Promise<void> {
   let latest = initial;
   const listeners = new Set<(state: RuntimeState) => void>();
 
@@ -80,16 +56,29 @@ function boot(bridge: RuntimeBridge, initial: RuntimeState): void {
       isRunning: (id) => host.isRunning(id),
       getSetting: (pluginId, key) => host.get(pluginId)?.readSetting(key),
       setSetting: (pluginId, key, value) => host.get(pluginId)?.writeSetting(key, value)
+    },
+    panel: {
+      open: () => panel.open(),
+      close: () => panel.close(),
+      toggle: () => panel.toggle()
     }
   };
 
   globalThis.BetterGravity = api;
+  const panel = createPanel(api);
 
   const apply = (state: RuntimeState) => {
     latest = state;
     const { started, stopped } = host.sync(state.plugins);
-    if (started.length > 0) bridge.log(`started plugin(s): ${started.join(", ")}`);
-    if (stopped.length > 0) bridge.log(`stopped plugin(s): ${stopped.join(", ")}`);
+    // A plugin in both lists was restarted by an edit to its source.
+    const restarted = started.filter((id) => stopped.includes(id));
+    const report = (verb: string, ids: readonly string[]) => {
+      const only = ids.filter((id) => !restarted.includes(id));
+      if (only.length > 0) bridge.log(`${verb} plugin(s): ${only.join(", ")}`);
+    };
+    if (restarted.length > 0) bridge.log(`reloaded plugin(s): ${restarted.join(", ")}`);
+    report("stopped", stopped);
+    report("started", started);
     for (const listener of listeners) {
       try {
         listener(state);
@@ -99,15 +88,16 @@ function boot(bridge: RuntimeBridge, initial: RuntimeState): void {
     }
   };
 
-  bridge.onStateChanged(apply);
+  // Storage has to be in hand before the first plugin starts. Subscribing any
+  // earlier lets a file-watcher broadcast start a plugin against an empty store.
+  const snapshot = await bridge.readStorage().catch((error: unknown) => {
+    bridge.log(`could not read plugin storage: ${String(error)}`);
+    return {};
+  });
+  host.useStorage(snapshot);
 
-  void bridge
-    .readStorage()
-    .then((snapshot) => {
-      host.useStorage(snapshot);
-      apply(initial);
-    })
-    .catch((error: unknown) => bridge.log(`could not read plugin storage: ${String(error)}`));
+  bridge.onStateChanged(apply);
+  apply(initial);
 }
 
 const bridge = resolveBridge();

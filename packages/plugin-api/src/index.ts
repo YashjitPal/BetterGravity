@@ -134,6 +134,12 @@ export interface BetterGravityGlobal {
   readonly plugins: {
     isRunning(id: string): boolean;
   };
+  /** The BetterGravity settings panel, also reachable with Ctrl+Shift+G. */
+  readonly panel: {
+    open(): void;
+    close(): void;
+    toggle(): void;
+  };
 }
 
 export interface PluginContext {
