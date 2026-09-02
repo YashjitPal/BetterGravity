@@ -1,17 +1,20 @@
 # Authoring themes and plugins
 
-Everything you make lives in your Antigravity installation under
-`resources/.bettergravity/`. That folder survives uninstalling BetterGravity, so
-your work is never destroyed by a repatch.
+Everything you make lives in `%APPDATA%\BetterGravity`, outside Antigravity. It
+survives Antigravity updating, being reinstalled, or being removed, and it
+survives uninstalling BetterGravity.
 
 ```text
-resources/.bettergravity/
+%APPDATA%\BetterGravity\
 ├── themes/           your .css files
 ├── plugins/          one folder per plugin
 ├── settings.json     which themes and plugins are turned on
 ├── storage.json      data plugins have saved
 └── runtime.log       what the runtime did, and anything that failed
 ```
+
+The settings panel has buttons that open the themes and plugins folders, which
+is usually quicker than typing the path.
 
 Working examples of both live in [`examples/`](../examples).
 
@@ -154,8 +157,8 @@ Supported types are `boolean`, `string`, `number`, and `select`.
 
 Plugins run real JavaScript inside Antigravity, in the same page your source
 code and credentials are displayed in. Because of that, **plugin loading stays
-off until you turn on developer mode**, either in the settings panel or in
-`settings.json`:
+off until you turn on developer mode**, on the Plugins tab of the settings panel
+or in `settings.json`:
 
 ```json
 {
