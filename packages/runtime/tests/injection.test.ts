@@ -8,6 +8,9 @@ import type { PluginRecord, ThemeRecord } from "../src/protocol.js";
 const theme = (id: string, enabled: boolean, css = `/* ${id} */`): ThemeRecord => ({
   id,
   name: id.replace(".css", ""),
+  description: "",
+  author: "test",
+  version: "1.0.0",
   css,
   enabled
 });
@@ -37,6 +40,9 @@ function createHost(): PluginHost {
 }
 
 const nextFrame = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** Plugin sources communicate results back through globals on the page. */
+const probe = <Value = unknown>(key: string): Value => (globalThis as unknown as Record<string, unknown>)[key] as Value;
 
 beforeEach(() => {
   document.head.innerHTML = "";
@@ -107,12 +113,12 @@ describe("PluginHost lifecycle", () => {
   it("restarts a plugin when its source changes on disk", () => {
     const host = createHost();
     host.sync([plugin("edited", true, "globalThis.__generation = 1;")]);
-    expect((globalThis as Record<string, unknown>)["__generation"]).toBe(1);
+    expect(probe("__generation")).toBe(1);
 
     const outcome = host.sync([plugin("edited", true, "globalThis.__generation = 2;")]);
 
     expect(outcome).toEqual({ started: ["edited"], stopped: ["edited"] });
-    expect((globalThis as Record<string, unknown>)["__generation"]).toBe(2);
+    expect(probe("__generation")).toBe(2);
   });
 
   it("cleans up the previous instance when restarting", () => {
@@ -129,7 +135,7 @@ describe("PluginHost lifecycle", () => {
     const host = createHost();
     host.sync([plugin("probe", true, "globalThis.__seen = { api: BetterGravity.marker, id: plugin.manifest.id };")]);
 
-    expect((globalThis as Record<string, unknown>)["__seen"]).toEqual({ api: "api", id: "probe" });
+    expect(probe("__seen")).toEqual({ api: "api", id: "probe" });
   });
 
   it("contains a plugin that throws while starting", () => {
@@ -168,10 +174,10 @@ describe("plugin capabilities", () => {
   it("runs cleanups registered with onDispose", () => {
     const host = createHost();
     host.sync([plugin("tidy", true, "plugin.onDispose(function(){ globalThis.__disposed = true; });")]);
-    expect((globalThis as Record<string, unknown>)["__disposed"]).toBeUndefined();
+    expect(probe("__disposed")).toBeUndefined();
 
     host.sync([plugin("tidy", false)]);
-    expect((globalThis as Record<string, unknown>)["__disposed"]).toBe(true);
+    expect(probe("__disposed")).toBe(true);
   });
 
   it("persists storage writes through the bridge", () => {
@@ -183,12 +189,12 @@ describe("plugin capabilities", () => {
     const host = createHost();
     host.useStorage({ reader: { greeting: "hello" } });
     host.sync([plugin("reader", true, "globalThis.__read = plugin.storage.get('greeting');")]);
-    expect((globalThis as Record<string, unknown>)["__read"]).toBe("hello");
+    expect(probe("__read")).toBe("hello");
   });
 
   it("falls back when a storage key is absent", () => {
     createHost().sync([plugin("fallback", true, "globalThis.__fb = plugin.storage.get('missing', 'default');")]);
-    expect((globalThis as Record<string, unknown>)["__fb"]).toBe("default");
+    expect(probe("__fb")).toBe("default");
   });
 
   // Regression: a restart used to hand back the page-load snapshot, so a plugin
@@ -200,7 +206,7 @@ describe("plugin capabilities", () => {
 
     host.sync([plugin("counter", true, "globalThis.__runs = plugin.storage.get('runs', 0); // edited")]);
 
-    expect((globalThis as Record<string, unknown>)["__runs"]).toBe(2);
+    expect(probe("__runs")).toBe(2);
   });
 
   it("forgets a deleted key on restart", () => {
@@ -210,7 +216,7 @@ describe("plugin capabilities", () => {
 
     host.sync([plugin("forgetful", true, "globalThis.__temp = plugin.storage.get('temp', 'gone'); // edited")]);
 
-    expect((globalThis as Record<string, unknown>)["__temp"]).toBe("gone");
+    expect(probe("__temp")).toBe("gone");
   });
 
   it("returns the declared default until a setting is changed", () => {
@@ -224,7 +230,7 @@ describe("plugin capabilities", () => {
       )
     ]);
 
-    expect((globalThis as Record<string, unknown>)["__before"]).toBe(true);
+    expect(probe("__before")).toBe(true);
     host.get("settings")?.writeSetting("compact", false);
     expect(host.get("settings")?.readSetting("compact")).toBe(false);
   });
@@ -235,7 +241,7 @@ describe("plugin capabilities", () => {
 
     host.get("watcher")?.writeSetting("size", 12);
 
-    expect((globalThis as Record<string, unknown>)["__change"]).toBe("size=12");
+    expect(probe("__change")).toBe("size=12");
   });
 
   it("keeps settings out of the plugin's own storage keys", () => {
@@ -254,7 +260,7 @@ describe("plugin dom utilities", () => {
     const host = createHost();
     host.sync([plugin("dom", true, "globalThis.__found = plugin.dom.waitFor('.target');")]);
 
-    await expect((globalThis as Record<string, Promise<Element>>)["__found"]).resolves.toHaveProperty("textContent", "here");
+    await expect(probe<Promise<Element>>("__found")).resolves.toHaveProperty("textContent", "here");
   });
 
   it("resolves waitFor once a matching element appears", async () => {
@@ -265,14 +271,14 @@ describe("plugin dom utilities", () => {
     element.className = "late";
     document.body.appendChild(element);
 
-    await expect((globalThis as Record<string, Promise<Element>>)["__later"]).resolves.toBe(element);
+    await expect(probe<Promise<Element>>("__later")).resolves.toBe(element);
   });
 
   it("rejects waitFor after the timeout", async () => {
     const host = createHost();
     host.sync([plugin("dom", true, "globalThis.__never = plugin.dom.waitFor('.absent', { timeout: 20 });")]);
 
-    await expect((globalThis as Record<string, Promise<Element>>)["__never"]).rejects.toThrow(/Timed out/);
+    await expect(probe<Promise<Element>>("__never")).rejects.toThrow(/Timed out/);
   });
 
   it("delivers current and future matches to observe exactly once", async () => {
@@ -285,7 +291,7 @@ describe("plugin dom utilities", () => {
     document.body.appendChild(added);
     await nextFrame();
 
-    const hits = (globalThis as Record<string, Element[]>)["__hits"] ?? [];
+    const hits = probe<Element[]>("__hits") ?? [];
     expect(hits).toHaveLength(2);
     expect(hits[1]).toBe(added);
   });
@@ -300,6 +306,6 @@ describe("plugin dom utilities", () => {
     document.body.appendChild(element);
     await nextFrame();
 
-    expect((globalThis as Record<string, number>)["__count"]).toBe(0);
+    expect(probe<number>("__count")).toBe(0);
   });
 });

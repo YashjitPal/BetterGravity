@@ -1,6 +1,6 @@
-import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fs } from "./fs.js";
 import { BETTERGRAVITY_VERSION, type InstallationMarker } from "@bettergravity/shared";
 import { createArchive, type HostManifest } from "./archive.js";
 import { MARKER_NAME, RUNTIME_DIRECTORY_NAME } from "./paths.js";

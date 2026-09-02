@@ -5,11 +5,21 @@ import { createPanel, type Panel } from "../src/world/panel/index.js";
 import type { BetterGravityApi, PluginSummary } from "../src/world/api.js";
 import type { RuntimeState, SettingsPatch } from "../src/protocol.js";
 
+const settings = (overrides: Partial<RuntimeState["settings"]> = {}): RuntimeState["settings"] => ({
+  schemaVersion: 1,
+  themes: { enabled: [] },
+  plugins: { developerMode: false, enabled: [] },
+  reapplyAfterHostUpdate: true,
+  ...overrides
+});
+
+const developerMode = (enabled: readonly string[] = ["timer"]) => settings({ plugins: { developerMode: true, enabled } });
+
 const baseState = (overrides: Partial<RuntimeState> = {}): RuntimeState => ({
   version: "0.1.3",
   hostVersion: "2.11.0",
   directories: { root: "C:/bg", themes: "C:/bg/themes", plugins: "C:/bg/plugins" },
-  settings: { schemaVersion: 1, themes: { enabled: [] }, plugins: { developerMode: false, enabled: [] } },
+  settings: settings(),
   themes: [],
   plugins: [],
   diagnostics: [],
@@ -170,7 +180,7 @@ describe("themes tab", () => {
   it("removes a theme from the enabled list when switched off", () => {
     state = baseState({
       themes: [theme("dawn.css", true)],
-      settings: { schemaVersion: 1, themes: { enabled: ["dawn.css"] }, plugins: { developerMode: false, enabled: [] } }
+      settings: settings({ themes: { enabled: ["dawn.css"] } })
     });
     panel.open();
     labelled("Enable dawn")?.click();
@@ -203,7 +213,7 @@ describe("plugins tab", () => {
 
   it("lists plugins once developer mode is on", () => {
     state = baseState({
-      settings: { schemaVersion: 1, themes: { enabled: [] }, plugins: { developerMode: true, enabled: ["timer"] } }
+      settings: developerMode()
     });
     summaries = [summary()];
     panel.open();
@@ -221,7 +231,7 @@ describe("plugins tab", () => {
 
   it("renders declared settings only for a running plugin", () => {
     state = baseState({
-      settings: { schemaVersion: 1, themes: { enabled: [] }, plugins: { developerMode: true, enabled: ["timer"] } }
+      settings: developerMode()
     });
     summaries = [
       summary({
@@ -242,7 +252,7 @@ describe("plugins tab", () => {
 
   it("writes a select change straight through to the plugin", () => {
     state = baseState({
-      settings: { schemaVersion: 1, themes: { enabled: [] }, plugins: { developerMode: true, enabled: ["timer"] } }
+      settings: developerMode()
     });
     settingValues["corner"] = "bottom-right";
     summaries = [
@@ -273,7 +283,7 @@ describe("plugins tab", () => {
 
   it("coerces a number field to a number", () => {
     state = baseState({
-      settings: { schemaVersion: 1, themes: { enabled: [] }, plugins: { developerMode: true, enabled: ["timer"] } }
+      settings: developerMode()
     });
     summaries = [summary({ schema: { size: { type: "number", label: "Size", default: 12, min: 8 } } })];
     panel.open();
@@ -288,10 +298,31 @@ describe("plugins tab", () => {
   });
 });
 
+describe("general tab", () => {
+  it("offers the reapply-after-update switch, on by default", () => {
+    panel.open();
+    clickTab("General");
+    expect(labelled("Reapply after Antigravity updates")?.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("turns reapplying off through the settings patch", () => {
+    panel.open();
+    clickTab("General");
+    labelled("Reapply after Antigravity updates")?.click();
+    expect(patches).toEqual([{ reapplyAfterHostUpdate: false }]);
+  });
+
+  it("shows where content is stored", () => {
+    panel.open();
+    clickTab("General");
+    expect(shadow()?.textContent).toContain("C:/bg");
+  });
+});
+
 describe("problems tab", () => {
   it("stays hidden when nothing failed", () => {
     panel.open();
-    expect(queryAll("nav button").map((button) => button.textContent)).toEqual(["Themes (0)", "Plugins (0)"]);
+    expect(queryAll("nav button").map((button) => button.textContent)).toEqual(["Themes (0)", "Plugins (0)", "General"]);
   });
 
   it("surfaces load failures", () => {

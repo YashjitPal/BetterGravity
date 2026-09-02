@@ -5,5 +5,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "build.mjs"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "build.mjs"]
 }

@@ -7,7 +7,7 @@ import { PANEL_STYLES } from "./styles.js";
 const HOST_ID = "bettergravity-panel";
 const SHORTCUT = { key: "g", ctrl: true, shift: true };
 
-type Tab = "themes" | "plugins" | "problems";
+type Tab = "themes" | "plugins" | "general" | "problems";
 
 export interface Panel {
   open(): void;
@@ -75,6 +75,7 @@ export function createPanel(api: BetterGravityApi): Panel {
     const tabs: readonly { id: Tab; label: string }[] = [
       { id: "themes", label: `Themes (${state.themes.length})` },
       { id: "plugins", label: `Plugins (${state.plugins.length})` },
+      { id: "general", label: "General" },
       ...(state.diagnostics.length > 0 ? [{ id: "problems" as Tab, label: `Problems (${state.diagnostics.length})` }] : [])
     ];
     for (const entry of tabs) {
@@ -92,9 +93,35 @@ export function createPanel(api: BetterGravityApi): Panel {
     const main = el("main");
     if (tab === "themes") main.append(...buildThemes(state));
     else if (tab === "plugins") main.append(...buildPlugins(state));
+    else if (tab === "general") main.append(...buildGeneral(state));
     else main.append(...state.diagnostics.map((entry) => el("div", { class: "diagnostic", text: `${entry.source}: ${entry.message}` })));
     return main;
   };
+
+  const buildGeneral = (state: RuntimeState): readonly HTMLElement[] => [
+    el("div", { class: "row" }, [
+      el("div", { class: "grow" }, [
+        el("div", { class: "row-name", text: "Reapply after Antigravity updates" }),
+        el("div", {
+          class: "row-desc",
+          text: "Antigravity replaces its own program files when it updates, which removes BetterGravity. Leave this on and it is put back automatically after the update finishes."
+        })
+      ]),
+      toggleSwitch(state.settings.reapplyAfterHostUpdate, "Reapply after Antigravity updates", () => {
+        void api.setSettings({ reapplyAfterHostUpdate: !state.settings.reapplyAfterHostUpdate });
+      })
+    ]),
+    el("div", { class: "row" }, [
+      el("div", { class: "grow" }, [
+        el("div", { class: "row-name", text: "Where your files live" }),
+        el("div", { class: "row-desc", text: state.directories.root }),
+        el("div", {
+          class: "row-meta",
+          text: "Themes, plugins, and saved plugin data are kept here, outside Antigravity, so they survive updates and reinstalls."
+        })
+      ])
+    ])
+  ];
 
   const buildThemes = (state: RuntimeState): readonly HTMLElement[] => {
     if (state.themes.length === 0) {

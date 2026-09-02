@@ -56,6 +56,11 @@ export interface RuntimeSettings {
     readonly developerMode: boolean;
     readonly enabled: readonly string[];
   };
+  /**
+   * Whether to reapply the patch after Antigravity updates itself. Antigravity
+   * replaces app.asar during an update, which removes BetterGravity entirely.
+   */
+  readonly reapplyAfterHostUpdate: boolean;
 }
 
 /** A theme or plugin that could not be loaded, surfaced instead of swallowed. */
@@ -81,10 +86,12 @@ export interface SettingsPatch {
     readonly developerMode?: boolean;
     readonly enabled?: readonly string[];
   };
+  readonly reapplyAfterHostUpdate?: boolean;
 }
 
 export const DEFAULT_SETTINGS: RuntimeSettings = {
   schemaVersion: 1,
   themes: { enabled: [] },
-  plugins: { developerMode: false, enabled: [] }
+  plugins: { developerMode: false, enabled: [] },
+  reapplyAfterHostUpdate: true
 };
