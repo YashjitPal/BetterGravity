@@ -1,8 +1,8 @@
 // Session Timer — a reference plugin covering the whole BetterGravity surface:
 // settings, storage, styles, DOM work, and cleanup.
 //
-// Copy this folder into <Antigravity>/resources/.bettergravity/plugins/ and turn
-// on developer mode to run it.
+// Copy this folder into %APPDATA%\BetterGravity\plugins\ and turn on developer
+// mode to run it.
 
 // define() returns a live, typed view of the options. Reading a property gives
 // the current value; assigning to one saves it.

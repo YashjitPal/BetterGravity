@@ -1,38 +1,153 @@
-# BetterGravity Architecture
+# Architecture
 
-BetterGravity has two user-facing products with different responsibilities:
+## The shape of the host
 
-1. **Installer**: a small standalone maintenance tool. It only detects Antigravity and performs `install`, `update`, `reinstall`, or `repair` operations.
-2. **BetterGravity runtime**: the layer loaded by Antigravity after installation. This is where community plugins, themes, settings, and the Marketplace belong.
+Everything here follows from one finding: **Antigravity's `app.asar` is not the
+IDE.** It is a small launcher. Reading `dist/main.js` inside it:
 
-The repository reflects that boundary:
+- it spawns a native `language_server` binary on a loopback port,
+- it opens a `BrowserWindow` pointed at `https://127.0.0.1:<port>/`,
+- the IDE proper is a separate application it can install for you.
+
+So the interface is a web application served over loopback, and **there are no
+UI files on disk to modify**. Every visible change has to be injected into a
+live renderer.
+
+Two consequences worth stating plainly:
+
+- The launcher's code is unminified, so there is no need to pattern-match
+  against a minified bundle that breaks on every host release. This is the
+  single biggest difference from modding a client like Discord.
+- As of 2.11 the loopback pages carry no `Content-Security-Policy`. The runtime
+  strips CSP headers on that origin anyway, because their absence is an
+  implementation detail rather than a promise.
+
+## The patch
+
+`packages/patcher` replaces `resources/app.asar` with a bootstrap and keeps the
+original as `_app.asar`.
+
+The bootstrap is deliberately tiny, and two properties matter more than anything
+else it does.
+
+**It is identity-transparent.** Its `package.json` mirrors the host's `name`,
+`productName`, and `version`, and it calls `app.setName()` before anything reads
+a name-derived path. Electron derives `app.getName()` from the loaded package,
+and Antigravity builds *both* its `userData` directory and its `antigravity://`
+protocol registration from that name. A bootstrap that names itself would
+silently orphan user data into a directory named after the bootstrap. Because
+the bootstrap is indistinguishable by name, an installation is identified by the
+`.bettergravity.json` marker inside the archive instead.
+
+**It fails open.** Loading the runtime is wrapped so that any failure is logged
+and execution continues to `require(originalMain)`. A broken runtime, a corrupt
+plugin, a missing file — none of them can stop Antigravity from starting.
+
+Operations are `install`, `update`, `reinstall`, `repair`, and `uninstall`.
+Every one closes only processes belonging to the target installation, takes a
+timestamped snapshot, stages the new archive under a temporary name, verifies
+it, and only then swaps it into place. Uninstall restores `_app.asar` byte for
+byte and leaves user content alone.
+
+### One Electron trap
+
+Electron rewrites `fs` so that any path containing `.asar` is treated as a path
+*inside* an archive. That is correct for application code and fatal for a
+patcher, whose entire job is to copy and replace the archive files themselves:
+`copyFileSync` on `app.asar` fails with an ENOENT for an empty filename.
+`packages/patcher/src/native/fs.ts` routes all filesystem access through
+`original-fs` whenever it is running under Electron.
+
+## The runtime, in three parts
+
+`packages/runtime` builds to two files that the patcher deploys next to the
+installation. It is split three ways because of what can cross a context bridge.
+
+**Main process** (`src/main`) has Node and Electron. It reads themes and plugins
+from disk, owns settings and plugin storage, watches for changes, relaxes CSP,
+and registers the preload. It uses `session.registerPreloadScript`, which is
+*additive*: Antigravity's own preload and its `contextBridge` APIs keep working.
+
+**Preload** (`src/preload`) is sandboxed and context-isolated. It exposes a
+JSON-only bridge and injects theme CSS. Themes live here rather than in the page
+world so they keep working even if the plugin runtime fails to boot.
+
+**Page world** (`src/world`) is the plugin host and the settings panel. Plugins
+need the page's own globals and live DOM nodes, and neither survives
+serialisation across a context bridge — so the host runs in the page instead,
+and only JSON crosses. Since a sandboxed preload also cannot read from disk, the
+page-world bundle is inlined into the preload as a string at build time.
+
+Plugins are compiled with `new Function` rather than injected as script text, so
+their context is passed by reference instead of serialised into source.
+
+## Where things live
 
 ```text
-apps/installer                 Standalone installer UI
-packages/patcher               Filesystem/injection lifecycle
-packages/core                  Runtime registration and lifecycle
-packages/plugin-api            Public plugin contract for creators
-packages/theme-api             Public theme contract for creators
-packages/marketplace           Catalog and listing contracts
-packages/shared                Versioned primitives shared by packages
-examples/                      Small creator examples
-docs/                          Product and contributor documentation
-scripts/                       Repository checks and release helpers
+%APPDATA%\BetterGravity\          your content, independent of Antigravity
+├── themes/  plugins/
+├── settings.json  storage.json
+└── runtime.log
+
+<Antigravity>\resources\
+├── app.asar                      the bootstrap while patched
+├── _app.asar                     the original, untouched
+└── .bettergravity\
+    ├── runtime/                  main.cjs, preload.cjs, repair.cjs
+    └── backups/                  timestamped snapshots, pruned to five
 ```
+
+Content is deliberately outside the installation so it survives Antigravity
+being updated, reinstalled, or removed. Only code and backups sit beside the
+application, and both are specific to that installation.
+
+## Surviving host updates
+
+Antigravity updates through electron-updater, which replaces `app.asar` in an
+install that runs *after* the application quits. By then BetterGravity is gone,
+because the bootstrap it lived in was the file that got replaced, so nothing
+inside Antigravity can react.
+
+The job therefore goes to a process that outlives the application. Before
+quitting, the runtime spawns a detached guardian (`repair.cjs`, run through the
+Electron binary in Node mode). It waits for Antigravity to exit, watches for the
+bundle to come back unpatched, and reapplies the patch — adopting the newer
+bundle as the original. It gives up rather than fighting a running application,
+and treats doing nothing as a perfectly good outcome.
+
+Because the guardian *is* an `Antigravity.exe` process, process lookups take an
+exclusion list and always exclude the caller. Without that it would wait for
+itself forever, and then terminate itself.
 
 ## Trust boundaries
 
-The installer is privileged code. It must own backups, compatibility checks, rollback, and path validation. Marketplace content is untrusted community code and must never be allowed to silently change installer behavior.
+The installer is privileged. It owns backups, compatibility gating, path
+validation, and verification, and nothing downloaded or authored by a community
+member can influence it.
 
-The browser adapter currently included in `packages/patcher` is a preview only. It does not read or write Antigravity files. A future desktop adapter will implement the same `Patcher` interface with native filesystem access.
+Themes are styling. They cannot read files, reach the network, or observe input,
+so they load without a gate.
+
+Plugins are arbitrary code in the same page as your source and credentials.
+Loading them from disk is off until the user turns on developer mode, and the
+panel explains the risk in those terms. A plugin that throws is contained and
+reported; disabling one runs its cleanups, removes its styles, and disconnects
+its observers.
+
+The intended long-term model is a curated marketplace for people who just want
+things to work, with developer mode for people writing their own. That mirrors
+where VS Code and Vencord both ended up, and it is why the gate exists now even
+though the marketplace does not.
 
 ## Dependency direction
 
 ```text
-shared <- plugin-api <- core
-shared <- theme-api  <- core
-shared <- patcher   <- installer
-plugin-api + theme-api + shared <- marketplace
+shared ← theme-api  ─┐
+shared ← plugin-api ─┴→ runtime → (deployed by) patcher → installer
+shared ← patcher
 ```
 
-Public creator APIs stay independent from the installer so third-party packages can be developed and tested without bundling privileged code.
+`packages/patcher` has two entry points: the default one is browser-safe types
+and a preview adapter, while `@bettergravity/patcher/native` holds the
+privileged implementation. `scripts/verify-structure.mjs` fails the build if a
+renderer source ever imports the latter.
