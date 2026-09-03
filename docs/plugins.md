@@ -182,3 +182,18 @@ installed. Nothing you write can stop the editor from opening.
 
 [`examples/plugins/session-timer`](../examples/plugins/session-timer) exercises
 the whole surface: settings, storage, styles, DOM work, and cleanup.
+
+## Sharing a plugin
+
+Share the folder however you like — installing one is **Add plugin** in
+BetterGravity's settings.
+
+To have it listed for everyone, submit it to
+[`community/plugins/`](../community/plugins) as a pull request. Because a plugin
+is arbitrary code running beside your source and credentials, the point of
+keeping submissions in the repository is that somebody reads them before anyone
+runs them, and the diff stays public afterwards.
+
+Keep it readable, avoid minified or generated code, and say what it does. The
+rules are in [the community README](../community/README.md), and
+`pnpm community:check` runs the same validation CI does.

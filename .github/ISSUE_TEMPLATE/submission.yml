@@ -1,0 +1,60 @@
+name: Share a theme or plugin
+description: Propose something for the community catalog
+title: "[Submission]: "
+labels: [submission]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You do not need to submit anything to use a theme or plugin — dropping a
+        file into your own folder always works. This is for having it listed for
+        everyone else.
+
+        If it is ready, **a pull request adding it to `community/` is faster
+        than an issue.** See
+        [the community README](https://github.com/YashjitPal/BetterGravity/blob/main/community/README.md).
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is it?
+      options: [Theme, Plugin]
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: Name
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What does it do?
+      description: One or two sentences, as it would read in the catalog.
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Where can the code be read?
+      description: A repository or gist. Anything listed has to be readable first.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: The code is readable, and not minified or generated
+          required: true
+        - label: I am happy for it to be reviewed in public
+          required: true
+        - label: >
+            If it is a plugin, I have said in the description why it needs any
+            network access, eval, or storage it uses
+          required: false

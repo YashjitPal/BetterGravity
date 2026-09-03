@@ -139,9 +139,14 @@ A theme file above 2 MB is skipped, and the reason is written to `runtime.log`.
 
 ## Sharing a theme
 
-Add `@source` pointing at the file so people can read it before trusting it,
-then share the `.css` however you like. Installing is dragging it onto the
+Share the `.css` however you like — installing one is dragging it onto the
 BetterGravity settings page.
 
+To have it listed for everyone, submit it to
+[`community/themes/`](../community/themes) as a pull request. Submissions are
+reviewed and indexed into a catalog, so every listing has a readable diff behind
+it. The rules are in [the community README](../community/README.md), and
+`pnpm community:check` runs the same validation CI does.
+
 A complete example lives in
-[`examples/themes/midnight.css`](../examples/themes/midnight.css).
+[`community/themes/midnight.css`](../community/themes/midnight.css).

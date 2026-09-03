@@ -20,7 +20,9 @@
     "test:watch": "vitest",
     "verify:structure": "node scripts/verify-structure.mjs",
     "verify:links": "node scripts/verify-links.mjs",
-    "verify": "pnpm verify:structure && pnpm verify:links",
+    "community:check": "node scripts/community.mjs check",
+    "community:build": "node scripts/community.mjs build",
+    "verify": "pnpm verify:structure && pnpm verify:links && pnpm community:check",
     "check": "pnpm verify && pnpm typecheck && pnpm build && pnpm test"
   },
   "devDependencies": {

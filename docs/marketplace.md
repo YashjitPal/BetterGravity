@@ -4,11 +4,26 @@ This describes where the community side is going. Today you install a theme or
 plugin by putting it in a folder; everything below is the plan for making that
 unnecessary for people who just want things to work.
 
-## Where it belongs
+## What exists today
+
+Community content lives in [`community/`](../community) and is reviewed as pull
+requests. A generated [`catalog.json`](../community/catalog.json) indexes it,
+validation runs in CI, and `packages/marketplace` holds the rules and the
+catalog shape.
+
+Keeping the content in git rather than on a server was deliberate. It needs no
+infrastructure, every listing has a readable diff, and the review that made it a
+listing stays attached to it. GitHub serves the files.
+
+What does not exist yet is the part that reads the catalog: browsing and
+installing from inside Antigravity. Until then, submitting shares your work and
+installing means adding the file yourself.
+
+## Where the browsing belongs
 
 Inside Antigravity, not in the installer. The installer's job ends once the
 runtime is in place. Browsing, installing, and updating community content
-belongs in the settings panel, alongside the themes and plugins you already
+belongs in the settings section, alongside the themes and plugins you already
 have.
 
 ## The two audiences
@@ -28,13 +43,18 @@ become specific instead of all-or-nothing.
 
 ## Listings
 
-A marketplace listing is expected to declare an id, version, author, licence,
-host compatibility, and a repository URL. `packages/marketplace` holds those
-contracts; nothing consumes them yet.
+A listing carries an id, name, description, version, author, an optional source
+link, and the path to the content. Themes carry their metadata inside the `.css`
+file itself so a theme stays a single portable artifact; plugins carry a
+`plugin.json`. Both formats are documented in [themes](themes.md) and
+[plugins](plugins.md).
 
-Themes carry their metadata inside the `.css` file itself, in a leading comment,
-so a theme stays a single portable artifact. Plugins carry a `plugin.json`.
-Both formats are documented in [themes](themes.md) and [plugins](plugins.md).
+Validation is deliberately strict about the things a reviewer cannot easily
+check by eye — a remote `@import` is rejected outright, because it could replace
+a theme with something else after review — and deliberately lenient about things
+that merely deserve a second look. Network calls, `eval`, and browser storage in
+a plugin are surfaced as notes for the reviewer rather than refused, since each
+is legitimate with a reason.
 
 ## Permissions
 

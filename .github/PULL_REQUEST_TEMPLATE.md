@@ -10,6 +10,16 @@
 - [ ] Settings section
 - [ ] Plugin or theme API
 - [ ] Documentation
+- [ ] A theme or plugin for `community/`
+
+<!--
+Submitting a theme or plugin? Only this section applies. Delete the rest, and:
+
+- [ ] `pnpm community:check` passes
+- [ ] `community/catalog.json` is regenerated and committed
+- [ ] The code is readable, and not minified or generated
+- [ ] Anything flagged as a review note has a reason given below
+-->
 
 ## How it was verified
 

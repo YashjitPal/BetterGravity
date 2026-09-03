@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-03T10:54:37.966Z",
+  "entries": [
+    {
+      "id": "midnight.css",
+      "kind": "theme",
+      "name": "Midnight",
+      "description": "A quiet accent line, softer selection, and slimmer scrollbars.",
+      "version": "1.0.0",
+      "author": "BetterGravity Contributors",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/themes/midnight.css",
+      "bytes": 1404
+    }
+  ]
+}

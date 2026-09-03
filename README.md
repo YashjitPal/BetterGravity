@@ -128,9 +128,10 @@ packages/patcher        Patching, verification, uninstall, update guardian
 packages/runtime        The layer that runs inside Antigravity
 packages/plugin-api     The public contract plugins are written against
 packages/theme-api      Theme metadata format
-packages/marketplace    Catalog contracts, not yet wired up
+packages/marketplace    Submission rules and the catalog shape
 packages/shared         Version constants and shared types
-examples/               A reference plugin and a reference theme
+community/              Submitted themes and plugins, and the catalog
+examples/               A reference plugin, type-checked in CI
 docs/                   Everything above, in detail
 ```
 
@@ -148,11 +149,22 @@ pnpm dev       # the installer UI in a browser, against a safe preview patcher
 for the DevTools-protocol harness used to develop the injected UI, see
 [contributing](CONTRIBUTING.md).
 
+## Sharing what you make
+
+Themes and plugins are submitted to [`community/`](community) as pull requests,
+reviewed, and indexed into a [catalog](community/catalog.json). Keeping them in
+the repository means every listing has a readable diff and a review attached —
+which matters, because a plugin is arbitrary code running beside your source and
+your credentials.
+
+`pnpm community:check` runs the same validation CI does. The rules are in the
+[community README](community/README.md).
+
 ## Status
 
-Windows only, Antigravity 2.x, and not code-signed yet. The marketplace does not
-exist — you install a theme or plugin by adding it yourself. See the
-[roadmap](docs/roadmap.md).
+Windows only, Antigravity 2.x, and not code-signed yet. Submissions are open,
+but nothing reads the catalog from inside Antigravity yet — installing still
+means adding the file yourself. See the [roadmap](docs/roadmap.md).
 
 ## Licence
 

@@ -3,14 +3,11 @@
  * @description A quiet accent line, softer selection, and slimmer scrollbars.
  * @author      BetterGravity Contributors
  * @version     1.0.0
- * @source      https://github.com/bettergravity/bettergravity
+ * @source      https://github.com/YashjitPal/BetterGravity
  *
- * Copy this file into %APPDATA%\BetterGravity\themes\ and enable it from the
- * BetterGravity settings panel. Saving the file restyles Antigravity
- * immediately; there is no build step and no reload.
- *
- * Antigravity does not render pseudo-elements on the html element, so anchor
- * decorative content to body::before or body::after instead.
+ * A worked example as much as a theme: it shows the metadata header, a token
+ * override, and decoration anchored to body rather than html, since Antigravity
+ * does not render pseudo-elements on the html element.
  */
 
 :root {
