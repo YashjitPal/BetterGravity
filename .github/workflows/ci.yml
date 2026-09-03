@@ -50,6 +50,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: installer
-          path: release-*/*.exe
+          # Matches directories.output in apps/installer/package.json. Kept as a
+          # glob so the two cannot silently disagree again; if-no-files-found
+          # turns any future mismatch into a failure rather than a silent skip.
+          path: release*/*.exe
           if-no-files-found: error
           retention-days: 7
