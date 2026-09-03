@@ -1,6 +1,7 @@
 import type { BetterGravityApi } from "../api.js";
 import { el } from "../el.js";
 import { listSections, onSectionRefresh, onSectionsChanged } from "../ui/sections-registry.js";
+import { createCommunityPanel } from "./community.js";
 import { NATIVE, NAV_ATTRIBUTE, navButton } from "./native.js";
 import { buildSettingsScreen } from "./sections.js";
 
@@ -12,6 +13,7 @@ const SELECTOR = {
 
 const SCREEN_ATTRIBUTE = "data-bettergravity-screen";
 const BUILT_IN = "BetterGravity";
+const COMMUNITY = "Community";
 const BUILT_IN_SCREEN_ID = "bettergravity-settings";
 
 export interface NativeSettings {
@@ -130,6 +132,17 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
     screen: undefined
   };
 
+  // Browsing is a screen of its own rather than another group on the one above:
+  // it is a list of things you do not have, next to a list of things you do.
+  const community = createCommunityPanel(api);
+  const communityPanel: Panel = {
+    id: COMMUNITY,
+    label: COMMUNITY,
+    render: (container) => community.render(container),
+    navEntry: undefined,
+    screen: undefined
+  };
+
   /** Keeps each contributed panel's DOM across re-registrations. */
   const extra = new Map<string, Panel>();
 
@@ -173,7 +186,7 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
       }
     }
 
-    return [builtIn, ...contributed];
+    return [builtIn, communityPanel, ...contributed];
   };
 
   const find = (id: string): Panel | undefined => panels().find((panel) => panel.id === id);
@@ -266,6 +279,8 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
       // The dialog is closed; anything we added went with it.
       builtIn.navEntry = undefined;
       builtIn.screen = undefined;
+      communityPanel.navEntry = undefined;
+      communityPanel.screen = undefined;
       for (const panel of extra.values()) {
         panel.navEntry = undefined;
         panel.screen = undefined;
@@ -393,7 +408,7 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
       stopWatchingSections();
       stopWatchingRefreshes();
       observer.disconnect();
-      for (const panel of [builtIn, ...extra.values()]) {
+      for (const panel of [builtIn, communityPanel, ...extra.values()]) {
         panel.screen?.remove();
         panel.navEntry?.remove();
         panel.screen = undefined;

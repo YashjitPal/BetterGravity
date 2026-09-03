@@ -76,6 +76,10 @@ const pluginFiles = (overrides: Partial<PluginFiles> = {}): PluginFiles => ({
   fileNames: ["plugin.json", "index.js"],
   entrySource: "plugin.log.info('hi');",
   totalBytes: 2048,
+  files: [
+    { name: "plugin.json", bytes: 1024, sha256: "a".repeat(64) },
+    { name: "index.js", bytes: 1024, sha256: "b".repeat(64) }
+  ],
   ...overrides
 });
 
@@ -157,7 +161,17 @@ describe("validatePlugin", () => {
 
 describe("buildCatalog", () => {
   const entry = (id: string, kind: "theme" | "plugin") =>
-    ({ id, kind, name: id, description: "", version: "1.0.0", author: "a", path: `community/${kind}s/${id}`, bytes: 1 }) as const;
+    ({
+      id,
+      kind,
+      name: id,
+      description: "",
+      version: "1.0.0",
+      author: "a",
+      path: `community/${kind}s/${id}`,
+      bytes: 1,
+      files: []
+    }) as const;
 
   it("orders by kind then id, so the file has a stable diff", () => {
     const catalog = buildCatalog([entry("z.css", "theme"), entry("b", "plugin"), entry("a.css", "theme"), entry("a", "plugin")]);

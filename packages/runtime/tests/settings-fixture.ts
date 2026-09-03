@@ -1,5 +1,13 @@
 import type { BetterGravityApi, PluginSummary } from "../src/world/api.js";
-import type { ContentKind, ContentResult, RuntimeState, SettingsPatch } from "../src/protocol.js";
+import type {
+  CatalogEntry,
+  CatalogResult,
+  ContentKind,
+  ContentResult,
+  RuntimeState,
+  SettingsPatch,
+  ThemeRecord
+} from "../src/protocol.js";
 
 /**
  * A stand-in for Antigravity's settings dialog, matching the structure the
@@ -48,14 +56,15 @@ export function unmountHostSettings(): void {
   document.querySelectorAll(".settings-modal-container").forEach((node) => node.remove());
 }
 
-export const theme = (id: string, enabled = false) => ({
+export const theme = (id: string, enabled = false, overrides: Partial<ThemeRecord> = {}): ThemeRecord => ({
   id,
   name: id.replace(".css", ""),
   description: "A theme.",
   author: "someone",
   version: "1.0.0",
   css: "body {}",
-  enabled
+  enabled,
+  ...overrides
 });
 
 export const pluginSummary = (overrides: Partial<PluginSummary> = {}): PluginSummary => ({
@@ -97,6 +106,29 @@ export interface FakeApi {
   readonly calls: string[];
   readonly settingValues: Record<string, unknown>;
   nextResult: ContentResult;
+  /** What the Community screen is told when it asks for the catalog. */
+  catalogResult: CatalogResult;
+  /** Resolved by hand in tests that need to see the loading state. */
+  deferCatalog: boolean;
+  releaseCatalog: () => void;
+  readonly installed: CatalogEntry[];
+}
+
+export function catalogEntry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
+  const kind = overrides.kind ?? "theme";
+  const id = overrides.id ?? (kind === "theme" ? "midnight.css" : "word-count");
+  return {
+    id,
+    kind,
+    name: "Midnight",
+    description: "A quiet accent line.",
+    version: "1.0.0",
+    author: "someone",
+    path: `community/${kind}s/${id}`,
+    bytes: 1024,
+    files: [{ name: id, bytes: 1024, sha256: "a".repeat(64) }],
+    ...overrides
+  };
 }
 
 export function createFakeApi(): FakeApi {
@@ -108,6 +140,10 @@ export function createFakeApi(): FakeApi {
     calls: [],
     settingValues: {},
     nextResult: { ok: true, message: "Done." },
+    catalogResult: { ok: true, entries: [] },
+    deferCatalog: false,
+    releaseCatalog: () => undefined,
+    installed: [],
     api: undefined as unknown as BetterGravityApi
   };
 
@@ -145,6 +181,19 @@ export function createFakeApi(): FakeApi {
       addThemeText: (fileName) => record(`addThemeText:${fileName}`),
       remove: (kind: ContentKind, id: string) => record(`remove:${kind}:${id}`),
       reveal: (kind: ContentKind, id: string) => record(`reveal:${kind}:${id}`)
+    },
+    community: {
+      catalog: (force = false) => {
+        fake.calls.push(force ? "catalog:refresh" : "catalog");
+        if (!fake.deferCatalog) return Promise.resolve(fake.catalogResult);
+        return new Promise<CatalogResult>((resolve) => {
+          fake.releaseCatalog = () => resolve(fake.catalogResult);
+        });
+      },
+      install: (entry: CatalogEntry) => {
+        fake.installed.push(entry);
+        return record(`install:${entry.kind}:${entry.id}`);
+      }
     }
   };
 

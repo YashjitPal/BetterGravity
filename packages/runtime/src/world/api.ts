@@ -1,5 +1,13 @@
 import type { PluginSettingsSchema } from "@bettergravity/plugin-api";
-import type { ContentKind, ContentResult, DirectoryKey, RuntimeState, SettingsPatch } from "../protocol.js";
+import type {
+  CatalogEntry,
+  CatalogResult,
+  ContentKind,
+  ContentResult,
+  DirectoryKey,
+  RuntimeState,
+  SettingsPatch
+} from "../protocol.js";
 
 export interface PluginSummary {
   readonly id: string;
@@ -41,5 +49,13 @@ export interface BetterGravityApi {
     addThemeText(fileName: string, css: string): Promise<ContentResult>;
     remove(kind: ContentKind, id: string, label: string): Promise<ContentResult>;
     reveal(kind: ContentKind, id: string): Promise<ContentResult>;
+  };
+  /**
+   * Community listings. Nothing is fetched until something here is called, so
+   * an installation that never opens the Community section stays offline.
+   */
+  readonly community: {
+    catalog(force?: boolean): Promise<CatalogResult>;
+    install(entry: CatalogEntry): Promise<ContentResult>;
   };
 }

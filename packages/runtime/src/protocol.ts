@@ -3,6 +3,10 @@
  * Both sides import from here so a channel or payload can never drift.
  */
 
+import type { CatalogEntry } from "@bettergravity/marketplace";
+
+export type { CatalogEntry, CatalogFile } from "@bettergravity/marketplace";
+
 export const CHANNEL = {
   getState: "bettergravity:get-state",
   setSettings: "bettergravity:set-settings",
@@ -15,6 +19,8 @@ export const CHANNEL = {
   installThemeText: "bettergravity:install-theme-text",
   removeItem: "bettergravity:remove-item",
   revealItem: "bettergravity:reveal-item",
+  fetchCatalog: "bettergravity:fetch-catalog",
+  installFromCatalog: "bettergravity:install-from-catalog",
   log: "bettergravity:log"
 } as const;
 
@@ -24,6 +30,18 @@ export type ContentKind = "theme" | "plugin";
 export interface ContentResult {
   readonly ok: boolean;
   /** Absent when the user simply cancelled the dialog. */
+  readonly message?: string;
+}
+
+/**
+ * The community catalog, read on demand rather than polled. `cached` says the
+ * answer came from a recent fetch, which is what lets the panel show a
+ * refresh control that means something.
+ */
+export interface CatalogResult {
+  readonly ok: boolean;
+  readonly entries?: readonly CatalogEntry[];
+  readonly cached?: boolean;
   readonly message?: string;
 }
 

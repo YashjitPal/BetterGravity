@@ -242,7 +242,18 @@ export function noticeBanner(message: string): HTMLElement {
   ]);
 }
 
-export function screenShell(title: string, subtitle: string, groups: readonly Node[], notice?: string): HTMLElement {
+/**
+ * `actions` fill the right-hand side of the header. Antigravity's own header
+ * row is `justify-between` with nothing in that slot, so a screen's controls
+ * land where the app's layout already expects them.
+ */
+export function screenShell(
+  title: string,
+  subtitle: string,
+  groups: readonly Node[],
+  notice?: string,
+  actions: readonly Node[] = []
+): HTMLElement {
   return el("div", { class: NATIVE.screen }, [
     el("div", { class: NATIVE.page }, [
       el("div", { class: NATIVE.headerBlock }, [
@@ -250,7 +261,8 @@ export function screenShell(title: string, subtitle: string, groups: readonly No
           el("div", { class: NATIVE.headerText }, [
             el("h2", { class: NATIVE.title, text: title }),
             el("div", { class: NATIVE.subtitle, text: subtitle })
-          ])
+          ]),
+          actions.length > 0 ? el("div", { class: "flex items-center gap-1.5 shrink-0" }, actions) : undefined
         ])
       ]),
       notice ? noticeBanner(notice) : undefined,

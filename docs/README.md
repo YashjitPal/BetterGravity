@@ -23,8 +23,8 @@
   patch works, and why the runtime is split the way it is.
 - **[The installer](installer.md)** — the operation matrix and what each one
   guarantees.
-- **[Marketplace direction](marketplace.md)** — where community distribution is
-  going, and what has to exist first.
+- **[Community content](marketplace.md)** — browsing and installing from the
+  catalogue, what is checked, and how to submit.
 - **[Roadmap](roadmap.md)** — what is done and what is next.
 
 ## Contributing

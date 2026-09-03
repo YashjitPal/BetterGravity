@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-03T10:54:37.966Z",
+  "generatedAt": "2026-09-03T14:47:45.629Z",
   "entries": [
     {
       "id": "midnight.css",
@@ -11,7 +11,14 @@
       "author": "BetterGravity Contributors",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/themes/midnight.css",
-      "bytes": 1404
+      "bytes": 1404,
+      "files": [
+        {
+          "name": "midnight.css",
+          "bytes": 1404,
+          "sha256": "a82bf7342d21a88a1e1202806f4c439a3e3592b56647208fd686afaae369e0d0"
+        }
+      ]
     }
   ]
 }

@@ -10,9 +10,26 @@
  * be exercised without a filesystem and reused by the runtime later.
  */
 
+import { createHash } from "node:crypto";
 import { parseThemeMetadata } from "@bettergravity/theme-api";
 
 export type ContentKind = "theme" | "plugin";
+
+/**
+ * One file belonging to a listing.
+ *
+ * The hash is what lets a client check that what it downloaded is what was
+ * reviewed. CI refuses a catalog that does not match the content in the same
+ * commit, so a file cannot change without its hash changing in a reviewable
+ * diff. It is an integrity check against a stale or truncated download, not a
+ * signature: anyone who could alter the content could alter the catalog too.
+ */
+export interface CatalogFile {
+  /** Relative to the listing's own root, and always a plain forward-slash path. */
+  readonly name: string;
+  readonly bytes: number;
+  readonly sha256: string;
+}
 
 export interface CatalogEntry {
   /** The file name for a theme, the folder name for a plugin. Unique per kind. */
@@ -24,9 +41,18 @@ export interface CatalogEntry {
   readonly author: string;
   /** Where the author publishes it. The repository remains the source of truth. */
   readonly source?: string;
-  /** Repository-relative path, so a client can fetch it without guessing. */
+  /**
+   * Repository-relative path: the file itself for a theme, the folder for a
+   * plugin. A client fetches `${path}/${file.name}` for a plugin, and `path`
+   * for a theme, whose single file is itself.
+   */
   readonly path: string;
   readonly bytes: number;
+  readonly files: readonly CatalogFile[];
+}
+
+export function sha256(content: string | Uint8Array): string {
+  return createHash("sha256").update(content).digest("hex");
 }
 
 export interface Catalog {
@@ -64,6 +90,12 @@ export const LIMITS = {
 
 /** Lower case, digits, and single hyphens. Keeps ids safe as path segments. */
 const SAFE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * Anything that could escape the folder it is written into, or that Windows
+ * would resolve differently from the forward-slash path the catalog records.
+ */
+const UNSAFE_PATH = /^[/\\]|^[a-zA-Z]:|\\|(^|\/)\.\.(\/|$)|\u0000/;
 
 const error = (message: string): Finding => ({ severity: "error", message });
 const note = (message: string): Finding => ({ severity: "note", message });
@@ -125,7 +157,10 @@ export function validateTheme(fileName: string, css: string): ValidationResult {
       author,
       ...(metadata.source ? { source: metadata.source } : {}),
       path: `community/themes/${fileName}`,
-      bytes
+      bytes,
+      // A theme is its own single file, so the listing can be hashed from the
+      // text already in hand. A plugin's files have to be supplied.
+      files: [{ name: fileName, bytes, sha256: sha256(css) }]
     }
   };
 }
@@ -133,11 +168,16 @@ export function validateTheme(fileName: string, css: string): ValidationResult {
 export interface PluginFiles {
   /** Contents of plugin.json, or undefined when the file is missing. */
   readonly manifest: string | undefined;
-  /** Every path inside the folder, relative to it. */
+  /** Every path inside the folder, relative to it, including directories. */
   readonly fileNames: readonly string[];
   /** Source of the resolved entry script, or undefined when it is missing. */
   readonly entrySource: string | undefined;
   readonly totalBytes: number;
+  /**
+   * The folder's files with their hashes. Unlike a theme, a plugin is more than
+   * the one string this package is given, so the caller does the walking.
+   */
+  readonly files: readonly CatalogFile[];
 }
 
 /** Worth a reviewer's attention rather than grounds for rejection. */
@@ -194,6 +234,13 @@ export function validatePlugin(folderName: string, files: PluginFiles): Validati
     findings.push(error("Do not commit node_modules. A plugin has to be readable exactly as submitted."));
   }
 
+  // Installing writes these names to disk, so a name that climbs out of the
+  // plugin's folder has to be refused here rather than trusted there.
+  for (const file of files.files) {
+    if (!UNSAFE_PATH.test(file.name)) continue;
+    findings.push(error(`"${file.name}" must be a plain path inside the plugin folder.`));
+  }
+
   const source = files.entrySource ?? "";
   for (const { pattern, why } of REVIEW_PATTERNS) {
     if (pattern.test(source)) findings.push(note(`Entry script ${why}.`));
@@ -213,7 +260,8 @@ export function validatePlugin(folderName: string, files: PluginFiles): Validati
       author,
       ...(typeof declaredSource === "string" ? { source: declaredSource } : {}),
       path: `community/plugins/${folderName}`,
-      bytes: files.totalBytes
+      bytes: files.totalBytes,
+      files: [...files.files].sort((a, b) => a.name.localeCompare(b.name))
     }
   };
 }

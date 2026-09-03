@@ -42,15 +42,21 @@ directly. These are the equivalents that do work here.
 - Interface hooks: toasts, menu entries, toolbar buttons, dialogs, and a
   plugin's own screen in Antigravity's settings.
 
-## 0.4 · Community preview — next
+## 0.4 · Community preview — in progress
 
-- A marketplace surface listing source-linked plugins and themes.
-- Installing and updating a package from the panel rather than by copying a
-  folder.
-- Signed catalogue updates, compatibility checks, and reporting.
+- A Community screen listing source-linked themes and plugins, installing and
+  updating them in place. **Done.**
+- Per-file hashes in the catalogue, checked on install, so what lands on disk is
+  what was reviewed. **Done.**
+- Signed catalogue updates. The hashes tie content to a reviewed commit but are
+  not a signature, so a compromised repository is still a compromised
+  repository.
+- Compatibility declarations, so a listing can say which Antigravity versions it
+  was written against, and reporting for one that misbehaves.
 - A permission model, so a plugin declares what it needs and the user sees it
   before enabling. The developer-mode gate is deliberately blunt and should
-  become unnecessary for curated packages.
+  become unnecessary for reviewed packages. This is the one that matters most
+  now that plugins can reach as far as they can.
 
 ## Beyond
 

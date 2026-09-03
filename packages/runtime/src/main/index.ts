@@ -3,6 +3,7 @@ import path from "node:path";
 import { BrowserWindow, app, ipcMain, session, shell } from "electron";
 import {
   CHANNEL,
+  type CatalogEntry,
   type ContentKind,
   type ContentResult,
   type DirectoryKey,
@@ -12,6 +13,7 @@ import {
 } from "../protocol.js";
 import { readPluginPatches, readPlugins, readThemes } from "./catalog.js";
 import { importPlugin, importThemes, installThemeText, removeItem, revealItem } from "./content.js";
+import { fetchCatalog, installEntry } from "./marketplace.js";
 import { logger } from "./logger.js";
 import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, type RuntimePaths } from "./paths.js";
 import { applyPatch, readSettings, writeSettings } from "./settings.js";
@@ -108,6 +110,11 @@ function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage:
     afterChange(await removeItem(paths, kind, id, label))
   );
   ipcMain.handle(CHANNEL.revealItem, (_event, kind: ContentKind, id: string) => revealItem(paths, kind, id));
+
+  ipcMain.handle(CHANNEL.fetchCatalog, async (_event, force: boolean) => fetchCatalog(force === true));
+  ipcMain.handle(CHANNEL.installFromCatalog, async (_event, entry: CatalogEntry) =>
+    afterChange(await installEntry(paths, entry))
+  );
 }
 
 /**

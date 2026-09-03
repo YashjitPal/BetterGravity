@@ -69,6 +69,10 @@ async function boot(bridge: RuntimeBridge, initial: RuntimeState): Promise<void>
       addThemeText: (fileName, css) => bridge.installThemeText(fileName, css),
       remove: (kind, id, label) => bridge.removeItem(kind, id, label),
       reveal: (kind, id) => bridge.revealItem(kind, id)
+    },
+    community: {
+      catalog: (force = false) => bridge.fetchCatalog(force),
+      install: (entry) => bridge.installFromCatalog(entry)
     }
   };
 

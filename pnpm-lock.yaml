@@ -135,6 +135,9 @@ importers:
 
   packages/runtime:
     dependencies:
+      '@bettergravity/marketplace':
+        specifier: workspace:*
+        version: link:../marketplace
       '@bettergravity/plugin-api':
         specifier: workspace:*
         version: link:../plugin-api

@@ -42,9 +42,16 @@ All notable changes to this project are documented here. The format follows
 - **A community submission path.** Themes and plugins are submitted to
   `community/` as pull requests, validated by `pnpm community:check` in CI, and
   built into a catalogue.
+- **A Community screen** in Antigravity's settings for browsing and installing
+  that catalogue, with search, in-place updates, and links to each listing's
+  source. The catalogue is read when the screen is opened and not before, so an
+  installation nobody browses makes no network requests. Every file carries a
+  SHA-256 in the catalogue and is checked on the way in; anything that does not
+  match is refused, as is any path that would land outside the folder it belongs
+  in. Installing never enables anything.
 - Two reference plugins: `session-timer` for the basics and `ui-showcase` for
   every interface surface.
-- A test suite of 274 tests, run on Windows and Linux in CI, plus a job that
+- A test suite of 330 tests, run on Windows and Linux in CI, plus a job that
   builds the portable executable.
 
 ### Changed

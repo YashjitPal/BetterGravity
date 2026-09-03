@@ -1,60 +1,79 @@
-# Community platform direction
+# Community content
 
-This describes where the community side is going. Today you install a theme or
-plugin by putting it in a folder; everything below is the plan for making that
-unnecessary for people who just want things to work.
+Themes and plugins submitted to this repository can be browsed and installed
+from inside Antigravity, under **Community** in its settings.
 
-## What exists today
+## How it works
 
-Community content lives in [`community/`](../community) and is reviewed as pull
-requests. A generated [`catalog.json`](../community/catalog.json) indexes it,
-validation runs in CI, and `packages/marketplace` holds the rules and the
-catalog shape.
+Listings live in [`community/`](../community) and are reviewed as pull requests.
+A generated [`catalog.json`](../community/catalog.json) indexes them, validation
+runs in CI, and BetterGravity reads that file directly from GitHub.
 
 Keeping the content in git rather than on a server was deliberate. It needs no
 infrastructure, every listing has a readable diff, and the review that made it a
-listing stays attached to it. GitHub serves the files.
+listing stays attached to it. It also fixes the only host BetterGravity ever
+talks to, which is checked on every request: a listing cannot point the client
+somewhere else.
 
-What does not exist yet is the part that reads the catalog: browsing and
-installing from inside Antigravity. Until then, submitting shares your work and
-installing means adding the file yourself.
+## When it reaches the network
 
-## Where the browsing belongs
+Only when you open the **Community** screen, and when you press **Refresh** or
+**Install** on it. There is no background polling, no update check on startup,
+and nothing sent the other way. An installation nobody browses makes no requests
+at all.
 
-Inside Antigravity, not in the installer. The installer's job ends once the
-runtime is in place. Browsing, installing, and updating community content
-belongs in the settings section, alongside the themes and plugins you already
-have.
+Listings are cached for fifteen minutes so moving between screens is instant.
+**Refresh** ignores the cache.
+
+## Installing
+
+**Install** downloads the listing and writes it into your themes or plugins
+folder. It does not switch anything on: a theme changes how the app looks and a
+plugin runs real code, so both wait for you to enable them under **BetterGravity**.
+
+When a listing is already installed, the screen says so. When the catalog is
+ahead of what you have, it offers **Update** instead.
+
+Updating a plugin assembles the new version beside the old one and swaps it in,
+so an update that fails partway through leaves the working version in place
+rather than a mixture of two.
+
+## What is checked
+
+The catalog records a SHA-256 for every file. BetterGravity downloads a listing,
+checks each file against that hash, and refuses to install anything that does
+not match.
+
+**This is an integrity check, not a signature.** It ties the bytes you install to
+the bytes in a reviewed commit — CI refuses a catalog that disagrees with the
+content beside it, so a file cannot change without its hash changing in a diff
+someone has to approve. It is not a defence against the repository itself being
+compromised, since whoever could change the content could change the catalog.
+What it does rule out is a truncated download, a stale CDN copy, and a listing
+quietly diverging from what was reviewed.
+
+Alongside that, before anything is downloaded:
+
+- Listing ids and file paths that could escape the folder they belong in are
+  refused, at submission time and again at install time.
+- A listing larger than the limit for its kind is refused.
+- Requests are pinned to the catalog's own origin and path, and redirects are
+  refused rather than followed.
 
 ## The two audiences
 
 The gap between them is the whole design problem.
 
 **People who want things to work** should never have to evaluate whether a
-plugin is safe. They get a curated catalogue, packages with declared
-permissions, and links to readable source.
+plugin is safe. They get a reviewed catalogue and links to readable source.
 
 **People who write plugins** need to load unreviewed code from their own disk
 immediately, with no publishing step. That is what developer mode is for.
 
-Today only the second path exists, which is why plugin loading is gated behind a
-blunt switch with a frank warning. A curated catalogue is what lets that gate
-become specific instead of all-or-nothing.
-
-## Listings
-
-A listing carries an id, name, description, version, author, an optional source
-link, and the path to the content. Themes carry their metadata inside the `.css`
-file itself so a theme stays a single portable artifact; plugins carry a
-`plugin.json`. Both formats are documented in [themes](themes.md) and
-[plugins](plugins.md).
-
-Validation is deliberately strict about the things a reviewer cannot easily
-check by eye — a remote `@import` is rejected outright, because it could replace
-a theme with something else after review — and deliberately lenient about things
-that merely deserve a second look. Network calls, `eval`, and browser storage in
-a plugin are surfaced as notes for the reviewer rather than refused, since each
-is legitimate with a reason.
+A reviewed catalogue is what lets that gate become specific rather than
+all-or-nothing — but it is not there yet, which is why installing a plugin from
+the Community screen still leaves it switched off behind developer mode, and the
+screen says so before you install one.
 
 ## Permissions
 
@@ -67,8 +86,25 @@ Until that exists, the honest position is the one the panel takes: plugins run
 real code in the same page as your source and credentials, so only enable ones
 you have read or trust.
 
+## Submitting
+
+Open a pull request adding your theme or plugin to `community/`. The rules are
+in [the community README](../community/README.md), and `pnpm community:check`
+runs the same validation CI does.
+
+Validation is deliberately strict about the things a reviewer cannot easily
+check by eye — a remote `@import` is rejected outright, because it could replace
+a theme with something else after review — and deliberately lenient about things
+that merely deserve a second look. Network calls, `eval`, and browser storage in
+a plugin are surfaced as notes for the reviewer rather than refused, since each
+is legitimate with a reason.
+
+Themes carry their metadata inside the `.css` file itself so a theme stays a
+single portable artifact; plugins carry a `plugin.json`. Both formats are
+documented in [themes](themes.md) and [plugins](plugins.md).
+
 ## What will not happen
 
 BetterGravity will not distribute Google's files, and it will not host or proxy
-Antigravity itself. The marketplace will carry community content only, with
-source links, so anything you install can be read before you trust it.
+Antigravity itself. The catalogue carries community content only, with source
+links, so anything you install can be read before you trust it.

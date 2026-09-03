@@ -72,6 +72,8 @@ const bridge: RuntimeBridge = {
   installThemeText: (fileName, css) => ipcRenderer.invoke(CHANNEL.installThemeText, fileName, css),
   removeItem: (kind: ContentKind, id, label) => ipcRenderer.invoke(CHANNEL.removeItem, kind, id, label),
   revealItem: (kind: ContentKind, id) => ipcRenderer.invoke(CHANNEL.revealItem, kind, id),
+  fetchCatalog: (force) => ipcRenderer.invoke(CHANNEL.fetchCatalog, force),
+  installFromCatalog: (entry) => ipcRenderer.invoke(CHANNEL.installFromCatalog, entry),
   log: (message) => report(message),
   onStateChanged: (listener) => {
     stateListeners.add(listener);

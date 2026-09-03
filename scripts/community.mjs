@@ -38,7 +38,7 @@ try {
   setTimeout(() => void rm(staging, { recursive: true, force: true }), 0);
 }
 
-const { buildCatalog, validatePlugin, validateTheme } = marketplace;
+const { buildCatalog, sha256, validatePlugin, validateTheme } = marketplace;
 
 function listFiles(directory, prefix = "") {
   const found = [];
@@ -50,12 +50,24 @@ function listFiles(directory, prefix = "") {
   return found;
 }
 
-function directorySize(directory) {
+/**
+ * The catalog records a hash per file so a client can check that what it
+ * downloaded is what was reviewed in this commit.
+ *
+ * Read as bytes, which means the hash is of the checkout rather than of the
+ * blob. `.gitattributes` pins `eol=lf` for exactly this reason, and `check`
+ * runs on Windows as well as Linux, so a checkout that disagreed with what
+ * GitHub serves would fail there rather than ship a catalog nobody can verify.
+ */
+function describeFiles(directory) {
   return listFiles(directory)
-    .map((relative) => path.join(directory, relative))
-    .filter((full) => statSync(full).isFile())
-    .reduce((total, full) => total + statSync(full).size, 0);
+    .filter((relative) => statSync(path.join(directory, relative)).isFile())
+    .map((relative) => {
+      const content = readFileSync(path.join(directory, relative));
+      return { name: relative, bytes: content.byteLength, sha256: sha256(content) };
+    });
 }
+
 
 const entries = [];
 const problems = [];
@@ -102,11 +114,13 @@ if (existsSync(pluginsDirectory)) {
       // A broken manifest is reported by the validator below.
     }
 
+    const files = describeFiles(full);
     const result = validatePlugin(folderName, {
       manifest,
       fileNames: listFiles(full),
       entrySource,
-      totalBytes: directorySize(full)
+      totalBytes: files.reduce((total, file) => total + file.bytes, 0),
+      files
     });
     for (const finding of result.findings) {
       (finding.severity === "error" ? problems : notes).push([`plugins/${folderName}`, finding.message]);

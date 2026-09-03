@@ -31,6 +31,7 @@ build step.
 | **Interface hooks** | Add toasts, entries in Antigravity's menus, toolbar buttons, dialogs, and a settings screen of your own — built from the app's own components. See [adding to Antigravity's interface](docs/interface.md). |
 | **Deeper hooks** | Patch Antigravity's own functions, read its React tree, intercept its language-server traffic by RPC method name, and rewrite its bundle before it runs. See [reaching into Antigravity](docs/advanced.md). |
 | **Native settings** | BetterGravity appears in Antigravity's own settings sidebar, using Antigravity's own components — so it follows your theme automatically. |
+| **Community catalogue** | Browse and install reviewed themes and plugins under **Community**, without leaving the app. Every file is checked against the hash recorded when it was reviewed. See [community content](docs/marketplace.md). |
 | **Survives updates** | Antigravity replaces its own program files when it updates, which removes BetterGravity. It is put back for you. |
 | **Fully reversible** | The original bundle is kept beside the patched one. Uninstall restores it byte for byte and keeps your content. |
 

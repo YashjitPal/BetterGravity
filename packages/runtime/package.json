@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@bettergravity/marketplace": "workspace:*",
     "@bettergravity/plugin-api": "workspace:*",
     "@bettergravity/theme-api": "workspace:*"
   },
