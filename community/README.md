@@ -11,7 +11,7 @@ is how you share it with everyone else.
 
 ```text
 community/
-├── themes/       one .css file per theme
+├── themes/       one .css file per theme, or a folder with a theme.css inside
 ├── plugins/      one folder per plugin
 └── catalog.json  generated; do not edit by hand
 ```
@@ -33,9 +33,11 @@ Both kinds must be named in lower case with hyphens — `midnight-blue.css`,
 `word-count` — because the name becomes an id.
 
 **Themes** need `@name`, `@description`, `@author`, and `@version` in the header
-comment. A remote `@import` is rejected, because it could replace the theme with
-something else after review. Loading a remote font or image is allowed but
-flagged for the reviewer. Limit is 2 MB.
+comment — the `theme.css` of a folder theme. A remote `@import` is allowed, as
+it is for BetterDiscord themes, and is pointed out to the reviewer along with
+where it points: the review covers the file in the repository, not what the link
+serves later. It must be `https`. Loading a remote font or image is allowed but
+flagged the same way. Limit is 2 MB for a file, 8 MB for a folder.
 
 **Plugins** need a `plugin.json` with `name`, `description`, `version`, and
 `author`. `main` must point at a file inside the folder. Do not commit

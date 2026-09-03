@@ -38,7 +38,7 @@ try {
   setTimeout(() => void rm(staging, { recursive: true, force: true }), 0);
 }
 
-const { buildCatalog, sha256, validatePlugin, validateTheme } = marketplace;
+const { buildCatalog, sha256, validatePlugin, validateTheme, validateThemeFolder } = marketplace;
 
 function listFiles(directory, prefix = "") {
   const found = [];
@@ -79,11 +79,25 @@ if (existsSync(themesDirectory)) {
   for (const fileName of readdirSync(themesDirectory)) {
     if (fileName === "README.md") continue;
     const full = path.join(themesDirectory, fileName);
-    if (!statSync(full).isFile()) {
-      problems.push([`themes/${fileName}`, "A theme must be a single .css file, not a folder."]);
-      continue;
+
+    // A theme is one .css file, or a folder with a theme.css and what it uses.
+    let result;
+    if (statSync(full).isFile()) {
+      result = validateTheme(fileName, readFileSync(full, "utf8"));
+    } else {
+      const fileNames = listFiles(full);
+      const files = describeFiles(full);
+      const stylesheets = fileNames
+        .filter((relative) => relative.toLowerCase().endsWith(".css") && statSync(path.join(full, relative)).isFile())
+        .map((relative) => ({ name: relative, css: readFileSync(path.join(full, relative), "utf8") }));
+      result = validateThemeFolder(fileName, {
+        fileNames,
+        stylesheets,
+        totalBytes: files.reduce((total, file) => total + file.bytes, 0),
+        files
+      });
     }
-    const result = validateTheme(fileName, readFileSync(full, "utf8"));
+
     for (const finding of result.findings) {
       (finding.severity === "error" ? problems : notes).push([`themes/${fileName}`, finding.message]);
     }

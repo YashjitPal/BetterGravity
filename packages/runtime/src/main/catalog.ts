@@ -3,6 +3,7 @@ import path from "node:path";
 import { parseThemeMetadata } from "@bettergravity/theme-api";
 import type { PluginRecord, RuntimeDiagnostic, RuntimeSettings, ThemeRecord } from "../protocol.js";
 import { readPatches, type PluginPatches } from "./source-patch.js";
+import { THEME_ENTRY_FILES, bundleThemeFolder, containsStylesheet, findThemeEntry } from "./theme-bundle.js";
 
 const MAX_THEME_BYTES = 2 * 1024 * 1024;
 const MAX_PLUGIN_BYTES = 4 * 1024 * 1024;
@@ -31,28 +32,49 @@ function readBounded(file: string, limit: number): string {
 }
 
 /**
- * A theme is a single .css file. Styling cannot read the filesystem or reach the
- * network on its own, so themes carry none of the trust weight that plugins do.
+ * A theme is a .css file, or a folder holding a theme.css and the files it
+ * refers to. Styling cannot read the filesystem or reach the network on its own,
+ * so themes carry none of the trust weight that plugins do.
  */
 export function readThemes(directory: string, settings: RuntimeSettings): CatalogResult<ThemeRecord> {
   const entries: ThemeRecord[] = [];
   const diagnostics: RuntimeDiagnostic[] = [];
 
+  const record = (id: string, headerCss: string, css: string, folder: boolean): ThemeRecord => {
+    const metadata = parseThemeMetadata(headerCss);
+    return {
+      id,
+      name: metadata.name ?? (folder ? id : path.basename(id, path.extname(id))),
+      description: metadata.description ?? "",
+      author: metadata.author ?? "Unknown",
+      version: metadata.version ?? "0.0.0",
+      ...(metadata.source ? { source: metadata.source } : {}),
+      css,
+      folder,
+      enabled: settings.themes.enabled.includes(id)
+    };
+  };
+
   for (const entry of listEntries(directory)) {
-    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".css")) continue;
+    const full = path.join(directory, entry.name);
     try {
-      const css = readBounded(path.join(directory, entry.name), MAX_THEME_BYTES);
-      const metadata = parseThemeMetadata(css);
-      entries.push({
-        id: entry.name,
-        name: metadata.name ?? path.basename(entry.name, path.extname(entry.name)),
-        description: metadata.description ?? "",
-        author: metadata.author ?? "Unknown",
-        version: metadata.version ?? "0.0.0",
-        ...(metadata.source ? { source: metadata.source } : {}),
-        css,
-        enabled: settings.themes.enabled.includes(entry.name)
-      });
+      if (entry.isFile() && entry.name.toLowerCase().endsWith(".css")) {
+        const css = readBounded(full, MAX_THEME_BYTES);
+        entries.push(record(entry.name, css, css, false));
+      } else if (entry.isDirectory()) {
+        // A folder is only a theme once it has an entry stylesheet. One that has
+        // stylesheets but no entry is almost certainly a mistake worth reporting;
+        // any other folder is none of our business.
+        if (!findThemeEntry(full)) {
+          if (containsStylesheet(full)) {
+            diagnostics.push({ source: `theme ${entry.name}`, message: `The folder has no ${THEME_ENTRY_FILES.join(" or ")}, so it was skipped.` });
+          }
+          continue;
+        }
+        const bundle = bundleThemeFolder(full);
+        for (const warning of bundle.warnings) diagnostics.push({ source: `theme ${entry.name}`, message: warning });
+        entries.push(record(entry.name, bundle.entryCss, bundle.css, true));
+      }
     } catch (error) {
       diagnostics.push({ source: `theme ${entry.name}`, message: describe(error) });
     }

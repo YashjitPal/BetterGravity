@@ -48,6 +48,9 @@ directly. These are the equivalents that do work here.
   already installed, installing and updating in place. **Done.**
 - Per-file hashes in the catalogue, checked on install, so what lands on disk is
   what was reviewed. **Done.**
+- Themes the way BetterDiscord users know them: folder themes with partial
+  stylesheets, fonts, and images, and hosted themes added by their link through
+  a stub that imports them. **Done.**
 - Signed catalogue updates. The hashes tie content to a reviewed commit but are
   not a signature, so a compromised repository is still a compromised
   repository.

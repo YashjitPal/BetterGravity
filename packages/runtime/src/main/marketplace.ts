@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Catalog, CatalogEntry, CatalogFile } from "@bettergravity/marketplace";
+import { isSingleFileTheme, type Catalog, type CatalogEntry, type CatalogFile } from "@bettergravity/marketplace";
 import type { CatalogResult, ContentResult } from "../protocol.js";
 import { logger } from "./logger.js";
 import type { RuntimePaths } from "./paths.js";
@@ -30,6 +30,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const LIMITS = {
   catalogBytes: 4 * 1024 * 1024,
   themeBytes: 2 * 1024 * 1024,
+  themeFolderBytes: 8 * 1024 * 1024,
   pluginBytes: 4 * 1024 * 1024
 } as const;
 
@@ -117,8 +118,8 @@ interface Downloaded {
 }
 
 async function download(entry: CatalogEntry, file: CatalogFile): Promise<Downloaded> {
-  // A theme's single file is the listing itself; a plugin's sit under its folder.
-  const relative = entry.kind === "theme" ? entry.path : `${entry.path}/${file.name}`;
+  // A single-file theme is the listing itself; a folder's files sit under it.
+  const relative = isSingleFileTheme(entry) ? entry.path : `${entry.path}/${file.name}`;
   const response = await get(relative);
   const content = new Uint8Array(await response.arrayBuffer());
 
@@ -147,7 +148,8 @@ export async function installEntry(paths: RuntimePaths, entry: CatalogEntry): Pr
     return { ok: false, message: `${entry.name} is described in a way this version does not understand.` };
   }
 
-  const limit = entry.kind === "theme" ? LIMITS.themeBytes : LIMITS.pluginBytes;
+  const singleFile = isSingleFileTheme(entry);
+  const limit = entry.kind === "plugin" ? LIMITS.pluginBytes : singleFile ? LIMITS.themeBytes : LIMITS.themeFolderBytes;
   if (totalBytes(listed) > limit) {
     return { ok: false, message: `${entry.name} is larger than the ${Math.round(limit / 1024 / 1024)} MB limit.` };
   }
@@ -156,11 +158,11 @@ export async function installEntry(paths: RuntimePaths, entry: CatalogEntry): Pr
   const destination = safeJoin(root, entry.id);
   if (!destination) return { ok: false, message: `${entry.id} is not a name that can be installed.` };
 
-  // A theme is written as the listing itself, so its destination is already
-  // checked. A plugin's files keep their layout under its folder, and each one
+  // A single-file theme is written as the listing itself, so its destination is
+  // already checked. A folder's files keep their layout under it, and each one
   // is resolved before anything is downloaded: a listing that could not be
   // installed safely costs nothing to reject.
-  if (entry.kind === "plugin" && listed.some((file) => !safeJoin(destination, file.name))) {
+  if (!singleFile && listed.some((file) => !safeJoin(destination, file.name))) {
     return { ok: false, message: `${entry.name} contains a file path that cannot be installed.` };
   }
 
@@ -175,18 +177,18 @@ export async function installEntry(paths: RuntimePaths, entry: CatalogEntry): Pr
   const updating = fs.existsSync(destination);
   try {
     fs.mkdirSync(root, { recursive: true });
-    if (entry.kind === "theme") {
+    if (singleFile) {
       const [file] = downloaded;
       if (file) fs.writeFileSync(destination, file.content);
     } else {
       // Assembled beside the target and swapped in, so an update that fails
-      // part way through leaves the installed plugin as it was rather than a
+      // part way through leaves the installed copy as it was rather than a
       // mixture of two versions.
       const staging = `${destination}.installing`;
       fs.rmSync(staging, { recursive: true, force: true });
       for (const file of downloaded) {
         const target = safeJoin(staging, file.name);
-        if (!target) throw new Error(`${file.name} resolved outside the plugin folder`);
+        if (!target) throw new Error(`${file.name} resolved outside its folder`);
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, file.content);
       }

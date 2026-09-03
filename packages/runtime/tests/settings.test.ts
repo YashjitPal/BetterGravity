@@ -315,10 +315,48 @@ describe("the Themes screen", () => {
     expect(fake.calls).toContain("addThemes");
   });
 
-  it("offers Add and Open folder beside the heading", async () => {
+  it("offers every way of adding a theme beside the heading", async () => {
     await open("Themes");
-    expect(buttonIn("Themes", "Add theme")).toBeDefined();
+    expect(buttonIn("Themes", "Add file")).toBeDefined();
+    expect(buttonIn("Themes", "Add folder")).toBeDefined();
+    expect(buttonIn("Themes", "Add from URL")).toBeDefined();
     expect(buttonIn("Themes", "Open folder")).toBeDefined();
+  });
+
+  it("adds a folder theme through its own dialog", async () => {
+    await open("Themes");
+    buttonIn("Themes", "Add folder")?.click();
+    expect(fake.calls).toContain("addThemeFolder");
+  });
+
+  // The BetterDiscord way: a stub file that imports the hosted stylesheet.
+  it("adds a hosted theme as a local stub that imports it", async () => {
+    await open("Themes");
+    buttonIn("Themes", "Add from URL")?.click();
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-label="Add theme from URL"]');
+    expect(dialog).not.toBeNull();
+    const input = dialog!.querySelector<HTMLInputElement>("input");
+    input!.value = "https://someone.github.io/midnight/midnight.css";
+    [...dialog!.querySelectorAll("button")].find((button) => button.textContent === "Add theme")?.click();
+    await settle();
+
+    expect(fake.calls).toContain("addThemeText:midnight.css");
+    expect(document.querySelector('[role="dialog"][aria-label="Add theme from URL"]')).toBeNull();
+  });
+
+  it("keeps the URL dialog open and says why when the link is not one", async () => {
+    await open("Themes");
+    buttonIn("Themes", "Add from URL")?.click();
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-label="Add theme from URL"]');
+    dialog!.querySelector<HTMLInputElement>("input")!.value = "midnight";
+    [...dialog!.querySelectorAll("button")].find((button) => button.textContent === "Add theme")?.click();
+    await settle();
+
+    expect(dialog!.textContent).toContain("not an http(s) link");
+    expect(fake.calls.some((call) => call.startsWith("addThemeText"))).toBe(false);
+    [...dialog!.querySelectorAll("button")].find((button) => button.textContent === "Cancel")?.click();
   });
 
   it("lists each theme with a switch, a reveal, and a delete", async () => {
@@ -344,7 +382,7 @@ describe("the Themes screen", () => {
   it("reports what happened, since the change lands out of view", async () => {
     fake.nextResult = { ok: true, message: "Added 1 theme." };
     await open("Themes");
-    buttonIn("Themes", "Add theme")?.click();
+    buttonIn("Themes", "Add file")?.click();
     await settle();
 
     expect(textIn("Themes")).toContain("Added 1 theme.");
@@ -353,7 +391,7 @@ describe("the Themes screen", () => {
   it("says nothing when the user cancels the dialog", async () => {
     fake.nextResult = { ok: false };
     await open("Themes");
-    buttonIn("Themes", "Add theme")?.click();
+    buttonIn("Themes", "Add file")?.click();
     await settle();
 
     expect(textIn("Themes")).not.toContain("undefined");

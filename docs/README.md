@@ -7,8 +7,9 @@
 
 ## Making things
 
-- **[Themes](themes.md)** — a theme is one `.css` file. Covers the design
-  tokens, targeting components, replacing animations, and where the limits are.
+- **[Themes](themes.md)** — a theme is a `.css` file, a folder of them, or a
+  link to one hosted elsewhere. Covers the design tokens, targeting components,
+  replacing animations, and where the limits are.
 - **[Plugins](plugins.md)** — a folder with a manifest and a script. Covers
   settings, storage, DOM helpers, and cleanup.
 - **[Adding to Antigravity's interface](interface.md)** — toasts, menu entries,

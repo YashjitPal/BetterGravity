@@ -45,8 +45,9 @@ const listing = (kind: "theme" | "plugin", id: string, contents: Record<string, 
     sha256: sha256(text)
   }));
   const base = `community/${kind}s/${id}`;
+  const singleFile = kind === "theme" && id.endsWith(".css");
   for (const [name, text] of Object.entries(contents)) {
-    served.set(kind === "theme" ? base : `${base}/${name}`, text);
+    served.set(singleFile ? base : `${base}/${name}`, text);
   }
   return entry({ kind, id, files, bytes: files.reduce((total, file) => total + file.bytes, 0) });
 };
@@ -176,6 +177,29 @@ describe("installing a theme", () => {
 
     expect(result.message).toMatch(/^Updated Midnight to 1\.0\.0/);
     expect(fs.readFileSync(path.join(paths.themes, "midnight.css"), "utf8")).toBe("new");
+  });
+
+  it("installs a folder theme with its layout intact", async () => {
+    const files = { "theme.css": '@import "parts/menu.css";', "parts/menu.css": "[role=menu] {}", "fonts/x.woff2": "font bytes" };
+    const result = await installEntry(paths, listing("theme", "midnight", files));
+
+    expect(result.ok).toBe(true);
+    expect(requested).toEqual(
+      expect.arrayContaining([`${RAW}community/themes/midnight/theme.css`, `${RAW}community/themes/midnight/parts/menu.css`])
+    );
+    expect(fs.readFileSync(path.join(paths.themes, "midnight", "theme.css"), "utf8")).toBe(files["theme.css"]);
+    expect(fs.readFileSync(path.join(paths.themes, "midnight", "parts", "menu.css"), "utf8")).toBe(files["parts/menu.css"]);
+    expect(fs.existsSync(path.join(paths.themes, "midnight.installing"))).toBe(false);
+  });
+
+  it("refuses a folder theme whose file path would escape its folder", async () => {
+    const entry_ = listing("theme", "midnight", { "theme.css": "body {}" });
+    const files = [...entry_.files, { name: "../escape.css", bytes: 1, sha256: sha256("x") }];
+
+    const result = await installEntry(paths, { ...entry_, files });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/cannot be installed/);
   });
 });
 

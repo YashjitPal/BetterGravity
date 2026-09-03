@@ -12,6 +12,7 @@ import {
 import type { ContentKind, ContentResult } from "../protocol.js";
 import { logger } from "./logger.js";
 import type { RuntimePaths } from "./paths.js";
+import { MAX_THEME_FOLDER_BYTES, THEME_ENTRY_FILES, findThemeEntry, folderBytes } from "./theme-bundle.js";
 
 const MAX_THEME_BYTES = 2 * 1024 * 1024;
 
@@ -85,6 +86,33 @@ export async function importThemes(paths: RuntimePaths): Promise<ContentResult> 
     }
   }
   return { ok: true, message: describe(added, "theme") };
+}
+
+export async function importThemeFolder(paths: RuntimePaths): Promise<ContentResult> {
+  const result = await openDialog({
+    title: `Choose a theme folder (one containing ${THEME_ENTRY_FILES.join(" or ")})`,
+    properties: ["openDirectory", "dontAddToRecent"]
+  });
+  const source = result.filePaths[0];
+  if (result.canceled || !source) return { ok: false };
+
+  if (!findThemeEntry(source)) {
+    return { ok: false, message: `That folder has no ${THEME_ENTRY_FILES.join(" or ")}, so it is not a theme.` };
+  }
+  const size = folderBytes(source);
+  if (size > MAX_THEME_FOLDER_BYTES) {
+    return { ok: false, message: `${path.basename(source)} is larger than ${Math.round(MAX_THEME_FOLDER_BYTES / 1024 / 1024)} MB.` };
+  }
+
+  try {
+    fs.mkdirSync(paths.themes, { recursive: true });
+    const name = availableName(paths.themes, path.basename(source));
+    fs.cpSync(source, path.join(paths.themes, name), { recursive: true });
+    return { ok: true, message: `Added ${name}.` };
+  } catch (error) {
+    logger.error(`Could not add theme folder ${source}.`, error);
+    return { ok: false, message: "Could not add that theme folder." };
+  }
 }
 
 /** Used by the drag-and-drop path, where only the file's text is available. */

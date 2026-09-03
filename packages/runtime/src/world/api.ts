@@ -45,6 +45,7 @@ export interface BetterGravityApi {
   /** Adding and removing themes and plugins from the settings section. */
   readonly content: {
     addThemes(): Promise<ContentResult>;
+    addThemeFolder(): Promise<ContentResult>;
     addPlugin(): Promise<ContentResult>;
     addThemeText(fileName: string, css: string): Promise<ContentResult>;
     remove(kind: ContentKind, id: string, label: string): Promise<ContentResult>;

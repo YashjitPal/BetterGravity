@@ -1,6 +1,17 @@
 # Themes
 
-One `.css` file per theme, named in lower case with hyphens.
+One theme per entry, named in lower case with hyphens. An entry is either a
+single `.css` file or a folder with a `theme.css` inside it and whatever that
+refers to — partial stylesheets, fonts, images.
+
+```text
+themes/
+├── midnight.css          a single-file theme
+└── gemini-app/           a folder theme
+    ├── theme.css         the entry; the header lives here
+    ├── parts/menus.css
+    └── fonts/…
+```
 
 ```css
 /**
@@ -17,7 +28,8 @@ One `.css` file per theme, named in lower case with hyphens.
 ```
 
 `@name`, `@description`, `@author`, and `@version` are required. `@source` is
-optional.
+optional. A theme may `@import` a stylesheet hosted elsewhere over `https`; the
+reviewer is told where it points.
 
 Writing one is covered in [the theme guide](../../docs/themes.md). Submission
 rules are in [the community README](../README.md).

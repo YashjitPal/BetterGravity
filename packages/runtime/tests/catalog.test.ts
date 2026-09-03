@@ -76,6 +76,64 @@ describe("readThemes", () => {
     expect(diagnostics[0]).toMatchObject({ source: "theme huge.css" });
     expect(diagnostics[0]?.message).toMatch(/limit/);
   });
+
+  describe("folder themes", () => {
+    function writeFolderTheme(id: string, files: Record<string, string>): void {
+      for (const [name, content] of Object.entries(files)) {
+        const target = path.join(root, "themes", id, name);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, content);
+      }
+    }
+
+    it("loads a folder with a theme.css as one theme, folded into a single stylesheet", () => {
+      writeFolderTheme("gemini", {
+        "theme.css": "/**\n * @name Gemini\n * @version 2.0.0\n */\n@import \"parts/menu.css\";\nbody {}",
+        "parts/menu.css": "[role=menu] {}"
+      });
+
+      const { entries, diagnostics } = readThemes(path.join(root, "themes"), settingsWith({ themes: { enabled: ["gemini"] } }));
+
+      expect(diagnostics).toEqual([]);
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({ id: "gemini", name: "Gemini", version: "2.0.0", folder: true, enabled: true });
+      expect(entries[0]?.css).toContain("[role=menu] {}");
+      expect(entries[0]?.css).not.toContain("@import");
+    });
+
+    it("names an unlabelled folder theme after its folder", () => {
+      writeFolderTheme("plain", { "index.css": "body {}" });
+      expect(readThemes(path.join(root, "themes"), DEFAULT_SETTINGS).entries[0]).toMatchObject({ id: "plain", name: "plain", folder: true });
+    });
+
+    it("lists files and folders together, sorted by name", () => {
+      fs.writeFileSync(path.join(root, "themes", "b.css"), "");
+      writeFolderTheme("a", { "theme.css": "" });
+      expect(readThemes(path.join(root, "themes"), DEFAULT_SETTINGS).entries.map((theme) => theme.id)).toEqual(["a", "b.css"]);
+    });
+
+    it("reports a folder that has stylesheets but no entry, and ignores unrelated folders", () => {
+      writeFolderTheme("forgot-entry", { "styles.css": "body {}" });
+      fs.mkdirSync(path.join(root, "themes", ".git"));
+      fs.writeFileSync(path.join(root, "themes", ".git", "HEAD"), "ref");
+
+      const { entries, diagnostics } = readThemes(path.join(root, "themes"), DEFAULT_SETTINGS);
+
+      expect(entries).toEqual([]);
+      expect(diagnostics).toHaveLength(1);
+      expect(diagnostics[0]).toMatchObject({ source: "theme forgot-entry" });
+      expect(diagnostics[0]?.message).toMatch(/theme\.css or index\.css/);
+    });
+
+    it("surfaces a broken reference as a diagnostic while still loading the theme", () => {
+      writeFolderTheme("dangling", { "theme.css": '@import "gone.css";\nbody {}' });
+
+      const { entries, diagnostics } = readThemes(path.join(root, "themes"), DEFAULT_SETTINGS);
+
+      expect(entries).toHaveLength(1);
+      expect(diagnostics[0]?.message).toMatch(/gone\.css/);
+    });
+  });
 });
 
 describe("readPlugins", () => {

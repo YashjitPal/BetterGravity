@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildCatalog, isCatalog, validatePlugin, validateTheme, type PluginFiles } from "../src/index.js";
+import {
+  buildCatalog,
+  isCatalog,
+  isSingleFileTheme,
+  validatePlugin,
+  validateTheme,
+  validateThemeFolder,
+  type PluginFiles,
+  type ThemeFiles
+} from "../src/index.js";
 
 const errors = (result: { findings: readonly { severity: string; message: string }[] }) =>
   result.findings.filter((finding) => finding.severity === "error").map((finding) => finding.message);
@@ -48,15 +57,26 @@ describe("validateTheme", () => {
     expect(errors(validateTheme("midnight-blue-2.css", header()))).toEqual([]);
   });
 
-  // A remote import can swap the whole stylesheet after a human has read it.
-  it("rejects a remote @import", () => {
-    for (const line of ['@import url("https://evil.example/x.css");', "@import '//evil.example/x.css';"]) {
-      expect(errors(validateTheme("t.css", `${header()}\n${line}`)).join(" ")).toMatch(/Remote @import/);
+  // A hosted stylesheet is how BetterDiscord-style themes ship updates. The
+  // reviewer sees the stub, so the link is pointed out rather than refused.
+  it("allows a remote https @import and tells the reviewer where it points", () => {
+    for (const line of ['@import url("https://someone.github.io/x.css");', "@import 'https://someone.github.io/x.css';", "@import url(https://someone.github.io/x.css) screen;"]) {
+      const result = validateTheme("t.css", `${header()}\n${line}`);
+      expect(errors(result)).toEqual([]);
+      expect(notes(result).join(" ")).toMatch(/Imports a hosted stylesheet from https:\/\/someone\.github\.io\/x\.css/);
+    }
+  });
+
+  it("rejects a remote @import that is not https, which the page would block anyway", () => {
+    for (const line of ['@import url("http://someone.example/x.css");', "@import '//someone.example/x.css';"]) {
+      expect(errors(validateTheme("t.css", `${header()}\n${line}`)).join(" ")).toMatch(/must use https/);
     }
   });
 
   it("allows a local @import", () => {
-    expect(errors(validateTheme("t.css", `${header()}\n@import "shared.css";`))).toEqual([]);
+    const result = validateTheme("t.css", `${header()}\n@import "shared.css";`);
+    expect(errors(result)).toEqual([]);
+    expect(notes(result)).toEqual([]);
   });
 
   it("flags a remote resource for the reviewer without blocking it", () => {
@@ -68,6 +88,90 @@ describe("validateTheme", () => {
   it("rejects a theme above the size limit", () => {
     const huge = `${header()}\n/* ${"a".repeat(2 * 1024 * 1024)} */`;
     expect(errors(validateTheme("big.css", huge)).join(" ")).toMatch(/above the/);
+  });
+});
+
+const themeFiles = (overrides: Partial<ThemeFiles> = {}): ThemeFiles => ({
+  fileNames: ["theme.css", "parts", "parts/menu.css", "fonts", "fonts/x.woff2"],
+  stylesheets: [
+    { name: "theme.css", css: `${header()}\n@import "parts/menu.css";` },
+    { name: "parts/menu.css", css: "[role=menu] { background: url(../fonts/x.woff2); }" }
+  ],
+  totalBytes: 3072,
+  files: [
+    { name: "theme.css", bytes: 1024, sha256: "a".repeat(64) },
+    { name: "parts/menu.css", bytes: 1024, sha256: "b".repeat(64) },
+    { name: "fonts/x.woff2", bytes: 1024, sha256: "c".repeat(64) }
+  ],
+  ...overrides
+});
+
+describe("validateThemeFolder", () => {
+  it("accepts a folder with a theme.css and describes it by its folder", () => {
+    const result = validateThemeFolder("midnight", themeFiles());
+
+    expect(errors(result)).toEqual([]);
+    expect(notes(result)).toEqual([]);
+    expect(result.entry).toMatchObject({
+      id: "midnight",
+      kind: "theme",
+      name: "Midnight",
+      path: "community/themes/midnight",
+      bytes: 3072
+    });
+    expect(result.entry?.files.map((file) => file.name)).toEqual(["fonts/x.woff2", "parts/menu.css", "theme.css"]);
+    expect(isSingleFileTheme(result.entry!)).toBe(false);
+  });
+
+  it("accepts index.css as the entry when there is no theme.css", () => {
+    const result = validateThemeFolder("midnight", themeFiles({ stylesheets: [{ name: "index.css", css: header() }] }));
+    expect(errors(result)).toEqual([]);
+  });
+
+  it("requires an entry stylesheet and stops there", () => {
+    const result = validateThemeFolder("midnight", themeFiles({ stylesheets: [{ name: "styles.css", css: header() }] }));
+    expect(errors(result)).toEqual(["theme.css or index.css is missing."]);
+  });
+
+  it("reads the metadata from the entry file", () => {
+    const result = validateThemeFolder("midnight", themeFiles({ stylesheets: [{ name: "theme.css", css: "body {}" }] }));
+    expect(errors(result)).toEqual(["@name is required.", "@description is required.", "@author is required.", "@version is required."]);
+  });
+
+  it("insists on a predictable folder name", () => {
+    expect(errors(validateThemeFolder("My Theme", themeFiles())).join(" ")).toMatch(/lower case with hyphens/);
+  });
+
+  it("reviews every stylesheet in the folder for remote references, saying which", () => {
+    const stylesheets = [
+      { name: "theme.css", css: header() },
+      { name: "parts/fonts.css", css: '@import url("https://fonts.googleapis.com/css2?family=Inter");' }
+    ];
+    const result = validateThemeFolder("midnight", themeFiles({ stylesheets }));
+
+    expect(errors(result)).toEqual([]);
+    expect(notes(result).join(" ")).toMatch(/^parts\/fonts\.css: Imports a hosted stylesheet/);
+  });
+
+  it("has a larger limit than a single file, since fonts live here", () => {
+    expect(errors(validateThemeFolder("midnight", themeFiles({ totalBytes: 6 * 1024 * 1024 })))).toEqual([]);
+    expect(errors(validateThemeFolder("midnight", themeFiles({ totalBytes: 9 * 1024 * 1024 }))).join(" ")).toMatch(/above the/);
+  });
+
+  it("refuses node_modules and paths that escape the folder", () => {
+    const fileNames = [...themeFiles().fileNames, "node_modules/x/index.css"];
+    expect(errors(validateThemeFolder("midnight", themeFiles({ fileNames }))).join(" ")).toMatch(/node_modules/);
+
+    const files = [...themeFiles().files, { name: "../outside.css", bytes: 1, sha256: "d".repeat(64) }];
+    expect(errors(validateThemeFolder("midnight", themeFiles({ files }))).join(" ")).toMatch(/plain path inside/);
+  });
+});
+
+describe("isSingleFileTheme", () => {
+  it("tells a file listing from a folder listing by its id", () => {
+    expect(isSingleFileTheme({ kind: "theme", id: "midnight.css" })).toBe(true);
+    expect(isSingleFileTheme({ kind: "theme", id: "midnight" })).toBe(false);
+    expect(isSingleFileTheme({ kind: "plugin", id: "word-count" })).toBe(false);
   });
 });
 

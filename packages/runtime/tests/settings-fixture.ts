@@ -63,6 +63,7 @@ export const theme = (id: string, enabled = false, overrides: Partial<ThemeRecor
   author: "someone",
   version: "1.0.0",
   css: "body {}",
+  folder: false,
   enabled,
   ...overrides
 });
@@ -177,6 +178,7 @@ export function createFakeApi(): FakeApi {
     panel: { open: () => undefined, close: () => undefined, toggle: () => undefined },
     content: {
       addThemes: () => record("addThemes"),
+      addThemeFolder: () => record("addThemeFolder"),
       addPlugin: () => record("addPlugin"),
       addThemeText: (fileName) => record(`addThemeText:${fileName}`),
       remove: (kind: ContentKind, id: string) => record(`remove:${kind}:${id}`),

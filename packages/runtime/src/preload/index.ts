@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { CHANNEL, type ContentKind, type DirectoryKey, type RuntimeState, type SettingsPatch } from "../protocol.js";
+import {
+  CHANNEL,
+  type ContentKind,
+  type DirectoryKey,
+  type PresenceActivity,
+  type PresenceStatus,
+  type RuntimeState,
+  type SettingsPatch
+} from "../protocol.js";
 import { BRIDGE_GLOBAL, type RuntimeBridge } from "../world/bridge.js";
 import { applyThemes } from "./themes.js";
 
@@ -60,6 +68,7 @@ function injectWorldRuntime(): void {
 }
 
 const stateListeners = new Set<(state: RuntimeState) => void>();
+const presenceListeners = new Set<(status: PresenceStatus) => void>();
 
 const bridge: RuntimeBridge = {
   getState: () => ipcRenderer.invoke(CHANNEL.getState),
@@ -68,12 +77,19 @@ const bridge: RuntimeBridge = {
   readStorage: () => ipcRenderer.invoke(CHANNEL.readStorage),
   writeStorage: (pluginId, key, value) => ipcRenderer.send(CHANNEL.writeStorage, pluginId, key, value),
   importThemes: () => ipcRenderer.invoke(CHANNEL.importThemes),
+  importThemeFolder: () => ipcRenderer.invoke(CHANNEL.importThemeFolder),
   importPlugin: () => ipcRenderer.invoke(CHANNEL.importPlugin),
   installThemeText: (fileName, css) => ipcRenderer.invoke(CHANNEL.installThemeText, fileName, css),
   removeItem: (kind: ContentKind, id, label) => ipcRenderer.invoke(CHANNEL.removeItem, kind, id, label),
   revealItem: (kind: ContentKind, id) => ipcRenderer.invoke(CHANNEL.revealItem, kind, id),
   fetchCatalog: (force) => ipcRenderer.invoke(CHANNEL.fetchCatalog, force),
   installFromCatalog: (entry) => ipcRenderer.invoke(CHANNEL.installFromCatalog, entry),
+  presenceOpen: (clientId) => ipcRenderer.invoke(CHANNEL.presenceOpen, clientId),
+  presenceUpdate: (activity: PresenceActivity | undefined) => ipcRenderer.invoke(CHANNEL.presenceUpdate, activity),
+  presenceClose: () => ipcRenderer.invoke(CHANNEL.presenceClose),
+  onPresenceStatus: (listener) => {
+    presenceListeners.add(listener);
+  },
   log: (message) => report(message),
   onStateChanged: (listener) => {
     stateListeners.add(listener);
@@ -108,6 +124,16 @@ if (isTopFrame) {
         listener(state);
       } catch (error) {
         report(`a bridge listener threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  });
+
+  ipcRenderer.on(CHANNEL.presenceStatus, (_event, status: PresenceStatus) => {
+    for (const listener of presenceListeners) {
+      try {
+        listener(status);
+      } catch (error) {
+        report(`a presence listener threw: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   });

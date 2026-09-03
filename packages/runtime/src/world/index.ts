@@ -65,6 +65,7 @@ async function boot(bridge: RuntimeBridge, initial: RuntimeState): Promise<void>
     },
     content: {
       addThemes: () => bridge.importThemes(),
+      addThemeFolder: () => bridge.importThemeFolder(),
       addPlugin: () => bridge.importPlugin(),
       addThemeText: (fileName, css) => bridge.installThemeText(fileName, css),
       remove: (kind, id, label) => bridge.removeItem(kind, id, label),

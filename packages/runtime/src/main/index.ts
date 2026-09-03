@@ -7,12 +7,14 @@ import {
   type ContentKind,
   type ContentResult,
   type DirectoryKey,
+  type PresenceActivity,
+  type PresenceStatus,
   type RuntimeContext,
   type RuntimeState,
   type SettingsPatch
 } from "../protocol.js";
 import { readPluginPatches, readPlugins, readThemes } from "./catalog.js";
-import { importPlugin, importThemes, installThemeText, removeItem, revealItem } from "./content.js";
+import { importPlugin, importThemeFolder, importThemes, installThemeText, removeItem, revealItem } from "./content.js";
 import { fetchCatalog, installEntry } from "./marketplace.js";
 import { logger } from "./logger.js";
 import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, type RuntimePaths } from "./paths.js";
@@ -21,6 +23,7 @@ import { attachPreload, relaxContentSecurityPolicy } from "./session.js";
 import { PluginStorageStore } from "./storage.js";
 import { spawnGuardian } from "./guardian.js";
 import { installSourceInterceptor } from "./intercept.js";
+import { PresenceConnection } from "./presence.js";
 
 const WATCH_DEBOUNCE_MS = 150;
 
@@ -69,6 +72,22 @@ function watchForChanges(paths: RuntimePaths, onChange: () => void): void {
   }
 }
 
+function registerPresenceChannels(presence: PresenceConnection): void {
+  const push = (status: PresenceStatus) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      const contents = window.webContents;
+      if (!contents.isDestroyed()) contents.send(CHANNEL.presenceStatus, status);
+    }
+  };
+  presence.onStatusChanged(push);
+
+  ipcMain.handle(CHANNEL.presenceOpen, (_event, clientId: string) => presence.open(clientId));
+  ipcMain.handle(CHANNEL.presenceUpdate, (_event, activity: PresenceActivity | undefined) =>
+    presence.update(activity ?? undefined)
+  );
+  ipcMain.handle(CHANNEL.presenceClose, () => presence.close());
+}
+
 function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage: PluginStorageStore): void {
   ipcMain.handle(CHANNEL.getState, () => buildState(paths, context));
 
@@ -102,6 +121,7 @@ function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage:
   };
 
   ipcMain.handle(CHANNEL.importThemes, async () => afterChange(await importThemes(paths)));
+  ipcMain.handle(CHANNEL.importThemeFolder, async () => afterChange(await importThemeFolder(paths)));
   ipcMain.handle(CHANNEL.importPlugin, async () => afterChange(await importPlugin(paths)));
   ipcMain.handle(CHANNEL.installThemeText, (_event, fileName: string, css: string) =>
     afterChange(installThemeText(paths, fileName, css))
@@ -137,7 +157,9 @@ export function activate(context: RuntimeContext): void {
   if (!fs.existsSync(paths.settings)) writeSettings(paths.settings, readSettings(paths.settings));
 
   const storage = new PluginStorageStore(paths.storage);
+  const presence = new PresenceConnection();
   registerChannels(paths, context, storage);
+  registerPresenceChannels(presence);
 
   // Antigravity's own before-quit handler cancels the first quit to run its
   // shutdown, so this fires more than once.
@@ -147,6 +169,7 @@ export function activate(context: RuntimeContext): void {
     shuttingDown = true;
     // Storage writes are debounced, so a quit has to force the last one out.
     storage.flush();
+    presence.dispose();
     if (readSettings(paths.settings).reapplyAfterHostUpdate) {
       spawnGuardian(path.join(context.runtimeDirectory, "runtime"), paths.log);
     }

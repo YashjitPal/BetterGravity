@@ -32,7 +32,10 @@ export interface CatalogFile {
 }
 
 export interface CatalogEntry {
-  /** The file name for a theme, the folder name for a plugin. Unique per kind. */
+  /**
+   * The file name for a single-file theme (`midnight.css`), the folder name for
+   * a folder theme or a plugin (`midnight`). Unique per kind.
+   */
   readonly id: string;
   readonly kind: ContentKind;
   readonly name: string;
@@ -42,9 +45,9 @@ export interface CatalogEntry {
   /** Where the author publishes it. The repository remains the source of truth. */
   readonly source?: string;
   /**
-   * Repository-relative path: the file itself for a theme, the folder for a
-   * plugin. A client fetches `${path}/${file.name}` for a plugin, and `path`
-   * for a theme, whose single file is itself.
+   * Repository-relative path: the file itself for a single-file theme, the
+   * folder otherwise. A client fetches `path` for a single-file theme, whose one
+   * file is itself, and `${path}/${file.name}` for everything else.
    */
   readonly path: string;
   readonly bytes: number;
@@ -85,8 +88,13 @@ export interface ValidationResult {
 
 export const LIMITS = {
   themeBytes: 2 * 1024 * 1024,
+  /** A folder theme as a whole. Fonts are the usual reason to need the room. */
+  themeFolderBytes: 8 * 1024 * 1024,
   pluginBytes: 4 * 1024 * 1024
 } as const;
+
+/** The stylesheet a folder theme starts from, tried in this order. */
+export const THEME_ENTRY_FILES = ["theme.css", "index.css"] as const;
 
 /** Lower case, digits, and single hyphens. Keeps ids safe as path segments. */
 const SAFE_ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -110,11 +118,56 @@ function requireText(value: unknown, field: string, findings: Finding[]): string
 
 const byteLength = (text: string): number => new TextEncoder().encode(text).length;
 
+const REMOTE_IMPORT = /@import\s+(?:url\(\s*(["']?)([^"')]+?)\1\s*\)|(["'])([^"']+?)\3)/gi;
+const REMOTE_URL = /url\(\s*["']?(https?:)?\/\//i;
+
 /**
- * A remote @import can replace the entire stylesheet after review, which would
- * make reviewing it meaningless.
+ * What a stylesheet reaches for over the network.
+ *
+ * A remote `@import` is how BetterDiscord-style themes work: the file in the
+ * repository is a stub, and the real stylesheet is hosted by its author, who can
+ * update it without a new submission. That is the point of it, and it is also
+ * why it is worth a reviewer's attention rather than a rule: what was reviewed
+ * is the stub, not what it will load next month. Only https is accepted; the
+ * page itself is https, so the browser would refuse a plain http import anyway.
  */
-const REMOTE_IMPORT = /@import\s+(?:url\()?\s*["']?\s*(?:https?:)?\/\//i;
+function reviewRemoteReferences(css: string, findings: Finding[], where = ""): void {
+  const prefix = where ? `${where}: ` : "";
+  const imports = new Set<string>();
+  for (const match of css.matchAll(REMOTE_IMPORT)) {
+    const reference = (match[2] ?? match[4] ?? "").trim();
+    if (/^(?:https?:)?\/\//i.test(reference)) imports.add(reference);
+  }
+  for (const reference of imports) {
+    if (/^https:\/\//i.test(reference)) {
+      findings.push(note(`${prefix}Imports a hosted stylesheet from ${reference}. The review covers this file, not what that link serves.`));
+    } else {
+      findings.push(error(`${prefix}@import of ${reference} must use https, because Antigravity's page is https and would block it.`));
+    }
+  }
+  if (REMOTE_URL.test(css)) {
+    findings.push(note(`${prefix}Loads a remote resource. Check what it is and whether it is needed.`));
+  }
+}
+
+interface ThemeIdentity {
+  readonly name: string;
+  readonly description: string;
+  readonly author: string;
+  readonly version: string;
+  readonly source?: string;
+}
+
+function requireThemeMetadata(css: string, findings: Finding[]): ThemeIdentity {
+  const metadata = parseThemeMetadata(css);
+  const name = requireText(metadata.name, "@name", findings);
+  const description = requireText(metadata.description, "@description", findings);
+  const author = requireText(metadata.author, "@author", findings);
+  const version = requireText(metadata.version, "@version", findings);
+  // Key order is the catalog's serialised order, which `check` compares byte
+  // for byte, so it has to stay what it has always been.
+  return { name, description, version, author, ...(metadata.source ? { source: metadata.source } : {}) };
+}
 
 export function validateTheme(fileName: string, css: string): ValidationResult {
   const findings: Finding[] = [];
@@ -131,18 +184,8 @@ export function validateTheme(fileName: string, css: string): ValidationResult {
     findings.push(error(`The file is ${Math.round(bytes / 1024)} KB, above the ${LIMITS.themeBytes / 1024} KB limit.`));
   }
 
-  const metadata = parseThemeMetadata(css);
-  const name = requireText(metadata.name, "@name", findings);
-  const description = requireText(metadata.description, "@description", findings);
-  const author = requireText(metadata.author, "@author", findings);
-  const version = requireText(metadata.version, "@version", findings);
-
-  if (REMOTE_IMPORT.test(css)) {
-    findings.push(error("Remote @import is not allowed, because it could replace the theme after review."));
-  }
-  if (/url\(\s*["']?https?:\/\//i.test(css)) {
-    findings.push(note("Loads a remote resource. Check what it is and whether it is needed."));
-  }
+  const identity = requireThemeMetadata(css, findings);
+  reviewRemoteReferences(css, findings);
 
   if (findings.some((finding) => finding.severity === "error")) return { findings };
 
@@ -151,18 +194,80 @@ export function validateTheme(fileName: string, css: string): ValidationResult {
     entry: {
       id: fileName,
       kind: "theme",
-      name,
-      description,
-      version,
-      author,
-      ...(metadata.source ? { source: metadata.source } : {}),
+      ...identity,
       path: `community/themes/${fileName}`,
       bytes,
       // A theme is its own single file, so the listing can be hashed from the
-      // text already in hand. A plugin's files have to be supplied.
+      // text already in hand. A folder's or a plugin's files have to be supplied.
       files: [{ name: fileName, bytes, sha256: sha256(css) }]
     }
   };
+}
+
+export interface ThemeFiles {
+  /** Every path inside the folder, relative to it, including directories. */
+  readonly fileNames: readonly string[];
+  /** Each stylesheet in the folder with its text, so all of them can be read for remote references. */
+  readonly stylesheets: readonly { readonly name: string; readonly css: string }[];
+  readonly totalBytes: number;
+  /** The folder's files with their hashes; the caller does the walking. */
+  readonly files: readonly CatalogFile[];
+}
+
+/**
+ * A folder theme: a theme.css plus the partial stylesheets, fonts, and images
+ * it refers to. The runtime folds it into one stylesheet when it loads it, so
+ * what is reviewed here is exactly what will be applied.
+ */
+export function validateThemeFolder(folderName: string, files: ThemeFiles): ValidationResult {
+  const findings: Finding[] = [];
+
+  if (!SAFE_ID.test(folderName)) {
+    findings.push(error(`"${folderName}" should be named in lower case with hyphens, such as midnight-blue.`));
+  }
+
+  const entry = THEME_ENTRY_FILES.map((name) => files.stylesheets.find((sheet) => sheet.name === name)).find(Boolean);
+  if (!entry) {
+    findings.push(error(`${THEME_ENTRY_FILES.join(" or ")} is missing.`));
+    return { findings };
+  }
+
+  if (files.totalBytes > LIMITS.themeFolderBytes) {
+    findings.push(
+      error(`The folder is ${Math.round(files.totalBytes / 1024)} KB, above the ${LIMITS.themeFolderBytes / 1024} KB limit.`)
+    );
+  }
+
+  if (files.fileNames.some((file) => file === "node_modules" || file.startsWith("node_modules/"))) {
+    findings.push(error("Do not commit node_modules. A theme has to be readable exactly as submitted."));
+  }
+
+  for (const file of files.files) {
+    if (!UNSAFE_PATH.test(file.name)) continue;
+    findings.push(error(`"${file.name}" must be a plain path inside the theme folder.`));
+  }
+
+  const identity = requireThemeMetadata(entry.css, findings);
+  for (const sheet of files.stylesheets) reviewRemoteReferences(sheet.css, findings, sheet.name);
+
+  if (findings.some((finding) => finding.severity === "error")) return { findings };
+
+  return {
+    findings,
+    entry: {
+      id: folderName,
+      kind: "theme",
+      ...identity,
+      path: `community/themes/${folderName}`,
+      bytes: files.totalBytes,
+      files: [...files.files].sort((a, b) => a.name.localeCompare(b.name))
+    }
+  };
+}
+
+/** A theme listing is either its one file or a folder of them; the id says which. */
+export function isSingleFileTheme(entry: Pick<CatalogEntry, "kind" | "id">): boolean {
+  return entry.kind === "theme" && /\.css$/i.test(entry.id);
 }
 
 export interface PluginFiles {

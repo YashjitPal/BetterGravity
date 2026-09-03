@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseThemeMetadata, themeMetadataTemplate } from "../src/index.js";
+import { parseThemeMetadata, remoteThemeStub, themeMetadataTemplate } from "../src/index.js";
 
 const header = (body: string) => `/**\n${body}\n */\nbody { color: red; }`;
 
@@ -57,5 +57,34 @@ describe("parseThemeMetadata", () => {
 describe("themeMetadataTemplate", () => {
   it("produces a header that parses back to the given name", () => {
     expect(parseThemeMetadata(`${themeMetadataTemplate("New Theme")}body {}`).name).toBe("New Theme");
+  });
+});
+
+describe("remoteThemeStub", () => {
+  it("writes a local stub whose only rule imports the hosted stylesheet", () => {
+    const stub = remoteThemeStub("https://someone.github.io/ClearVision/ClearVision_v6.theme.css");
+
+    expect(stub?.fileName).toBe("clearvision-v6-theme.css");
+    expect(stub?.css).toContain('@import url("https://someone.github.io/ClearVision/ClearVision_v6.theme.css");');
+    expect(parseThemeMetadata(stub?.css ?? "")).toMatchObject({
+      name: "Clearvision V6 Theme",
+      source: "https://someone.github.io/ClearVision/ClearVision_v6.theme.css"
+    });
+  });
+
+  it("falls back to the host when the URL has no file name", () => {
+    expect(remoteThemeStub("https://themes.example.com/")?.fileName).toBe("themes-example-com.css");
+  });
+
+  it("only accepts http(s) links", () => {
+    for (const input of ["not a url", "file:///C:/theme.css", "javascript:alert(1)", ""]) {
+      expect(remoteThemeStub(input)).toBeUndefined();
+    }
+  });
+
+  it("cannot be broken out of by characters in the URL", () => {
+    const stub = remoteThemeStub('https://x.example/a")*/;body{display:none}/*.css');
+    expect(stub?.css.match(/\*\//g)).toHaveLength(1);
+    expect(stub?.css).not.toContain('a")*/');
   });
 });

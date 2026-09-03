@@ -1,7 +1,9 @@
 import type { PluginSetting } from "@bettergravity/plugin-api";
+import { remoteThemeStub } from "@bettergravity/theme-api";
 import type { CatalogEntry, ContentKind, ContentResult, RuntimeState } from "../../protocol.js";
 import type { BetterGravityApi, PluginSummary } from "../api.js";
 import { el } from "../el.js";
+import { openModal } from "../ui/modal.js";
 import { installedVersion, isNewer, type CatalogStore } from "./catalog-store.js";
 import {
   ICON,
@@ -170,12 +172,62 @@ function availableGroup(
 // Themes
 // ---------------------------------------------------------------------------
 
+/**
+ * Adding a theme by URL, the way BetterDiscord users expect to. The URL is not
+ * fetched here: a small local .css is written whose only rule imports it, so the
+ * page loads it like any other stylesheet and the author can update it in place.
+ */
+function openAddFromUrl(api: BetterGravityApi, callbacks: SectionCallbacks): void {
+  openModal(
+    {
+      title: "Add theme from URL",
+      description: "Paste a link to a hosted .css file. A small local theme is created that loads it, so updates by its author show up without re-adding.",
+      render: (body, close) => {
+        const input = el("input", {
+          type: "url",
+          class: `${NATIVE.input} w-full`,
+          placeholder: "https://example.github.io/theme.css",
+          spellcheck: "false"
+        });
+        const problem = el("div", { class: NATIVE.emptyNote });
+
+        const submit = () => {
+          const stub = remoteThemeStub(input.value);
+          if (!stub) {
+            problem.textContent = "That is not an http(s) link.";
+            return;
+          }
+          close();
+          run(api.content.addThemeText(stub.fileName, stub.css), callbacks);
+        };
+
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            submit();
+          }
+        });
+
+        body.append(
+          el("div", { class: "flex flex-col gap-3" }, [
+            input,
+            problem,
+            el("div", { class: "flex justify-end gap-2" }, [nativeButton("Cancel", close), nativeButton("Add theme", submit)])
+          ])
+        );
+        queueMicrotask(() => input.focus());
+      }
+    },
+    () => undefined
+  );
+}
+
 function installedThemeRows(state: RuntimeState, api: BetterGravityApi, callbacks: SectionCallbacks): readonly Node[] {
   const themes = state.themes.filter((theme) => matches(callbacks.query, theme.name, theme.description, theme.author));
 
   if (state.themes.length === 0) {
     return [
-      emptyState("No themes yet. A theme is a single .css file.", "Add a theme", () =>
+      emptyState("No themes yet. A theme is a .css file, or a folder with a theme.css inside.", "Add a theme", () =>
         run(api.content.addThemes(), callbacks)
       )
     ];
@@ -186,7 +238,7 @@ function installedThemeRows(state: RuntimeState, api: BetterGravityApi, callback
     const update = updateAction(theme.id, "theme", theme.version, callbacks);
     return settingRow(
       theme.name,
-      [theme.description, credit(theme.author, theme.version)].filter(Boolean).join("\n"),
+      [theme.description, credit(theme.author, theme.version) + (theme.folder ? " · folder" : "")].filter(Boolean).join("\n"),
       controlGroup([
         update,
         iconButton(ICON.folder, `Show ${theme.id} in Explorer`, () => void api.content.reveal("theme", theme.id)),
@@ -208,10 +260,12 @@ export function buildThemesScreen(api: BetterGravityApi, callbacks: SectionCallb
 
   const shell = screenShell(
     "Themes",
-    "A theme is one .css file. Install one from the catalogue, or add your own.",
+    "A theme is a .css file, or a folder with a theme.css inside. Install one from the catalogue, or add your own.",
     [
       settingGroup("Installed", installedThemeRows(state, api, callbacks), [
-        nativeButton("Add theme", () => run(api.content.addThemes(), callbacks)),
+        nativeButton("Add file", () => run(api.content.addThemes(), callbacks), "Add one or more .css files"),
+        nativeButton("Add folder", () => run(api.content.addThemeFolder(), callbacks), "Add a folder containing theme.css"),
+        nativeButton("Add from URL", () => openAddFromUrl(api, callbacks), "Add a theme hosted at a link"),
         nativeButton("Open folder", () => void api.openDirectory("themes"))
       ]),
       availableGroup("theme", state, callbacks, installedIds)

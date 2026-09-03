@@ -26,7 +26,7 @@ build step.
 
 |  | |
 | --- | --- |
-| **Themes** | One `.css` file. Save it and Antigravity restyles immediately — no build step, no reload. Around twenty design tokens recolour the entire app. |
+| **Themes** | A `.css` file, a folder of them with fonts and images, or a link to one hosted elsewhere. Save and Antigravity restyles immediately — no build step, no reload. Around twenty design tokens recolour the entire app. |
 | **Plugins** | A folder with a manifest and a script. Persistent storage, declarative settings, scoped styles, and DOM helpers built for a UI that constantly re-renders. |
 | **Interface hooks** | Add toasts, entries in Antigravity's menus, toolbar buttons, dialogs, and a settings screen of your own — built from the app's own components. See [adding to Antigravity's interface](docs/interface.md). |
 | **Deeper hooks** | Patch Antigravity's own functions, read its React tree, intercept its language-server traffic by RPC method name, and rewrite its bundle before it runs. See [reaching into Antigravity](docs/advanced.md). |

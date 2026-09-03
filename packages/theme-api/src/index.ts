@@ -1,7 +1,7 @@
 /**
- * A BetterGravity theme is a plain `.css` file. Rather than pairing it with a
- * separate manifest, its metadata lives in a comment at the top of the file, so
- * a theme stays a single portable artifact:
+ * A BetterGravity theme is a plain `.css` file, or a folder whose `theme.css` is
+ * one. Rather than pairing it with a separate manifest, its metadata lives in a
+ * comment at the top of that file, so a theme stays a single portable artifact:
  *
  *   /**
  *    * @name        Midnight
@@ -60,4 +60,59 @@ export function parseThemeMetadata(css: string): ThemeMetadata {
 /** A starting header for new themes. */
 export function themeMetadataTemplate(name: string): string {
   return ["/**", ` * @name        ${name}`, " * @description ", " * @author      ", " * @version     1.0.0", " */", ""].join("\n");
+}
+
+export interface RemoteThemeStub {
+  /** A file name derived from the URL, safe to write into the themes folder. */
+  readonly fileName: string;
+  readonly css: string;
+}
+
+/**
+ * A theme that lives at a URL, in the form BetterDiscord users know: a small
+ * local file whose only rule is `@import` of the hosted stylesheet. The local
+ * file carries the metadata, and the hosted one can be updated by its author
+ * without anyone downloading it again.
+ *
+ * Returns undefined for anything that is not an http(s) URL.
+ */
+export function remoteThemeStub(input: string): RemoteThemeStub | undefined {
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    return undefined;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
+
+  const lastSegment = url.pathname.split("/").filter(Boolean).pop() ?? "";
+  const stem = (lastSegment.replace(/\.css$/i, "") || url.hostname)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const fileName = `${stem || "remote-theme"}.css`;
+
+  // Nothing from the URL is interpolated raw: the comment and the string are
+  // both closed by characters a URL can carry, so those are escaped.
+  const safeUrl = url.href.replace(/["\\]/g, "\\$&").replace(/\*\//g, "*\\/");
+  const displayName = stem
+    .split("-")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+  const css = [
+    "/**",
+    ` * @name        ${displayName || "Remote theme"}`,
+    ` * @description Loaded from ${safeUrl}`,
+    " * @author      Unknown",
+    " * @version     1.0.0",
+    ` * @source      ${safeUrl}`,
+    " */",
+    "",
+    `@import url("${safeUrl}");`,
+    ""
+  ].join("\n");
+
+  return { fileName, css };
 }

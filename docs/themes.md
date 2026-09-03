@@ -1,7 +1,10 @@
 # Making a theme
 
-A theme is a single `.css` file. There is no build step, no toolchain, and no
-reload — save the file and Antigravity restyles immediately.
+A theme is a `.css` file. There is no build step, no toolchain, and no reload —
+save the file and Antigravity restyles immediately. Once a theme outgrows one
+file it can become [a folder](#themes-with-more-than-one-file), and a theme
+hosted online can be added [by its link](#themes-hosted-at-a-url), the way
+BetterDiscord themes are.
 
 ## Your first theme
 
@@ -25,8 +28,8 @@ Back in settings, switch it on. The accent colour changes everywhere at once.
 
 ## The metadata header
 
-Metadata lives in a comment at the top of the file, so a theme stays one
-portable artifact with nothing to package.
+Metadata lives in a comment at the top of the file (the `theme.css` of a
+folder theme), so a theme stays one portable artifact with nothing to package.
 
 | Annotation | Used for |
 | --- | --- |
@@ -137,15 +140,92 @@ Antigravity does not render pseudo-elements on the `html` element. Use
 
 A theme file above 2 MB is skipped, and the reason is written to `runtime.log`.
 
+## Themes with more than one file
+
+A theme can be a folder instead of a file. Put a `theme.css` in it (or
+`index.css`), and keep whatever else it needs beside it: partial stylesheets,
+fonts, images.
+
+```text
+themes/
+└── gemini-app/
+    ├── theme.css          the entry; the metadata header lives here
+    ├── parts/
+    │   ├── model-menu.css
+    │   └── prompt-box.css
+    └── fonts/
+        └── google-sans-flex.woff2
+```
+
+Inside the folder, refer to files the way you would on any web page:
+
+```css
+/**
+ * @name    Gemini App
+ * @version 1.0.0
+ */
+@import "parts/model-menu.css";
+@import "parts/prompt-box.css";
+
+@font-face {
+  font-family: "Google Sans Flex";
+  src: url("fonts/google-sans-flex.woff2") format("woff2");
+}
+```
+
+When the theme loads, BetterGravity folds the folder into one stylesheet: each
+local `@import` is inlined where it stands and each local `url()` becomes an
+embedded data URI. That is why relative paths work even though Antigravity's
+page is served from a local web server that has never heard of your folder. A
+missing file is reported in `runtime.log` and the rest of the theme still
+applies. Editing any file in the folder reloads the theme, exactly like a single
+file.
+
+Folders are limited to 8 MB in total, since fonts are the usual reason to need
+one. Add a folder from **Settings → BetterGravity → Themes → Add folder**, or
+drop it into the themes folder yourself.
+
+## Themes hosted at a URL
+
+A theme can point at a stylesheet hosted elsewhere, with a remote `@import`:
+
+```css
+/**
+ * @name        Gemini App
+ * @description Loads the latest Gemini App theme.
+ * @author      someone
+ * @version     1.0.0
+ */
+@import url("https://someone.github.io/gemini-app/theme.css");
+```
+
+This is how BetterDiscord themes are usually distributed: the file you install
+is a small stub, and the author updates the hosted stylesheet without anyone
+re-downloading. It works the same here. `@import` has to be the first rule in
+the file, after the header comment, or the browser ignores it. Only `https` is
+loaded; Antigravity's page is `https` and the browser refuses a plain `http`
+stylesheet inside it.
+
+**Settings → BetterGravity → Themes → Add from URL** writes such a stub for you
+from a pasted link.
+
+Two things to know. The hosted stylesheet can only be as available as its host,
+so a theme like this is blank while offline. And it can change at any time after
+you read it — which is what you want from an author you trust, and worth
+remembering about one you do not.
+
 ## Sharing a theme
 
 Share the `.css` however you like — installing one is dragging it onto the
-BetterGravity settings page.
+BetterGravity settings page. A folder theme is shared as a folder, or as a
+hosted stylesheet and a stub, whichever suits.
 
 To have it listed for everyone, submit it to
-[`community/themes/`](../community/themes) as a pull request. Submissions are
-reviewed and indexed into a catalog, so every listing has a readable diff behind
-it. The rules are in [the community README](../community/README.md), and
+[`community/themes/`](../community/themes) as a pull request, as a file or a
+folder. Submissions are reviewed and indexed into a catalog, so every listing
+has a readable diff behind it. A remote `@import` is allowed and is pointed out
+to the reviewer, since the review covers the stub and not what the link serves.
+The rules are in [the community README](../community/README.md), and
 `pnpm community:check` runs the same validation CI does.
 
 A complete example lives in

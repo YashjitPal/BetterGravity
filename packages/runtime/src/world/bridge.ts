@@ -5,6 +5,8 @@ import type {
   ContentResult,
   DirectoryKey,
   PluginStorageSnapshot,
+  PresenceActivity,
+  PresenceStatus,
   RuntimeState,
   SettingsPatch
 } from "../protocol.js";
@@ -21,12 +23,17 @@ export interface RuntimeBridge {
   readStorage(): Promise<PluginStorageSnapshot>;
   writeStorage(pluginId: string, key: string, value: unknown): void;
   importThemes(): Promise<ContentResult>;
+  importThemeFolder(): Promise<ContentResult>;
   importPlugin(): Promise<ContentResult>;
   installThemeText(fileName: string, css: string): Promise<ContentResult>;
   removeItem(kind: ContentKind, id: string, label: string): Promise<ContentResult>;
   revealItem(kind: ContentKind, id: string): Promise<ContentResult>;
   fetchCatalog(force: boolean): Promise<CatalogResult>;
   installFromCatalog(entry: CatalogEntry): Promise<ContentResult>;
+  presenceOpen(clientId: string): Promise<PresenceStatus>;
+  presenceUpdate(activity: PresenceActivity | undefined): Promise<PresenceStatus>;
+  presenceClose(): Promise<PresenceStatus>;
+  onPresenceStatus(listener: (status: PresenceStatus) => void): void;
   log(message: string): void;
   onStateChanged(listener: (state: RuntimeState) => void): void;
 }

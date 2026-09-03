@@ -12,6 +12,7 @@ const theme = (id: string, enabled: boolean, css = `/* ${id} */`): ThemeRecord =
   author: "test",
   version: "1.0.0",
   css,
+  folder: false,
   enabled
 });
 
