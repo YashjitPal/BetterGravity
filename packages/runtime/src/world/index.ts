@@ -2,6 +2,7 @@ import type { BetterGravityGlobal } from "@bettergravity/plugin-api";
 import type { RuntimeState } from "../protocol.js";
 import type { BetterGravityApi } from "./api.js";
 import { resolveBridge, type RuntimeBridge } from "./bridge.js";
+import { installNetworkHooks } from "./hooks/net.js";
 import { installNativeSettings } from "./settings/host.js";
 import { PluginHost } from "./plugins.js";
 
@@ -117,6 +118,10 @@ async function boot(bridge: RuntimeBridge, initial: RuntimeState): Promise<void>
   bridge.onStateChanged(apply);
   apply(initial);
 }
+
+// Before anything else, and before Antigravity's own scripts run. Plugins that
+// wrap page globals are only useful if the wrappers are in place first.
+installNetworkHooks();
 
 const bridge = resolveBridge();
 if (!bridge) {

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { CHANNEL, type DirectoryKey, type RuntimeState, type SettingsPatch } from "../protocol.js";
+import { CHANNEL, type ContentKind, type DirectoryKey, type RuntimeState, type SettingsPatch } from "../protocol.js";
 import { BRIDGE_GLOBAL, type RuntimeBridge } from "../world/bridge.js";
 import { applyThemes } from "./themes.js";
 
@@ -30,16 +30,33 @@ function whenDocumentReady(): Promise<void> {
 }
 
 /**
- * Plugins need Antigravity's own globals and live DOM objects, neither of which
- * survive the context bridge, so the plugin runtime is injected into the page's
- * world and talks back through the JSON-only bridge below.
+ * Injects the page-world runtime as early as the document allows.
+ *
+ * Timing is the whole point: plugins can wrap fetch, WebSocket, and other page
+ * globals, and anything the application does before this runs is missed. The
+ * preload is evaluated before the application's own scripts, so injecting here
+ * rather than on DOMContentLoaded is what makes those hooks worth having.
  */
 function injectWorldRuntime(): void {
-  const script = document.createElement("script");
-  script.setAttribute("data-bettergravity", "runtime");
-  script.textContent = __WORLD_SOURCE__;
-  (document.head ?? document.documentElement).appendChild(script);
-  script.remove();
+  const inject = (): boolean => {
+    const parent = document.documentElement ?? document.head;
+    if (!parent) return false;
+    const script = document.createElement("script");
+    script.setAttribute("data-bettergravity", "runtime");
+    script.textContent = __WORLD_SOURCE__;
+    parent.appendChild(script);
+    script.remove();
+    return true;
+  };
+
+  if (inject()) return;
+
+  // No document element yet; take the first chance the parser gives us.
+  const observer = new MutationObserver(() => {
+    if (inject()) observer.disconnect();
+  });
+  observer.observe(document, { childList: true, subtree: true });
+  document.addEventListener("readystatechange", () => void inject(), { once: true });
 }
 
 const stateListeners = new Set<(state: RuntimeState) => void>();
@@ -53,30 +70,26 @@ const bridge: RuntimeBridge = {
   importThemes: () => ipcRenderer.invoke(CHANNEL.importThemes),
   importPlugin: () => ipcRenderer.invoke(CHANNEL.importPlugin),
   installThemeText: (fileName, css) => ipcRenderer.invoke(CHANNEL.installThemeText, fileName, css),
-  removeItem: (kind, id, label) => ipcRenderer.invoke(CHANNEL.removeItem, kind, id, label),
-  revealItem: (kind, id) => ipcRenderer.invoke(CHANNEL.revealItem, kind, id),
+  removeItem: (kind: ContentKind, id, label) => ipcRenderer.invoke(CHANNEL.removeItem, kind, id, label),
+  revealItem: (kind: ContentKind, id) => ipcRenderer.invoke(CHANNEL.revealItem, kind, id),
   log: (message) => report(message),
   onStateChanged: (listener) => {
     stateListeners.add(listener);
   }
 };
 
-async function start(): Promise<void> {
+/**
+ * Themes are applied from the preload rather than the page world: they are
+ * plain CSS, so they keep working even if the plugin runtime fails to boot.
+ */
+async function applyThemesWhenReady(): Promise<void> {
   await whenDocumentReady();
+  const state = (await ipcRenderer.invoke(CHANNEL.getState).catch(() => undefined)) as RuntimeState | undefined;
+  if (!state) return;
 
-  const state = await ipcRenderer.invoke(CHANNEL.getState).catch(() => undefined);
-  document.documentElement.setAttribute("data-bettergravity", (state as RuntimeState | undefined)?.version ?? "unknown");
-
-  // Themes are applied from here rather than from the page world: they are plain
-  // CSS, so they keep working even if the plugin runtime fails to boot.
-  if (state) {
-    applyThemes((state as RuntimeState).themes);
-    for (const diagnostic of (state as RuntimeState).diagnostics) {
-      report(`diagnostic — ${diagnostic.source}: ${diagnostic.message}`);
-    }
-  }
-
-  injectWorldRuntime();
+  document.documentElement.setAttribute("data-bettergravity", state.version);
+  applyThemes(state.themes);
+  for (const diagnostic of state.diagnostics) report(`diagnostic — ${diagnostic.source}: ${diagnostic.message}`);
 }
 
 if (isTopFrame) {
@@ -97,5 +110,8 @@ if (isTopFrame) {
     }
   });
 
-  void start().catch((error: unknown) => report(`startup failed: ${error instanceof Error ? error.message : String(error)}`));
+  injectWorldRuntime();
+  void applyThemesWhenReady().catch((error: unknown) =>
+    report(`could not apply themes: ${error instanceof Error ? error.message : String(error)}`)
+  );
 }

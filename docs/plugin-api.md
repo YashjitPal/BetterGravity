@@ -112,6 +112,61 @@ plugin.dom.observe<E extends Element>(
 `observe` calls back for every current and future match, delivering each element
 exactly once. Both stop automatically when the plugin stops.
 
+### `plugin.patcher`
+
+Intercepts a method on any object you can reach. See
+[reaching into Antigravity](advanced.md#patching-functions).
+
+```ts
+plugin.patcher.before(target: object, method: string, hook: (context) => void): Unpatch;
+plugin.patcher.after(target: object, method: string, hook: (context) => unknown): Unpatch;
+plugin.patcher.instead(target: object, method: string, hook: (context, original) => unknown): Unpatch;
+```
+
+`context.args` is mutable, so a `before` hook changes what the original
+receives. Returning a value from an `after` hook replaces the result. Hooks run
+in registration order, a throwing hook is contained, and every patch is removed
+when the plugin stops.
+
+### `plugin.react`
+
+Reads Antigravity's React tree. Component names are mangled by its compiler, so
+search by props rather than by name.
+
+```ts
+plugin.react.getFiber(node: Element): ReactFiber | undefined;
+plugin.react.getProps(node: Element): Record<string, unknown> | undefined;
+plugin.react.findOwner(from, predicate, depth?): ReactFiber | undefined;
+plugin.react.findChild(from, predicate, depth?): ReactFiber | undefined;
+plugin.react.findAll(from, predicate, depth?): readonly ReactFiber[];
+plugin.react.hasProps(fiber, props): boolean;
+plugin.react.forceUpdate(fiber): boolean;
+plugin.react.getInstance(fiber): Record<string, unknown> | undefined;
+```
+
+`from` accepts a DOM element or a fiber. `findChild` searches breadth-first, so
+the nearest match wins. `depth` defaults to 30.
+
+### `plugin.net`
+
+Watches and rewrites what the page sends. Plugins start before Antigravity's own
+scripts, so this sees its traffic from the first request.
+
+```ts
+plugin.net.onFetch(middleware: FetchMiddleware): Unpatch;
+plugin.net.onWebSocket(handler: (event: { url: string; socket: WebSocket }) => void): Unpatch;
+plugin.net.onRequest(handler: (method: string, url: string) => void): Unpatch;
+
+type FetchMiddleware = (request: Request, next: (request: Request) => Promise<Response>) => Promise<Response>;
+```
+
+Call `next` to continue, or return your own `Response` to answer without
+touching the network. Middleware runs in registration order.
+
+Antigravity uses connect-rpc, so the service and method are in the URL path and
+are **not** minified. Bodies are protobuf. See
+[the language server, by name](advanced.md#the-language-server-by-name).
+
 ### `plugin.onDispose`
 
 ```ts

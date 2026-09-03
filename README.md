@@ -28,6 +28,7 @@ build step.
 | --- | --- |
 | **Themes** | One `.css` file. Save it and Antigravity restyles immediately — no build step, no reload. Around twenty design tokens recolour the entire app. |
 | **Plugins** | A folder with a manifest and a script. Persistent storage, declarative settings, scoped styles, and DOM helpers built for a UI that constantly re-renders. |
+| **Deeper hooks** | Patch Antigravity's own functions, read its React tree, and intercept its language-server traffic by RPC method name. See [reaching into Antigravity](docs/advanced.md). |
 | **Native settings** | BetterGravity appears in Antigravity's own settings sidebar, using Antigravity's own components — so it follows your theme automatically. |
 | **Survives updates** | Antigravity replaces its own program files when it updates, which removes BetterGravity. It is put back for you. |
 | **Fully reversible** | The original bundle is kept beside the patched one. Uninstall restores it byte for byte and keeps your content. |

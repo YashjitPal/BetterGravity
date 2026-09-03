@@ -102,6 +102,15 @@ Antigravity ships around a hundred `data-testid` attributes, which are far more
 stable than its Tailwind classes. The [theme guide](themes.md#target-components-by-test-id)
 lists the common ones.
 
+## Going further
+
+Styling and the DOM are the easy surface. Plugins can also intercept
+Antigravity's own functions, read its React tree, and watch what it sends to its
+language server — including targeting individual RPC methods by name.
+
+That is covered in [reaching into Antigravity](advanced.md), which also explains
+what is deliberately not possible and why.
+
 ## Settings
 
 Declare your options once and you get a typed, live view of them. Whatever you

@@ -224,9 +224,21 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
     if (screen.style.display !== "block") screen.style.display = "block";
   });
 
+  // The runtime is injected before the document is parsed, so there may be no
+  // body to observe yet.
+  const startObserving = () => {
+    observer.observe(document.body ?? document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class"]
+    });
+    inject();
+  };
+
   document.addEventListener("click", onClick, true);
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
-  inject();
+  if (document.body) startObserving();
+  else document.addEventListener("DOMContentLoaded", startObserving, { once: true });
 
   const openHostSettings = (): boolean => {
     const entry = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")]

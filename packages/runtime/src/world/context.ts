@@ -1,6 +1,9 @@
 import type { PluginContext, PluginSettingsSchema, PluginStorage } from "@bettergravity/plugin-api";
 import type { PluginRecord } from "../protocol.js";
 import { createDomUtilities } from "./dom.js";
+import { createNetworkTools } from "./hooks/net.js";
+import { createPatcher } from "./hooks/patcher.js";
+import { createReactTools } from "./hooks/react.js";
 
 export const PLUGIN_STYLE_ATTRIBUTE = "data-bettergravity-plugin-style";
 
@@ -121,13 +124,20 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
           const style = document.createElement("style");
           style.setAttribute(PLUGIN_STYLE_ATTRIBUTE, record.id);
           style.textContent = css;
-          document.head.appendChild(style);
+          // Plugins now start before the document is parsed, so head may not
+          // exist yet.
+          const attach = () => (document.head ?? document.documentElement)?.appendChild(style);
+          if (document.head ?? document.documentElement) attach();
+          else document.addEventListener("DOMContentLoaded", attach, { once: true });
           const remove = () => style.remove();
           track(remove);
           return remove;
         }
       },
       dom: createDomUtilities(track),
+      patcher: createPatcher(track),
+      react: createReactTools(),
+      net: createNetworkTools(track),
       onDispose: track
     },
     dispose: () => {

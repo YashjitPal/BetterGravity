@@ -23,6 +23,7 @@ const required = [
   "packages/theme-api/src/index.ts",
   "packages/marketplace/src/index.ts",
   "docs/README.md",
+  "docs/advanced.md",
   "docs/architecture.md",
   "docs/installation.md",
   "docs/installer.md",
