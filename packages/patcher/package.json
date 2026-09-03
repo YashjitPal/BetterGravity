@@ -16,7 +16,7 @@
     "@electron/asar": "^3.4.1"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^26.4.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
