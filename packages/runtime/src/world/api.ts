@@ -1,5 +1,5 @@
 import type { PluginSettingsSchema } from "@bettergravity/plugin-api";
-import type { DirectoryKey, RuntimeState, SettingsPatch } from "../protocol.js";
+import type { ContentKind, ContentResult, DirectoryKey, RuntimeState, SettingsPatch } from "../protocol.js";
 
 export interface PluginSummary {
   readonly id: string;
@@ -33,5 +33,13 @@ export interface BetterGravityApi {
     open(): void;
     close(): void;
     toggle(): void;
+  };
+  /** Adding and removing themes and plugins from the settings section. */
+  readonly content: {
+    addThemes(): Promise<ContentResult>;
+    addPlugin(): Promise<ContentResult>;
+    addThemeText(fileName: string, css: string): Promise<ContentResult>;
+    remove(kind: ContentKind, id: string, label: string): Promise<ContentResult>;
+    reveal(kind: ContentKind, id: string): Promise<ContentResult>;
   };
 }

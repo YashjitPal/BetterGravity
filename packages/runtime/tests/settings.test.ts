@@ -1,68 +1,353 @@
-import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../src/protocol.js";
-import { applyPatch, normalizeSettings } from "../src/main/settings.js";
+// @vitest-environment jsdom
 
-describe("normalizeSettings", () => {
-  it("falls back to defaults for anything unusable", () => {
-    for (const input of [undefined, null, 42, "settings", [], { themes: "nope" }]) {
-      expect(normalizeSettings(input)).toEqual(DEFAULT_SETTINGS);
-    }
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { installNativeSettings, type NativeSettings } from "../src/world/settings/host.js";
+import {
+  createFakeApi,
+  mountHostSettings,
+  pluginSummary,
+  runtimeState,
+  theme,
+  unmountHostSettings,
+  type FakeApi
+} from "./settings-fixture.js";
+
+let fake: FakeApi;
+let settings: NativeSettings;
+let reported: string[];
+
+const ours = () => document.getElementById("bettergravity-settings");
+const ourNav = () => document.querySelector<HTMLButtonElement>('[data-testid="settings-nav-item-BetterGravity"]');
+const hostNav = (name: string) => document.querySelector<HTMLButtonElement>(`[data-testid="settings-nav-item-${name}"]`);
+const hostScreen = (name: string) =>
+  [...document.querySelectorAll<HTMLElement>("div.grow.w-full > div")].find((div) => div.querySelector("h2")?.textContent === name);
+
+/** MutationObserver callbacks are queued rather than run inline. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const labelled = (label: string) => document.querySelector<HTMLElement>(`#bettergravity-settings [aria-label="${label}"]`);
+const sectionText = () => ours()?.textContent ?? "";
+const buttonLabelled = (label: string) =>
+  [...(ours()?.querySelectorAll("button") ?? [])].find((button) => button.textContent === label);
+
+beforeEach(() => {
+  document.body.innerHTML = "";
+  fake = createFakeApi();
+  reported = [];
+});
+
+afterEach(() => {
+  settings.destroy();
+  unmountHostSettings();
+});
+
+function install(): void {
+  settings = installNativeSettings(fake.api, (message) => reported.push(message));
+}
+
+describe("injection", () => {
+  it("does nothing while the dialog is closed", () => {
+    install();
+    expect(ourNav()).toBeNull();
+    expect(ours()).toBeNull();
   });
 
-  it("keeps developer mode off unless it is exactly true", () => {
-    for (const value of ["true", 1, "yes", {}, null]) {
-      expect(normalizeSettings({ plugins: { developerMode: value } }).plugins.developerMode).toBe(false);
-    }
-    expect(normalizeSettings({ plugins: { developerMode: true } }).plugins.developerMode).toBe(true);
+  it("adds itself once the dialog appears", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    expect(ourNav()).not.toBeNull();
+    expect(ours()).not.toBeNull();
   });
 
-  it("drops non-string and duplicate entries", () => {
-    const settings = normalizeSettings({ themes: { enabled: ["a.css", "a.css", 7, null, "b.css"] } });
-    expect(settings.themes.enabled).toEqual(["a.css", "b.css"]);
+  // The account entry lives in its own footer list; joining that one would put
+  // BetterGravity underneath the signed-in user.
+  it("joins the main nav list rather than the account footer", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    const siblings = [...(ourNav()?.parentElement?.children ?? [])].map((node) => node.getAttribute("data-testid"));
+    expect(siblings).toContain("settings-nav-item-General");
+    expect(siblings).not.toContain("settings-nav-item-Account");
   });
 
-  it("always reports the current schema version", () => {
-    expect(normalizeSettings({ schemaVersion: 99 }).schemaVersion).toBe(1);
+  it("adds itself again after the dialog is closed and reopened", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    unmountHostSettings();
+    await settle();
+    expect(ourNav()).toBeNull();
+
+    mountHostSettings();
+    await settle();
+    expect(ourNav()).not.toBeNull();
   });
 
-  // Opt-out, not opt-in: an Antigravity update otherwise removes BetterGravity
-  // silently, which reads as a crash rather than a choice.
-  it("keeps reapplying after host updates unless explicitly disabled", () => {
-    expect(normalizeSettings({}).reapplyAfterHostUpdate).toBe(true);
-    expect(normalizeSettings({ reapplyAfterHostUpdate: "no" }).reapplyAfterHostUpdate).toBe(true);
-    expect(normalizeSettings({ reapplyAfterHostUpdate: false }).reapplyAfterHostUpdate).toBe(false);
+  it("never adds itself twice", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+    document.body.append(document.createElement("span"));
+    await settle();
+
+    expect(document.querySelectorAll('[data-testid="settings-nav-item-BetterGravity"]')).toHaveLength(1);
+    expect(document.querySelectorAll("#bettergravity-settings")).toHaveLength(1);
+  });
+
+  it("takes everything with it on destroy", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    settings.destroy();
+
+    expect(ourNav()).toBeNull();
+    expect(ours()).toBeNull();
   });
 });
 
-describe("applyPatch", () => {
-  const current = normalizeSettings({
-    themes: { enabled: ["a.css"] },
-    plugins: { developerMode: true, enabled: ["one"] }
+describe("switching screens", () => {
+  beforeEach(async () => {
+    install();
+    mountHostSettings();
+    await settle();
   });
 
-  it("leaves untouched fields alone", () => {
-    expect(applyPatch(current, {})).toEqual(current);
+  it("shows the section and hides Antigravity's when selected", () => {
+    ourNav()?.click();
+
+    expect(ours()?.style.display).toBe("block");
+    expect(hostScreen("General")?.style.display).toBe("none");
+    expect(ourNav()?.className).toContain("bg-sidebar-secondary");
   });
 
-  it("replaces only the field provided", () => {
-    expect(applyPatch(current, { themes: { enabled: ["b.css"] } })).toMatchObject({
-      themes: { enabled: ["b.css"] },
-      plugins: { developerMode: true, enabled: ["one"] }
+  // Regression: hiding Antigravity's screens with inline styles left the one it
+  // already considered selected hidden, so returning to it showed a blank pane.
+  it("gives back the screen it hid when the user returns to it", () => {
+    ourNav()?.click();
+    expect(hostScreen("General")?.style.display).toBe("none");
+
+    hostNav("General")?.click();
+
+    expect(hostScreen("General")?.style.display).toBe("block");
+    expect(ours()?.style.display).toBe("none");
+    expect(ourNav()?.className).not.toContain("bg-sidebar-secondary");
+  });
+
+  it("steps aside for any of Antigravity's entries", () => {
+    ourNav()?.click();
+    hostNav("Appearance")?.click();
+    expect(ours()?.style.display).toBe("none");
+  });
+
+  it("can be selected again after leaving", () => {
+    ourNav()?.click();
+    hostNav("General")?.click();
+    ourNav()?.click();
+
+    expect(ours()?.style.display).toBe("block");
+    expect(hostScreen("General")?.style.display).toBe("none");
+  });
+
+  it("stays put when a re-render tries to show a screen underneath it", async () => {
+    ourNav()?.click();
+
+    // Stands in for React restoring its own selection during a re-render.
+    const general = hostScreen("General");
+    if (general) general.style.display = "block";
+    await settle();
+
+    expect(general?.style.display).toBe("none");
+    expect(ours()?.style.display).toBe("block");
+  });
+
+  it("close leaves Antigravity's own screen showing", () => {
+    ourNav()?.click();
+    settings.close();
+
+    expect(ours()?.style.display).toBe("none");
+    expect(hostScreen("General")?.style.display).toBe("block");
+  });
+});
+
+describe("themes", () => {
+  beforeEach(async () => {
+    install();
+    mountHostSettings();
+    await settle();
+  });
+
+  it("invites the user to add one when there are none", () => {
+    ourNav()?.click();
+    expect(sectionText()).toContain("No themes yet");
+
+    buttonLabelled("Add a theme")?.click();
+    expect(fake.calls).toContain("addThemes");
+  });
+
+  it("offers Add and Open folder beside the heading", () => {
+    ourNav()?.click();
+    expect(buttonLabelled("Add theme")).toBeDefined();
+    expect(buttonLabelled("Open folder")).toBeDefined();
+  });
+
+  it("lists each theme with a switch, a reveal, and a delete", () => {
+    fake.state = runtimeState({ themes: [theme("midnight.css", true)] });
+    ourNav()?.click();
+
+    expect(labelled("Enable midnight")?.getAttribute("aria-checked")).toBe("true");
+    labelled("Show midnight.css in Explorer")?.click();
+    labelled("Delete midnight")?.click();
+
+    expect(fake.calls).toEqual(["reveal:theme:midnight.css", "remove:theme:midnight.css"]);
+  });
+
+  it("turns one on through the settings patch", () => {
+    fake.state = runtimeState({ themes: [theme("dawn.css", false)] });
+    ourNav()?.click();
+    labelled("Enable dawn")?.click();
+    expect(fake.patches).toEqual([{ themes: { enabled: ["dawn.css"] } }]);
+  });
+
+  it("reports what happened, since the change lands out of view", async () => {
+    fake.nextResult = { ok: true, message: "Added 1 theme." };
+    ourNav()?.click();
+    buttonLabelled("Add theme")?.click();
+    await settle();
+
+    expect(sectionText()).toContain("Added 1 theme.");
+  });
+
+  it("says nothing when the user cancels the dialog", async () => {
+    fake.nextResult = { ok: false };
+    ourNav()?.click();
+    buttonLabelled("Add theme")?.click();
+    await settle();
+
+    expect(sectionText()).not.toContain("undefined");
+  });
+});
+
+describe("plugins", () => {
+  const withDeveloperMode = (summaries: readonly ReturnType<typeof pluginSummary>[]) => {
+    fake.state = runtimeState({
+      settings: {
+        schemaVersion: 1,
+        themes: { enabled: [] },
+        plugins: { developerMode: true, enabled: ["timer"] },
+        reapplyAfterHostUpdate: true
+      }
     });
+    fake.summaries = [...summaries];
+  };
+
+  beforeEach(async () => {
+    install();
+    mountHostSettings();
+    await settle();
   });
 
-  it("can turn developer mode back off", () => {
-    expect(applyPatch(current, { plugins: { developerMode: false } }).plugins.developerMode).toBe(false);
+  it("stays behind developer mode and says why", () => {
+    ourNav()?.click();
+    expect(sectionText()).toContain("credentials");
+    expect(labelled("Enable Session Timer")).toBeNull();
   });
 
-  it("normalises whatever the patch contains", () => {
-    const patched = applyPatch(current, { themes: { enabled: ["x.css", "x.css"] } });
-    expect(patched.themes.enabled).toEqual(["x.css"]);
+  it("offers no gear for a plugin that declares nothing", () => {
+    withDeveloperMode([pluginSummary()]);
+    ourNav()?.click();
+    expect(labelled("Show Session Timer options")).toBeNull();
   });
 
-  it("carries the reapply preference through unrelated changes", () => {
-    const off = applyPatch(current, { reapplyAfterHostUpdate: false });
-    expect(off.reapplyAfterHostUpdate).toBe(false);
-    expect(applyPatch(off, { themes: { enabled: [] } }).reapplyAfterHostUpdate).toBe(false);
+  // A plugin's options only exist once it has run and registered them.
+  it("offers no gear for a plugin that is not running", () => {
+    withDeveloperMode([pluginSummary({ running: false, schema: { compact: { type: "boolean", label: "Compact", default: false } } })]);
+    ourNav()?.click();
+    expect(labelled("Show Session Timer options")).toBeNull();
+  });
+
+  it("reveals the options under the plugin when the gear is pressed", () => {
+    withDeveloperMode([
+      pluginSummary({
+        schema: {
+          compact: { type: "boolean", label: "Compact", default: false },
+          corner: {
+            type: "select",
+            label: "Corner",
+            default: "bottom-right",
+            options: [
+              { value: "bottom-right", label: "Bottom right" },
+              { value: "top-right", label: "Top right" }
+            ]
+          }
+        }
+      })
+    ]);
+    ourNav()?.click();
+    expect(ours()?.querySelectorAll(".pl-6")).toHaveLength(0);
+
+    labelled("Show Session Timer options")?.click();
+
+    expect(ours()?.querySelectorAll(".pl-6")).toHaveLength(2);
+    expect(labelled("Hide Session Timer options")?.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("hides them again when the gear is pressed a second time", () => {
+    withDeveloperMode([pluginSummary({ schema: { compact: { type: "boolean", label: "Compact", default: false } } })]);
+    ourNav()?.click();
+    labelled("Show Session Timer options")?.click();
+    labelled("Hide Session Timer options")?.click();
+
+    expect(ours()?.querySelectorAll(".pl-6")).toHaveLength(0);
+  });
+
+  it("writes a changed option straight through to the plugin", () => {
+    withDeveloperMode([
+      pluginSummary({
+        schema: {
+          corner: {
+            type: "select",
+            label: "Corner",
+            default: "bottom-right",
+            options: [
+              { value: "bottom-right", label: "Bottom right" },
+              { value: "top-right", label: "Top right" }
+            ]
+          }
+        }
+      })
+    ]);
+    ourNav()?.click();
+    labelled("Show Session Timer options")?.click();
+
+    const select = ours()?.querySelector("select");
+    select!.value = "top-right";
+    select!.dispatchEvent(new Event("change"));
+
+    expect(fake.settingValues["corner"]).toBe("top-right");
+  });
+
+  it("keeps a plugin expanded across a re-render", () => {
+    withDeveloperMode([pluginSummary({ schema: { compact: { type: "boolean", label: "Compact", default: false } } })]);
+    ourNav()?.click();
+    labelled("Show Session Timer options")?.click();
+
+    settings.refresh();
+
+    expect(labelled("Hide Session Timer options")).not.toBeNull();
+  });
+
+  it("reveals and deletes a plugin by folder", () => {
+    withDeveloperMode([pluginSummary()]);
+    ourNav()?.click();
+
+    labelled("Show timer in Explorer")?.click();
+    labelled("Delete Session Timer")?.click();
+
+    expect(fake.calls).toEqual(["reveal:plugin:timer", "remove:plugin:timer"]);
   });
 });

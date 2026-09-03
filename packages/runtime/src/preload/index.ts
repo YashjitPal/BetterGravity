@@ -50,6 +50,11 @@ const bridge: RuntimeBridge = {
   openDirectory: (key: DirectoryKey) => ipcRenderer.invoke(CHANNEL.openDirectory, key),
   readStorage: () => ipcRenderer.invoke(CHANNEL.readStorage),
   writeStorage: (pluginId, key, value) => ipcRenderer.send(CHANNEL.writeStorage, pluginId, key, value),
+  importThemes: () => ipcRenderer.invoke(CHANNEL.importThemes),
+  importPlugin: () => ipcRenderer.invoke(CHANNEL.importPlugin),
+  installThemeText: (fileName, css) => ipcRenderer.invoke(CHANNEL.installThemeText, fileName, css),
+  removeItem: (kind, id, label) => ipcRenderer.invoke(CHANNEL.removeItem, kind, id, label),
+  revealItem: (kind, id) => ipcRenderer.invoke(CHANNEL.revealItem, kind, id),
   log: (message) => report(message),
   onStateChanged: (listener) => {
     stateListeners.add(listener);

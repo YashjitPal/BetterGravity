@@ -10,8 +10,22 @@ export const CHANNEL = {
   stateChanged: "bettergravity:state-changed",
   readStorage: "bettergravity:read-storage",
   writeStorage: "bettergravity:write-storage",
+  importThemes: "bettergravity:import-themes",
+  importPlugin: "bettergravity:import-plugin",
+  installThemeText: "bettergravity:install-theme-text",
+  removeItem: "bettergravity:remove-item",
+  revealItem: "bettergravity:reveal-item",
   log: "bettergravity:log"
 } as const;
+
+export type ContentKind = "theme" | "plugin";
+
+/** Outcome of adding or removing content, phrased for display. */
+export interface ContentResult {
+  readonly ok: boolean;
+  /** Absent when the user simply cancelled the dialog. */
+  readonly message?: string;
+}
 
 /** Persisted per-plugin key/value data, keyed by plugin id. */
 export type PluginStorageSnapshot = Readonly<Record<string, Readonly<Record<string, unknown>>>>;

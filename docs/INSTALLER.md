@@ -1,8 +1,8 @@
 # The installer
 
 The installer is a focused maintenance tool. It is not the marketplace, a plugin
-browser, or a settings application — those live inside Antigravity, behind
-`Ctrl+Shift+G`.
+browser, or a settings application — those live inside Antigravity, as a
+BetterGravity entry in its own settings dialog.
 
 ## What it offers, and when
 

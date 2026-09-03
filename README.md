@@ -10,13 +10,16 @@ bundle beside the patched one, and can put everything back exactly as it was.
 
 ## What you get
 
-- **Themes.** A theme is one `.css` file. Save it and Antigravity restyles
-  immediately — no build step, no reload.
+- **Themes.** A theme is one `.css` file. Add it from settings, or drag it onto
+  the page. Save the file and Antigravity restyles immediately — no build step,
+  no reload.
 - **Plugins.** A folder with a manifest and a script. Plugins get persistent
   storage, declarative settings, scoped styles, and DOM helpers built for a
   single-page app that constantly re-renders.
-- **A settings panel.** `Ctrl+Shift+G` inside Antigravity, to turn things on and
-  off and change plugin options.
+- **Settings where you expect them.** BetterGravity adds itself to Antigravity's
+  own settings dialog, as another entry in the sidebar, styled with Antigravity's
+  own components. Add a theme, flip a plugin on, or open a plugin's options from
+  the gear beside it. `Ctrl+Shift+G` jumps straight there.
 - **It survives updates.** Antigravity replaces its own program files when it
   updates, which removes BetterGravity. It gets put back automatically.
 
