@@ -34,7 +34,7 @@ contracts; nothing consumes them yet.
 
 Themes carry their metadata inside the `.css` file itself, in a leading comment,
 so a theme stays a single portable artifact. Plugins carry a `plugin.json`.
-Both formats are documented in [`AUTHORING.md`](AUTHORING.md).
+Both formats are documented in [themes](themes.md) and [plugins](plugins.md).
 
 ## Permissions
 

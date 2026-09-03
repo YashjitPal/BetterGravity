@@ -1,6 +1,9 @@
 node_modules/
 dist/
 dist-electron/
+*.tsbuildinfo
+*.tgz
+.pnpm-store/
 .vite/
 .playwright-cli/
 .electron-builder-cache/

@@ -20,10 +20,20 @@ const required = [
   "packages/plugin-api/src/index.ts",
   "packages/theme-api/src/index.ts",
   "packages/marketplace/src/index.ts",
-  "docs/ARCHITECTURE.md",
-  "docs/INSTALLER.md",
-  "docs/COMMUNITY.md",
-  "docs/AUTHORING.md"
+  "docs/README.md",
+  "docs/architecture.md",
+  "docs/installation.md",
+  "docs/installer.md",
+  "docs/marketplace.md",
+  "docs/plugin-api.md",
+  "docs/plugins.md",
+  "docs/roadmap.md",
+  "docs/themes.md",
+  "CHANGELOG.md",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  "LICENSE",
+  "SECURITY.md"
 ];
 
 const missing = required.filter((file) => !existsSync(file));

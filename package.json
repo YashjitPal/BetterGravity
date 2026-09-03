@@ -3,7 +3,7 @@
   "version": "0.1.3",
   "private": true,
   "description": "An open community modification platform for Google Antigravity.",
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "packageManager": "pnpm@10.27.0",
   "engines": {
     "node": ">=22"
@@ -19,7 +19,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:structure": "node scripts/verify-structure.mjs",
-    "check": "pnpm verify:structure && pnpm typecheck && pnpm build && pnpm test"
+    "verify:links": "node scripts/verify-links.mjs",
+    "verify": "pnpm verify:structure && pnpm verify:links",
+    "check": "pnpm verify && pnpm typecheck && pnpm build && pnpm test"
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",
