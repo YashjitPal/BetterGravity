@@ -3,12 +3,15 @@ import path from "node:path";
 import { BrowserWindow, app, ipcMain, session, shell } from "electron";
 import {
   CHANNEL,
+  type ContentKind,
+  type ContentResult,
   type DirectoryKey,
   type RuntimeContext,
   type RuntimeState,
   type SettingsPatch
 } from "../protocol.js";
 import { readPlugins, readThemes } from "./catalog.js";
+import { importPlugin, importThemes, installThemeText, removeItem, revealItem } from "./content.js";
 import { logger } from "./logger.js";
 import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, type RuntimePaths } from "./paths.js";
 import { applyPatch, readSettings, writeSettings } from "./settings.js";
@@ -87,6 +90,23 @@ function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage:
   });
 
   ipcMain.on(CHANNEL.log, (_event, message: string) => logger.info(`renderer: ${message}`));
+
+  // Adding or deleting content changes what is on disk, so each one answers with
+  // the rebuilt state; the watcher would otherwise race the reply.
+  const afterChange = (result: ContentResult): ContentResult => {
+    if (result.ok) broadcast(buildState(paths, context));
+    return result;
+  };
+
+  ipcMain.handle(CHANNEL.importThemes, async () => afterChange(await importThemes(paths)));
+  ipcMain.handle(CHANNEL.importPlugin, async () => afterChange(await importPlugin(paths)));
+  ipcMain.handle(CHANNEL.installThemeText, (_event, fileName: string, css: string) =>
+    afterChange(installThemeText(paths, fileName, css))
+  );
+  ipcMain.handle(CHANNEL.removeItem, async (_event, kind: ContentKind, id: string, label: string) =>
+    afterChange(await removeItem(paths, kind, id, label))
+  );
+  ipcMain.handle(CHANNEL.revealItem, (_event, kind: ContentKind, id: string) => revealItem(paths, kind, id));
 }
 
 /**

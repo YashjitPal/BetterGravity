@@ -68,7 +68,7 @@ export const states: Record<PatchState, StateCopy> = {
   patched: {
     eyebrow: "EVERYTHING LOOKS RIGHT",
     title: "BetterGravity is installed.",
-    description: "Open Antigravity and press Ctrl+Shift+G to manage your themes and plugins.",
+    description: "Open Antigravity, then find BetterGravity in Settings to add themes and plugins.",
     tone: "good"
   },
   "needs-repatch": {

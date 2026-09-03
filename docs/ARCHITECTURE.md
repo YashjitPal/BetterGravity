@@ -72,7 +72,7 @@ and registers the preload. It uses `session.registerPreloadScript`, which is
 JSON-only bridge and injects theme CSS. Themes live here rather than in the page
 world so they keep working even if the plugin runtime fails to boot.
 
-**Page world** (`src/world`) is the plugin host and the settings panel. Plugins
+**Page world** (`src/world`) is the plugin host and the settings section. Plugins
 need the page's own globals and live DOM nodes, and neither survives
 serialisation across a context bridge — so the host runs in the page instead,
 and only JSON crosses. Since a sandboxed preload also cannot read from disk, the
@@ -80,6 +80,23 @@ page-world bundle is inlined into the preload as a string at build time.
 
 Plugins are compiled with `new Function` rather than injected as script text, so
 their context is passed by reference instead of serialised into source.
+
+## Living inside Antigravity's settings
+
+BetterGravity appears as an entry in Antigravity's own settings dialog rather
+than as a window of its own. `src/world/settings` adds a nav item and a screen
+to the dialog and reuses Antigravity's Tailwind class strings verbatim, so the
+section inherits the app's theme, spacing, and hover behaviour — including when
+the user changes theme. Those class strings are collected in `native.ts`, which
+is the one file genuinely coupled to the host's markup.
+
+Two details make it hold together. The dialog is React-rendered, so both the nav
+item and the screen are re-added whenever it is rebuilt, and the section
+re-asserts itself if a re-render tries to show a native screen underneath it.
+And because Antigravity toggles its screens with inline `display`, the values it
+had are recorded before they are overwritten and restored on the way out —
+without that, the screen BetterGravity hid stays hidden when the user selects it
+again, because React will not rewrite a value it believes is already correct.
 
 ## Where things live
 

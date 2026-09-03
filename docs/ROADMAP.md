@@ -24,7 +24,8 @@ below reflects what unblocks what, not a schedule.
 - Themes as single `.css` files with live reload.
 - Plugins with storage, declarative settings, scoped styles, DOM helpers, and
   teardown, gated behind developer mode.
-- The settings panel, in a shadow root, on `Ctrl+Shift+G`.
+- Settings inside Antigravity's own dialog, using its components, with adding,
+  deleting, and per-plugin options behind a gear.
 - Content stored outside the installation so it survives host updates.
 - Automatic reapplication after Antigravity updates itself.
 

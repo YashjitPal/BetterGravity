@@ -1,4 +1,4 @@
-import type { DirectoryKey, PluginStorageSnapshot, RuntimeState, SettingsPatch } from "../protocol.js";
+import type { ContentKind, ContentResult, DirectoryKey, PluginStorageSnapshot, RuntimeState, SettingsPatch } from "../protocol.js";
 
 /**
  * The surface the preload exposes across the context bridge. Only JSON crosses
@@ -11,6 +11,11 @@ export interface RuntimeBridge {
   openDirectory(key: DirectoryKey): Promise<string>;
   readStorage(): Promise<PluginStorageSnapshot>;
   writeStorage(pluginId: string, key: string, value: unknown): void;
+  importThemes(): Promise<ContentResult>;
+  importPlugin(): Promise<ContentResult>;
+  installThemeText(fileName: string, css: string): Promise<ContentResult>;
+  removeItem(kind: ContentKind, id: string, label: string): Promise<ContentResult>;
+  revealItem(kind: ContentKind, id: string): Promise<ContentResult>;
   log(message: string): void;
   onStateChanged(listener: (state: RuntimeState) => void): void;
 }

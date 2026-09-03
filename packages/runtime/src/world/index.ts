@@ -2,7 +2,7 @@ import type { BetterGravityGlobal } from "@bettergravity/plugin-api";
 import type { RuntimeState } from "../protocol.js";
 import type { BetterGravityApi } from "./api.js";
 import { resolveBridge, type RuntimeBridge } from "./bridge.js";
-import { createPanel } from "./panel/index.js";
+import { installNativeSettings } from "./settings/host.js";
 import { PluginHost } from "./plugins.js";
 
 export type { BetterGravityApi, PluginSummary } from "./api.js";
@@ -58,14 +58,31 @@ async function boot(bridge: RuntimeBridge, initial: RuntimeState): Promise<void>
       setSetting: (pluginId, key, value) => host.get(pluginId)?.writeSetting(key, value)
     },
     panel: {
-      open: () => panel.open(),
-      close: () => panel.close(),
-      toggle: () => panel.toggle()
+      open: () => settings.open(),
+      close: () => settings.close(),
+      toggle: () => (settings.isOpen() ? settings.close() : settings.open())
+    },
+    content: {
+      addThemes: () => bridge.importThemes(),
+      addPlugin: () => bridge.importPlugin(),
+      addThemeText: (fileName, css) => bridge.installThemeText(fileName, css),
+      remove: (kind, id, label) => bridge.removeItem(kind, id, label),
+      reveal: (kind, id) => bridge.revealItem(kind, id)
     }
   };
 
   globalThis.BetterGravity = api;
-  const panel = createPanel(api);
+
+  const settings = installNativeSettings(api, (message) => bridge.log(message));
+
+  // A shortcut into Antigravity's own settings, on the BetterGravity section.
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (!event.ctrlKey || !event.shiftKey || event.key.toLowerCase() !== "g") return;
+    event.preventDefault();
+    event.stopPropagation();
+    api.panel.toggle();
+  };
+  window.addEventListener("keydown", onKeyDown, true);
 
   const apply = (state: RuntimeState) => {
     latest = state;
@@ -79,6 +96,7 @@ async function boot(bridge: RuntimeBridge, initial: RuntimeState): Promise<void>
     if (restarted.length > 0) bridge.log(`reloaded plugin(s): ${restarted.join(", ")}`);
     report("stopped", stopped);
     report("started", started);
+    settings.refresh();
     for (const listener of listeners) {
       try {
         listener(state);

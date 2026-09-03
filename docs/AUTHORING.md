@@ -13,8 +13,10 @@ survives uninstalling BetterGravity.
 └── runtime.log       what the runtime did, and anything that failed
 ```
 
-The settings panel has buttons that open the themes and plugins folders, which
-is usually quicker than typing the path.
+You rarely need to go there by hand. BetterGravity lives in Antigravity's own
+settings dialog — open **Settings** and pick **BetterGravity** — where you can
+add a theme or plugin, open either folder, and delete anything you no longer
+want. You can also drag a `.css` file straight onto that page to install it.
 
 Working examples of both live in [`examples/`](../examples).
 
@@ -121,8 +123,9 @@ Both clean themselves up automatically when the plugin is disabled.
 
 ### Settings
 
-Declare your options once and you get a typed, live view of them. The
-BetterGravity settings panel renders whatever you register here.
+Declare your options once and you get a typed, live view of them. Whatever you
+register appears behind the gear beside your plugin in Antigravity's settings,
+rendered with Antigravity's own controls.
 
 ```js
 const settings = plugin.settings.define({
