@@ -1,0 +1,34 @@
+name: Antigravity version not supported
+description: The installer refuses your Antigravity version
+title: "[Compat]: Antigravity "
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        BetterGravity refuses versions it has not been verified against rather
+        than patching hopefully. Tell us which one you have and it can be
+        checked.
+
+  - type: input
+    id: host-version
+    attributes:
+      label: Antigravity version
+      description: Shown by the installer, or in Antigravity's About panel.
+      placeholder: "3.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: install-path
+    attributes:
+      label: Where Antigravity is installed
+      description: The folder containing Antigravity.exe. Redact your username.
+      placeholder: "%LOCALAPPDATA%\\Programs\\Antigravity"
+
+  - type: textarea
+    id: message
+    attributes:
+      label: What the installer said
+    validations:
+      required: true

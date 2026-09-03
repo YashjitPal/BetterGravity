@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One pull request per ecosystem keeps review manageable on a small
+      # project, and these move together in practice anyway.
+      build-tooling:
+        patterns: ["vite", "esbuild", "typescript", "vitest", "@vitest/*"]
+      electron:
+        patterns: ["electron", "electron-builder", "@electron/*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

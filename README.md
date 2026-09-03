@@ -1,66 +1,126 @@
+<div align="center">
+
 # BetterGravity
 
-An open community modification layer for [Google Antigravity](https://antigravity.google).
-Themes and plugins, loaded from your own folder, with a settings panel inside
-Antigravity itself.
+**Themes and plugins for [Google Antigravity](https://antigravity.google).**
 
-BetterGravity is unofficial and not affiliated with Google. It ships none of
-Google's files: it patches an installation you already have, keeps the original
-bundle beside the patched one, and can put everything back exactly as it was.
+Settings that live inside Antigravity, not beside it. Drop in a `.css` file and
+the interface restyles instantly. Write a plugin in plain JavaScript with no
+build step.
 
-## What you get
+[![Checks](https://github.com/bettergravity/bettergravity/actions/workflows/ci.yml/badge.svg)](https://github.com/bettergravity/bettergravity/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Antigravity 2.x](https://img.shields.io/badge/Antigravity-2.x-FFC799)](https://antigravity.google)
+[![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D4)](docs/installation.md)
 
-- **Themes.** A theme is one `.css` file. Add it from settings, or drag it onto
-  the page. Save the file and Antigravity restyles immediately — no build step,
-  no reload.
-- **Plugins.** A folder with a manifest and a script. Plugins get persistent
-  storage, declarative settings, scoped styles, and DOM helpers built for a
-  single-page app that constantly re-renders.
-- **Settings where you expect them.** BetterGravity adds itself to Antigravity's
-  own settings dialog, as another entry in the sidebar, styled with Antigravity's
-  own components. Add a theme, flip a plugin on, or open a plugin's options from
-  the gear beside it. `Ctrl+Shift+G` jumps straight there.
-- **It survives updates.** Antigravity replaces its own program files when it
-  updates, which removes BetterGravity. It gets put back automatically.
+[Install](docs/installation.md) · [Make a theme](docs/themes.md) ·
+[Make a plugin](docs/plugins.md) · [How it works](docs/architecture.md)
 
-Writing your own is covered in [`docs/AUTHORING.md`](docs/AUTHORING.md), with
-working examples in [`examples/`](examples).
+<img src="docs/images/settings.png" alt="The BetterGravity section inside Antigravity's settings" width="720">
+
+</div>
+
+---
+
+## What it does
+
+|  | |
+| --- | --- |
+| **Themes** | One `.css` file. Save it and Antigravity restyles immediately — no build step, no reload. Around twenty design tokens recolour the entire app. |
+| **Plugins** | A folder with a manifest and a script. Persistent storage, declarative settings, scoped styles, and DOM helpers built for a UI that constantly re-renders. |
+| **Native settings** | BetterGravity appears in Antigravity's own settings sidebar, using Antigravity's own components — so it follows your theme automatically. |
+| **Survives updates** | Antigravity replaces its own program files when it updates, which removes BetterGravity. It is put back for you. |
+| **Fully reversible** | The original bundle is kept beside the patched one. Uninstall restores it byte for byte and keeps your content. |
+
+## Install
+
+Windows, Antigravity 2.x.
+
+Download the installer from [releases](https://github.com/bettergravity/bettergravity/releases),
+run it, press **Install**. Then open Antigravity and find **BetterGravity** in
+Settings.
+
+Full instructions and troubleshooting are in the
+[installation guide](docs/installation.md).
+
+## A theme in ten seconds
+
+```css
+/**
+ * @name Neon
+ * @author you
+ */
+
+:root {
+  --primary: #22d3ee !important;
+  --background: #16091f !important;
+}
+
+[data-testid="agent-input-box"] {
+  border: 2px solid #7c5cff !important;
+  border-radius: 18px !important;
+}
+```
+
+Drop it on the BetterGravity settings page, or put it in the themes folder.
+Switch it on.
+
+> `!important` matters: Antigravity applies its theme as inline custom
+> properties, so ordinary rules lose. The [theme guide](docs/themes.md) explains
+> what else is reachable, including how to replace the app's own animations.
+
+## A plugin in twenty
+
+```js
+plugin.log.info("started");
+
+const settings = plugin.settings.define({
+  greeting: { type: "string", label: "Greeting", default: "Hello" }
+});
+
+plugin.dom.observe('[data-testid="conversation-row-sidebar"]', (row) => {
+  row.title = settings.greeting;
+});
+```
+
+With a `plugin.json` beside it, that is a complete plugin. Turn on developer
+mode, switch it on, and editing the file reloads it live.
+
+Plain JavaScript gets full type checking and editor completion by copying one
+[`globals.d.ts`](examples/plugins/session-timer/globals.d.ts) — no TypeScript
+required. See [making a plugin](docs/plugins.md).
 
 ## How it works
 
-Antigravity is not a normal Electron app, and the difference shapes everything
-here. Its `app.asar` is a small launcher: it starts a native language server and
-points a window at `https://127.0.0.1:<port>`, so **the entire interface is a web
-app served over loopback**. There are no UI files on disk to patch.
+Antigravity is not a normal Electron app, and that shapes everything here. Its
+`app.asar` is a small launcher: it starts a native language server and points a
+window at `https://127.0.0.1:<port>`, so **the entire interface is a web app
+served over loopback**. There are no UI files on disk to patch.
 
-So BetterGravity injects at runtime instead:
+So BetterGravity injects at runtime instead. The installer swaps `app.asar` for
+a small bootstrap and keeps the original as `_app.asar`. The bootstrap restores
+Antigravity's identity, starts the BetterGravity runtime, and hands control to
+the original entry point. If anything in the runtime fails, it is caught and
+Antigravity starts exactly as it would without BetterGravity.
 
-1. The installer swaps `app.asar` for a small bootstrap and keeps the original as
-   `_app.asar`. The bootstrap restores Antigravity's identity, starts the
-   BetterGravity runtime, and then hands control to the original entry point.
-2. The runtime registers an *additional* preload, so Antigravity's own preload
-   and its APIs keep working untouched.
-3. Plugins run in the page's own world, where they can reach the DOM and the
-   application's globals.
+**Nothing you install can stop your editor from opening.**
 
-If anything in the runtime fails, the bootstrap catches it and Antigravity starts
-exactly as it would without BetterGravity. Nothing you install can stop your IDE
-from opening.
+[Architecture](docs/architecture.md) goes into detail.
 
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) goes into detail.
+## Safety
 
-## Installing
+The installer is privileged code that modifies an application on your machine.
+It keeps timestamped backups, verifies every step, refuses host versions it has
+not been tested against, and never deletes your content.
 
-Windows only for now, on Antigravity 2.x.
+Plugins are the opposite: untrusted code running in the same page as your source
+and credentials. **Plugin loading is off until you turn on developer mode**, and
+the settings page says exactly why. Themes are plain CSS and carry no such risk,
+so they load freely.
 
-Download the installer from the releases page, run it, and press **Install**. It
-finds Antigravity, backs up the original bundle, and patches it. **Uninstall** in
-the same window restores everything and keeps your themes and plugins.
+Found a vulnerability? See the [security policy](SECURITY.md).
 
-Your content lives in `%APPDATA%\BetterGravity`, outside Antigravity, so it
-survives updates, reinstalls, and removing BetterGravity entirely.
-
-## Repository map
+## Repository
 
 ```text
 apps/installer          The Windows installer: Electron shell and its UI
@@ -71,46 +131,32 @@ packages/theme-api      Theme metadata format
 packages/marketplace    Catalog contracts, not yet wired up
 packages/shared         Version constants and shared types
 examples/               A reference plugin and a reference theme
-docs/                   Architecture, authoring, installer, roadmap
+docs/                   Everything above, in detail
 ```
 
 ## Development
 
 Node.js 22+ and pnpm 10+.
 
-```text
+```bash
 pnpm install
-pnpm check          verify structure, typecheck, build, and test
-pnpm dev            the installer UI in a browser, against a safe preview patcher
+pnpm check     # verify structure, typecheck, build, and test
+pnpm dev       # the installer UI in a browser, against a safe preview patcher
 ```
 
-`pnpm dev` never touches Antigravity: in a plain browser the UI runs against a
-simulated patcher.
+`pnpm dev` never touches Antigravity. To work against a real installation, and
+for the DevTools-protocol harness used to develop the injected UI, see
+[contributing](CONTRIBUTING.md).
 
-To work against a real installation:
+## Status
 
-```text
-pnpm build
-pnpm patch install          patch the Antigravity on this machine
-pnpm patch uninstall        put it back
-node scripts/dev-inspect.mjs launch     start Antigravity with a debug port
-node scripts/dev-inspect.mjs shot ui.png
-```
-
-Build the portable executable with `pnpm build:installer`. It is written to
-`release-<version>/` and is unsigned until release signing is set up.
-
-## Safety
-
-The installer is privileged code that modifies an application on your machine.
-It keeps timestamped backups, verifies every step, refuses host versions it has
-not been tested against, and never deletes your content.
-
-Plugins are the opposite: untrusted code running in the same page as your source
-and credentials. **Plugin loading is off until you turn on developer mode**, and
-the panel says exactly why. Themes are plain CSS and carry no such risk, so they
-load freely.
+Windows only, Antigravity 2.x, and not code-signed yet. The marketplace does not
+exist — you install a theme or plugin by adding it yourself. See the
+[roadmap](docs/roadmap.md).
 
 ## Licence
 
-GPL-3.0-or-later.
+[MIT](LICENSE).
+
+BetterGravity is an unofficial community project. It is not affiliated with,
+endorsed by, or sponsored by Google, and it distributes none of Google's files.

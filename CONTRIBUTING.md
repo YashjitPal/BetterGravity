@@ -2,9 +2,13 @@
 
 Thanks for helping build an open community layer for Antigravity.
 
-Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first. Most of the design
+Read [the architecture guide](docs/architecture.md) first. Most of the design
 here follows from one fact about the host, and changes that ignore it tend not
 to work.
+
+Writing a theme or a plugin needs none of this — see
+[themes](docs/themes.md) and [plugins](docs/plugins.md) instead. This page is
+about changing BetterGravity itself.
 
 ## Getting set up
 
@@ -95,3 +99,8 @@ Google's files.
 
 A published plugin or theme should carry a manifest, an explicit licence, host
 compatibility information, and a link to readable source.
+
+## Licence
+
+By contributing, you agree that your contributions are licensed under the
+[MIT licence](LICENSE) that covers this project.
