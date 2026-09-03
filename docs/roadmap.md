@@ -29,6 +29,19 @@ below reflects what unblocks what, not a schedule.
 - Content stored outside the installation so it survives host updates.
 - Automatic reapplication after Antigravity updates itself.
 
+## 0.3.1 · Depth — done
+
+Antigravity is compiled with Closure Compiler and serves its interface over
+loopback, so none of the techniques a Vencord author would reach for transfer
+directly. These are the equivalents that do work here.
+
+- Function patching, React tree access by props, and network interception,
+  including the language server by RPC method name.
+- Source patches declared in `plugin.json`, anchored on string literals, for
+  code that runs before any plugin does.
+- Interface hooks: toasts, menu entries, toolbar buttons, dialogs, and a
+  plugin's own screen in Antigravity's settings.
+
 ## 0.4 · Community preview — next
 
 - A marketplace surface listing source-linked plugins and themes.

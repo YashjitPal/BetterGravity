@@ -22,9 +22,29 @@ All notable changes to this project are documented here. The format follows
   user content.
 - **Plugin capabilities:** persistent storage, declarative typed settings,
   scoped styles, `dom.waitFor` and `dom.observe`, and `onDispose` teardown.
+- **Hooks into Antigravity itself.** `plugin.patcher` intercepts a method on any
+  object a plugin can reach, in the `before`/`after`/`instead` shapes;
+  `plugin.react` reads the React tree by props, since Closure Compiler mangles
+  component names; and `plugin.net` sees and rewrites fetch, `XMLHttpRequest`,
+  and WebSocket traffic from the first request, which reaches the language
+  server by RPC method name because connect-rpc puts it in the URL path.
+- **Source patches.** A plugin can declare `patches` in `plugin.json` to rewrite
+  Antigravity's bundle on its way to the renderer, reaching code that runs
+  before any plugin does. Patches anchor on string literals, which the compiler
+  cannot mangle, and each carries a `find` guard so a patch is skipped and
+  reported rather than applied somewhere unintended when the host changes.
+- **Interface hooks.** `plugin.ui` adds toasts, entries in Antigravity's menus,
+  sidebar and title-bar buttons, dialogs, and a plugin's own screen in the app's
+  settings sidebar — all built from Antigravity's own class strings, so plugin
+  UI follows the user's theme. Registrations are undone when a plugin stops.
 - **Live reload** for both themes and plugins; editing a plugin restarts it.
 - **Theme metadata** read from a comment header, so a theme stays one file.
-- A test suite of 141 tests, run on Windows and Linux in CI, plus a job that
+- **A community submission path.** Themes and plugins are submitted to
+  `community/` as pull requests, validated by `pnpm community:check` in CI, and
+  built into a catalogue.
+- Two reference plugins: `session-timer` for the basics and `ui-showcase` for
+  every interface surface.
+- A test suite of 274 tests, run on Windows and Linux in CI, plus a job that
   builds the portable executable.
 
 ### Changed

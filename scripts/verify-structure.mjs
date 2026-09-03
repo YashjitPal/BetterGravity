@@ -27,6 +27,7 @@ const required = [
   "docs/architecture.md",
   "docs/installation.md",
   "docs/installer.md",
+  "docs/interface.md",
   "docs/marketplace.md",
   "docs/plugin-api.md",
   "docs/plugins.md",
