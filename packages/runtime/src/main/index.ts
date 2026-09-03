@@ -10,7 +10,7 @@ import {
   type RuntimeState,
   type SettingsPatch
 } from "../protocol.js";
-import { readPlugins, readThemes } from "./catalog.js";
+import { readPluginPatches, readPlugins, readThemes } from "./catalog.js";
 import { importPlugin, importThemes, installThemeText, removeItem, revealItem } from "./content.js";
 import { logger } from "./logger.js";
 import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, type RuntimePaths } from "./paths.js";
@@ -18,6 +18,7 @@ import { applyPatch, readSettings, writeSettings } from "./settings.js";
 import { attachPreload, relaxContentSecurityPolicy } from "./session.js";
 import { PluginStorageStore } from "./storage.js";
 import { spawnGuardian } from "./guardian.js";
+import { installSourceInterceptor } from "./intercept.js";
 
 const WATCH_DEBOUNCE_MS = 150;
 
@@ -150,8 +151,14 @@ export function activate(context: RuntimeContext): void {
         const preloadPath = path.join(__dirname, "preload.cjs");
         if (!fs.existsSync(preloadPath)) throw new Error(`The runtime preload is missing at ${preloadPath}.`);
         const target = session.defaultSession;
-        relaxContentSecurityPolicy(target);
-        const method = attachPreload(target, preloadPath);
+      relaxContentSecurityPolicy(target);
+      const method = attachPreload(target, preloadPath);
+
+      // Read before any window opens: the bundle has to be rewritten on its way
+      // to the renderer, so declarations must already be in hand.
+      const patches = readPluginPatches(paths.plugins, readSettings(paths.settings));
+      installSourceInterceptor(target, patches);
+
         watchForChanges(paths, () => broadcast(buildState(paths, context)));
         logger.info(`Runtime active. Preload registered via ${method}.`);
       } catch (error) {

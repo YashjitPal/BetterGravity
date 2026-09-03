@@ -29,6 +29,10 @@ Antigravity is different in both respects:
 So there is no `findByProps`, no `findStore`, and no patching the bundle by
 component name.
 
+You *can* still [rewrite the bundle before it runs](#rewriting-the-bundle-before-it-runs) —
+just anchored on string literals, which Closure cannot mangle, rather than on
+module or component names.
+
 ## What is possible
 
 Three footholds, in rough order of usefulness.
@@ -131,6 +135,62 @@ it when one exists.
 Props on host elements keep their real names, which is why this works at all.
 Props on Antigravity's own components are mangled like everything else, so
 expect to explore.
+
+### Rewriting the bundle before it runs
+
+This is the closest thing here to what Vencord does, and the only capability
+that cannot be expressed from inside the page: by the time your script runs,
+Antigravity's has already been parsed. So these patches are declared in
+`plugin.json`, read before the window opens, and applied to the bundle on its
+way to the renderer.
+
+```json
+{
+  "name": "No Analytics",
+  "description": "Renames a sidebar entry, as a demonstration.",
+  "version": "1.0.0",
+  "author": "you",
+  "main": "index.js",
+  "patches": [
+    {
+      "find": "id:\"openScheduledTasks\"",
+      "replace": [
+        { "match": "\"Scheduled Tasks\"", "with": "\"Later\"", "all": true }
+      ]
+    }
+  ]
+}
+```
+
+`find` is a literal that must appear in the file, and acts as a version guard.
+If Antigravity changes and the anchor is gone, the patch is skipped and reported
+rather than applied somewhere unintended. `match` is a regular expression, so
+capture groups and `$1` work; `all` replaces every occurrence instead of the
+first.
+
+Patches only run for **enabled plugins with developer mode on**, and the
+interceptor is not installed at all unless some plugin declares one.
+
+**Anchoring on strings is the whole technique.** Closure mangles identifiers but
+cannot touch string literals, so `"Scheduled Tasks"`, `data-testid` values, and
+RPC method names are what survive. Anchoring on anything else will not last.
+
+Failures are reported in the log and the **Problems** tab. A patch that matches
+nothing leaves the file untouched; a handler that throws serves Antigravity's
+own bundle unchanged. There is no failure mode where a bad patch stops the
+editor from opening.
+
+### When to use which
+
+| You want to | Use |
+| --- | --- |
+| Change what a request does | `plugin.net` |
+| Intercept a function you can reach | `plugin.patcher` |
+| Read or decorate rendered UI | `plugin.react` and `plugin.dom` |
+| Change code that runs before you do | a `patches` block |
+
+Reach for a source patch last. Everything else survives an Antigravity update
+far better.
 
 ## Putting it together
 

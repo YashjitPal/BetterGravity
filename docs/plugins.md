@@ -60,6 +60,7 @@ theme. Switching it off runs your cleanups.
 | `version` | Shown beside the author. |
 | `author` | Shown beside the version. |
 | `main` | Entry script. Defaults to `index.js`. |
+| `patches` | Optional. Rewrites Antigravity's own bundle before it runs — see [reaching into Antigravity](advanced.md#rewriting-the-bundle-before-it-runs). |
 
 The folder name is the plugin's id, so it must be unique. `main` is resolved
 relative to the folder and cannot point outside it.

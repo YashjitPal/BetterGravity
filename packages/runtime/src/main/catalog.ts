@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseThemeMetadata } from "@bettergravity/theme-api";
 import type { PluginRecord, RuntimeDiagnostic, RuntimeSettings, ThemeRecord } from "../protocol.js";
+import { readPatches, type PluginPatches } from "./source-patch.js";
 
 const MAX_THEME_BYTES = 2 * 1024 * 1024;
 const MAX_PLUGIN_BYTES = 4 * 1024 * 1024;
@@ -108,4 +109,29 @@ export function readPlugins(directory: string, settings: RuntimeSettings): Catal
   }
 
   return { entries: entries.sort((a, b) => a.name.localeCompare(b.name)), diagnostics };
+}
+
+/**
+ * Patch declarations, read straight from the manifests before any window opens.
+ *
+ * This runs earlier than everything else in the catalog: the application's
+ * bundle has to be rewritten on its way to the renderer, so the declarations
+ * must be in hand before the page starts loading. Only enabled plugins count,
+ * and only while developer mode is on.
+ */
+export function readPluginPatches(directory: string, settings: RuntimeSettings): readonly PluginPatches[] {
+  if (!settings.plugins.developerMode) return [];
+
+  const sets: PluginPatches[] = [];
+  for (const entry of listEntries(directory)) {
+    if (!entry.isDirectory() || !settings.plugins.enabled.includes(entry.name)) continue;
+    try {
+      const manifest: unknown = JSON.parse(fs.readFileSync(path.join(directory, entry.name, "plugin.json"), "utf8"));
+      const declared = readPatches(entry.name, manifest);
+      if (declared) sets.push(declared);
+    } catch {
+      // A manifest that cannot be read is reported by readPlugins instead.
+    }
+  }
+  return sets;
 }
