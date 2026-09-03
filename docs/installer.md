@@ -65,9 +65,13 @@ The runtime handles this by spawning a detached guardian before quitting, which
 waits for the application to close and reapplies the patch once the update has
 landed.
 
-This is on by default and can be turned off in the panel's General tab. With it
-off, the installer will report **Antigravity changed** the next time you open it,
-and Reapply puts things back.
+Antigravity relaunches itself once an update is installed, so the patch usually
+comes back the next time you close it rather than immediately. The guardian
+never closes the application to get there.
+
+This is on by default and can be turned off under **BetterGravity → Settings**.
+With it off, the installer will report **Antigravity changed** the next time you
+open it, and Reapply puts things back.
 
 ## Building it
 

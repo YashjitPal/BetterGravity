@@ -9,7 +9,8 @@ import type { HostClasses, IconName, IconPath } from "@bettergravity/plugin-api"
  *
  * This and `settings/native.ts` are the only parts of the runtime genuinely
  * coupled to the host's markup, which is why they are kept in one place each.
- * Captured from Antigravity 2.11.
+ * Captured from Antigravity 2.11 and re-checked against 2.12, which changed
+ * none of them.
  */
 export const CHROME = {
   /** The popup that holds `role="menuitem"` children. */

@@ -70,6 +70,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The update guardian never firing.** An update ends with Antigravity
+  relaunching itself, and the guardian stopped the moment it saw the application
+  running again, so it could only act if it won a race against the relaunch. On
+  a real 2.11 to 2.12 update it lost and left the installation unpatched. It now
+  distinguishes the two cases: coming back with the patch intact means there was
+  nothing to do, while coming back without it means the update landed, and the
+  guardian waits for the application to be closed before reapplying. It still
+  never closes anything itself.
 - **Bootstrap identity.** The patch declared itself as `bettergravity-bootstrap`,
   and Electron derives `app.getName()` from that. Antigravity builds both its
   userData path and its `antigravity://` protocol from the app name, so patching

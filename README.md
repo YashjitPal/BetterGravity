@@ -32,7 +32,7 @@ build step.
 | **Deeper hooks** | Patch Antigravity's own functions, read its React tree, intercept its language-server traffic by RPC method name, and rewrite its bundle before it runs. See [reaching into Antigravity](docs/advanced.md). |
 | **Native settings** | BetterGravity gets its own heading in Antigravity's settings sidebar — Settings, Plugins, and Themes — built from Antigravity's own components, so it follows your theme automatically. |
 | **Community catalogue** | The Themes and Plugins screens list what you have installed and, underneath, what the catalogue offers. Install and update in place; every file is checked against the hash recorded when it was reviewed. See [community content](docs/marketplace.md). |
-| **Survives updates** | Antigravity replaces its own program files when it updates, which removes BetterGravity. It is put back for you. |
+| **Survives updates** | Antigravity replaces its own program files when it updates, which removes BetterGravity. A detached guardian puts it back — the next time you close the app, since an update leaves Antigravity running and it will not close anything for you. |
 | **Fully reversible** | The original bundle is kept beside the patched one. Uninstall restores it byte for byte and keeps your content. |
 
 ## Install

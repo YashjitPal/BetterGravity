@@ -7,9 +7,10 @@ import { el } from "../el.js";
  * theme, spacing, and hover behaviour for free — including when the user changes
  * the Antigravity theme.
  *
- * These strings are copied from the rendered DOM of Antigravity 2.11. They are
- * the one part of BetterGravity genuinely coupled to the host's markup, so they
- * are kept together here rather than spread through the UI code.
+ * These strings are copied from the rendered DOM of Antigravity 2.11 and
+ * re-checked against 2.12, which changed none of them. They are the one part of
+ * BetterGravity genuinely coupled to the host's markup, so they are kept
+ * together here rather than spread through the UI code.
  */
 export const NATIVE = {
   navItem: "flex items-center gap-1.5 group mx-2 px-2 py-1 rounded-lg cursor-pointer border-none text-left transition-all outline-none",

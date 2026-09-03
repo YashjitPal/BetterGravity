@@ -129,8 +129,21 @@ The job therefore goes to a process that outlives the application. Before
 quitting, the runtime spawns a detached guardian (`repair.cjs`, run through the
 Electron binary in Node mode). It waits for Antigravity to exit, watches for the
 bundle to come back unpatched, and reapplies the patch — adopting the newer
-bundle as the original. It gives up rather than fighting a running application,
-and treats doing nothing as a perfectly good outcome.
+bundle as the original. It treats doing nothing as a perfectly good outcome.
+
+The awkward part is that **an update ends with Antigravity relaunching itself**.
+The guardian originally stopped as soon as it saw the application running again,
+on the reasoning that patching underneath a running editor would fight the user.
+That reasoning is right, but the stop condition was wrong: the relaunch is the
+normal end of an update, so the guardian could only ever act if it won a race
+against it. On a real 2.11 to 2.12 update it lost, logged "Antigravity started
+again", and left the installation unpatched.
+
+So the two cases are now separated. Antigravity coming back with the patch
+intact means nothing was waiting to be done, and the guardian stops. Coming back
+with the patch gone means the update landed, and the guardian keeps waiting —
+for hours if need be — for the user to close the application, then reapplies.
+It still never closes anything itself.
 
 Because the guardian *is* an `Antigravity.exe` process, process lookups take an
 exclusion list and always exclude the caller. Without that it would wait for
