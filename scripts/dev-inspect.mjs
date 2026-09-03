@@ -66,7 +66,7 @@ async function send(webSocketUrl, method, params = {}) {
         if (message.error) reject(new Error(message.error.message));
         else resolve(message.result);
       });
-      setTimeout(() => reject(new Error(`${method} timed out.`)), 30_000);
+      setTimeout(() => reject(new Error(`${method} timed out.`)), 120_000);
     });
 
     socket.send(JSON.stringify({ id, method, params }));

@@ -46,12 +46,84 @@ Every annotation is optional. Without a `@name`, the file name is used.
 Themes are pure styling. They cannot read files, reach the network, or observe
 what you type, which is why they load without any developer-mode gate.
 
-### One quirk worth knowing
+### How far a theme can actually reach
 
-Antigravity's UI does not render pseudo-elements on the `html` element. Use
-`body::before` or `body::after` instead. Everything else behaves normally.
+Further than you might expect. Antigravity's interface is plain DOM — no shadow
+roots, no canvas, no iframes — so CSS reaches every part of it: the sidebar, the
+prompt box, message bubbles, dialogs, menus.
 
-### Limits
+**Recolour everything at once.** Antigravity is built on about twenty design
+tokens. Override them and the whole app follows, including parts you have never
+seen:
+
+```css
+:root {
+  --primary: #22d3ee !important;
+  --background: #16091f !important;
+  --sidebar: #12071f !important;
+  --border: #4c1d95 !important;
+}
+```
+
+The tokens are `--background`, `--foreground`, `--primary`,
+`--primary-foreground`, `--secondary`, `--secondary-foreground`, `--muted`,
+`--muted-foreground`, `--border`, `--card`, `--card-border`, `--sidebar`,
+`--sidebar-secondary`, `--sidebar-muted`, `--placeholder`, `--link`, `--error`,
+`--warning`, `--success`, `--code-foreground`, `--focus-ring-color`, and
+`--max-conversation-width`.
+
+**`!important` is not optional here.** Antigravity applies its theme as inline
+custom properties on `<html>` — over four hundred of them — and an inline style
+beats any ordinary rule. Without `!important` your token overrides are silently
+ignored. This catches everyone once.
+
+**Target components by test id, not by class.** Antigravity is styled with
+Tailwind, so a class like `.text-sm` appears in hundreds of places. It also ships
+around a hundred `data-testid` attributes, which are specific and far more
+stable:
+
+```css
+[data-testid="agent-input-box"] {
+  border: 2px solid #7c5cff !important;
+  border-radius: 18px !important;
+}
+
+[data-testid="new-conversation-button"] {
+  background: linear-gradient(135deg, #7c5cff, #22d3ee) !important;
+}
+```
+
+Useful ones include `agent-input-box`, `send-button`, `model-selector-trigger`,
+`new-conversation-button`, `conversation-row-sidebar`, `conversation-kebab`,
+`conversation-list-sidebar`, `section-header`, and `title-menu-bar`. To find
+more, open the DevTools element picker and look for `data-testid`.
+
+**You can replace the app's animations.** Antigravity's animations are CSS
+keyframes, and redefining one in your theme wins, because the last definition
+in document order applies:
+
+```css
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+```
+
+Its keyframes are `fade-in`, `unread-ping`, `blobEntrance`, `parentFade`,
+`logoEntrance`, `textEntrance`, `spin`, and `pulse`.
+
+### What a theme cannot do
+
+A theme is styling, so it can change how something looks but not what it does.
+Reordering a list, adding a button, changing what a click does, or reacting to
+what the app is doing all need a plugin. Plugins can also inject their own CSS
+with `plugin.styles.add`, so a change that needs both is one plugin, not a
+plugin plus a theme.
+
+### Two quirks worth knowing
+
+Antigravity does not render pseudo-elements on the `html` element. Use
+`body::before` or `body::after` instead.
 
 A theme file above 2 MB is skipped, and the reason is written to `runtime.log`.
 
