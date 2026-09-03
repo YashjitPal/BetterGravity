@@ -5,7 +5,7 @@ Windows, Antigravity 2.x. Other platforms are not supported yet.
 ## Install
 
 1. Download `BetterGravity-Installer-<version>.exe` from the
-   [releases page](https://github.com/bettergravity/bettergravity/releases).
+   [releases page](https://github.com/YashjitPal/BetterGravity/releases).
 2. Run it. Windows SmartScreen will warn, because the build is not code-signed
    yet — choose **More info → Run anyway**.
 3. The installer finds Antigravity on its own. Press **Install**.
@@ -55,7 +55,7 @@ Use **Choose a different location** and pick the folder containing
 **It says the version has not been marked compatible.**
 BetterGravity is verified against Antigravity 2.x and refuses versions it has
 not been tested against rather than patching hopefully. Please
-[open an issue](https://github.com/bettergravity/bettergravity/issues) with your
+[open an issue](https://github.com/YashjitPal/BetterGravity/issues) with your
 Antigravity version.
 
 **Antigravity opens but BetterGravity is not in Settings.**

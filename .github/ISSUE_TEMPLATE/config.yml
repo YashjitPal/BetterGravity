@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question or idea
-    url: https://github.com/bettergravity/bettergravity/discussions
+    url: https://github.com/YashjitPal/BetterGravity/discussions
     about: Ask about themes, plugins, or how something works.
   - name: Security vulnerability
-    url: https://github.com/bettergravity/bettergravity/security/advisories/new
+    url: https://github.com/YashjitPal/BetterGravity/security/advisories/new
     about: Report privately. Please do not open a public issue.
   - name: Writing a theme or plugin
-    url: https://github.com/bettergravity/bettergravity/blob/main/docs/README.md
+    url: https://github.com/YashjitPal/BetterGravity/blob/main/docs/README.md
     about: Guides for themes, plugins, and the plugin API.

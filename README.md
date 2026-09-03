@@ -8,7 +8,7 @@ Settings that live inside Antigravity, not beside it. Drop in a `.css` file and
 the interface restyles instantly. Write a plugin in plain JavaScript with no
 build step.
 
-[![Checks](https://github.com/bettergravity/bettergravity/actions/workflows/ci.yml/badge.svg)](https://github.com/bettergravity/bettergravity/actions/workflows/ci.yml)
+[![Checks](https://github.com/YashjitPal/BetterGravity/actions/workflows/ci.yml/badge.svg)](https://github.com/YashjitPal/BetterGravity/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Antigravity 2.x](https://img.shields.io/badge/Antigravity-2.x-FFC799)](https://antigravity.google)
 [![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D4)](docs/installation.md)
@@ -36,7 +36,7 @@ build step.
 
 Windows, Antigravity 2.x.
 
-Download the installer from [releases](https://github.com/bettergravity/bettergravity/releases),
+Download the installer from [releases](https://github.com/YashjitPal/BetterGravity/releases),
 run it, press **Install**. Then open Antigravity and find **BetterGravity** in
 Settings.
 

@@ -55,7 +55,7 @@ an individual is officially representing the community in public spaces.
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour may be
 reported to the maintainers by opening a
-[private security advisory](https://github.com/bettergravity/bettergravity/security/advisories/new),
+[private security advisory](https://github.com/YashjitPal/BetterGravity/security/advisories/new),
 which is the private channel available on this repository today. All complaints
 will be reviewed and investigated promptly and fairly.
 

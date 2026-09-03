@@ -15,7 +15,7 @@ quickly; fixes land on `main` and go out in the next release.
 **Please do not open a public issue for an exploitable vulnerability.**
 
 Open a
-[private security advisory](https://github.com/bettergravity/bettergravity/security/advisories/new)
+[private security advisory](https://github.com/YashjitPal/BetterGravity/security/advisories/new)
 instead. That is the private channel available on this repository today.
 
 A useful report includes:
