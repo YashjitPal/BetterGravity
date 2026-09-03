@@ -1,7 +1,12 @@
 # Community content
 
 Themes and plugins submitted to this repository can be browsed and installed
-from inside Antigravity, under **Community** in its settings.
+from inside Antigravity, under **BetterGravity → Themes** and
+**BetterGravity → Plugins** in its settings.
+
+There is no separate store to visit. Each screen lists what you have installed
+and, underneath, what the catalogue offers that you do not — so finding
+something new is the same act as managing what you already have.
 
 ## How it works
 
@@ -17,22 +22,24 @@ somewhere else.
 
 ## When it reaches the network
 
-Only when you open the **Community** screen, and when you press **Refresh** or
-**Install** on it. There is no background polling, no update check on startup,
-and nothing sent the other way. An installation nobody browses makes no requests
-at all.
+Only when you open **Themes** or **Plugins**, and when you press **Refresh** or
+**Install** on either. There is no background polling, no update check on
+startup, and nothing sent the other way. An installation nobody browses makes no
+requests at all.
 
-Listings are cached for fifteen minutes so moving between screens is instant.
-**Refresh** ignores the cache.
+The two screens share one fetch, and listings are cached for fifteen minutes, so
+moving between them costs nothing. **Refresh** ignores the cache.
 
 ## Installing
 
 **Install** downloads the listing and writes it into your themes or plugins
 folder. It does not switch anything on: a theme changes how the app looks and a
-plugin runs real code, so both wait for you to enable them under **BetterGravity**.
+plugin runs real code, so both wait for you to switch them on in the list above.
 
-When a listing is already installed, the screen says so. When the catalog is
-ahead of what you have, it offers **Update** instead.
+Something you already have is not offered again under **Available**; it is in
+**Installed**, where you manage it. When the catalogue is ahead of what you
+have, the **Update** button appears on that row rather than as a second listing,
+because where you manage a thing is where you should be told a newer one exists.
 
 Updating a plugin assembles the new version beside the old one and swaps it in,
 so an update that fails partway through leaves the working version in place
@@ -71,9 +78,9 @@ plugin is safe. They get a reviewed catalogue and links to readable source.
 immediately, with no publishing step. That is what developer mode is for.
 
 A reviewed catalogue is what lets that gate become specific rather than
-all-or-nothing — but it is not there yet, which is why installing a plugin from
-the Community screen still leaves it switched off behind developer mode, and the
-screen says so before you install one.
+all-or-nothing — but it is not there yet, which is why installing a plugin still
+leaves it switched off behind developer mode, and the Plugins screen says so
+before you install one.
 
 ## Permissions
 

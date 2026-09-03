@@ -8,9 +8,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **Settings inside Antigravity.** BetterGravity appears as an entry in
-  Antigravity's own settings dialog, built from Antigravity's own components so
-  it follows the app's theme. `Ctrl+Shift+G` jumps straight to it.
+- **Settings inside Antigravity.** BetterGravity gets its own heading in
+  Antigravity's settings sidebar, alongside the app's own Settings, Projects,
+  and Not in Project groups, with Settings, Plugins, and Themes under it. Built
+  from Antigravity's own components so it follows the app's theme.
+  `Ctrl+Shift+G` jumps straight to it.
 - **Adding and removing content from settings.** Add a theme or plugin from the
   group headers, drag a `.css` file onto the page to install it, and reveal or
   delete anything from its row. Deleting asks first.
@@ -42,13 +44,15 @@ All notable changes to this project are documented here. The format follows
 - **A community submission path.** Themes and plugins are submitted to
   `community/` as pull requests, validated by `pnpm community:check` in CI, and
   built into a catalogue.
-- **A Community screen** in Antigravity's settings for browsing and installing
-  that catalogue, with search, in-place updates, and links to each listing's
-  source. The catalogue is read when the screen is opened and not before, so an
-  installation nobody browses makes no network requests. Every file carries a
-  SHA-256 in the catalogue and is checked on the way in; anything that does not
-  match is refused, as is any path that would land outside the folder it belongs
-  in. Installing never enables anything.
+- **Browsing and installing the catalogue** from the Themes and Plugins screens,
+  which list what you have installed and, underneath, what the catalogue offers
+  that you do not. Search, in-place updates on the row of the thing they update,
+  and links to each listing's source. The catalogue is read when one of those
+  screens is opened and not before, so an installation nobody browses makes no
+  network requests. Every file carries a SHA-256 in the catalogue and is checked
+  on the way in; anything that does not match is refused, as is any path that
+  would land outside the folder it belongs in. Installing never enables
+  anything.
 - Two reference plugins: `session-timer` for the basics and `ui-showcase` for
   every interface surface.
 - A test suite of 330 tests, run on Windows and Linux in CI, plus a job that

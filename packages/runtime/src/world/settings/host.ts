@@ -1,9 +1,9 @@
 import type { BetterGravityApi } from "../api.js";
 import { el } from "../el.js";
 import { listSections, onSectionRefresh, onSectionsChanged } from "../ui/sections-registry.js";
-import { createCommunityPanel } from "./community.js";
-import { NATIVE, NAV_ATTRIBUTE, navButton } from "./native.js";
-import { buildSettingsScreen } from "./sections.js";
+import { createCatalogStore } from "./catalog-store.js";
+import { NATIVE, NAV_ATTRIBUTE, navButton, navGroup } from "./native.js";
+import { buildPluginsScreen, buildSettingsScreen, buildThemesScreen, type SectionCallbacks } from "./sections.js";
 
 const SELECTOR = {
   modal: ".settings-modal-container",
@@ -12,16 +12,20 @@ const SELECTOR = {
 } as const;
 
 const SCREEN_ATTRIBUTE = "data-bettergravity-screen";
-const BUILT_IN = "BetterGravity";
-const COMMUNITY = "Community";
+const GROUP_ATTRIBUTE = "data-bettergravity-nav-group";
+const GROUP_LIST_ATTRIBUTE = "data-bettergravity-nav-list";
+
+/** The heading these sit under, and the ids of the three built-in screens. */
+const HEADING = "BetterGravity";
+const PANEL = { settings: "Settings", plugins: "Plugins", themes: "Themes" } as const;
 const BUILT_IN_SCREEN_ID = "bettergravity-settings";
 
 export interface NativeSettings {
-  /** Rebuilds the section in place if it is currently showing. */
+  /** Rebuilds the screen in place if one of ours is showing. */
   refresh(): void;
-  /** Opens Antigravity's settings with the BetterGravity section selected. */
+  /** Opens Antigravity's settings on BetterGravity's own screen. */
   open(): void;
-  /** Leaves the BetterGravity section without closing Antigravity's settings. */
+  /** Leaves our screen without closing Antigravity's settings. */
   close(): void;
   isOpen(): boolean;
   /** Rebuilds a plugin's section if it is the one on screen. */
@@ -31,7 +35,7 @@ export interface NativeSettings {
 
 /**
  * One entry in the settings sidebar that BetterGravity owns, whether that is
- * BetterGravity's own screen or one contributed by a plugin.
+ * one of its own screens or one contributed by a plugin.
  */
 interface Panel {
   readonly id: string;
@@ -41,12 +45,16 @@ interface Panel {
   screen: HTMLElement | undefined;
 }
 
-/** The list holding the most nav items is the main one, not the account footer. */
+/**
+ * The list holding the most nav items is Antigravity's main one, rather than
+ * the account footer or one of the smaller project groups. Our own group is
+ * skipped so it cannot be mistaken for the host's once it grows.
+ */
 function findNavList(modal: Element): Element | undefined {
   const byParent = new Map<Element, number>();
   for (const item of modal.querySelectorAll(SELECTOR.navItem)) {
     const parent = item.parentElement;
-    if (!parent) continue;
+    if (!parent || parent.closest(`[${GROUP_ATTRIBUTE}]`)) continue;
     byParent.set(parent, (byParent.get(parent) ?? 0) + 1);
   }
   let best: Element | undefined;
@@ -67,16 +75,18 @@ function nativeScreens(container: Element): readonly HTMLElement[] {
 }
 
 /**
- * Puts BetterGravity into Antigravity's own settings dialog, as another entry in
- * its sidebar rather than a separate window.
+ * Puts BetterGravity into Antigravity's own settings dialog, as a group in its
+ * sidebar rather than a separate window.
  *
- * Antigravity's settings are React-rendered, so both the nav entry and the
- * screen are re-added whenever the dialog is rebuilt, and the section re-asserts
- * itself if a re-render tries to show a native screen underneath it.
+ * Antigravity groups its sidebar under small headings — Settings, Projects, Not
+ * in Project — so BetterGravity adds one of its own with Settings, Plugins, and
+ * Themes under it. Its settings are React-rendered, so the group and the screens
+ * are re-added whenever the dialog is rebuilt, and the active screen re-asserts
+ * itself if a re-render tries to show a native one underneath it.
  *
- * Plugins can add sidebar entries of their own. They go through this host too,
- * because hiding the app's screens and putting them back is a single-owner job:
- * two independent injectors would each restore what the other hid.
+ * Plugins can add entries of their own. They go through this host too, because
+ * hiding the app's screens and putting them back is a single-owner job: two
+ * independent injectors would each restore what the other hid.
  */
 export function installNativeSettings(api: BetterGravityApi, report: (message: string) => void): NativeSettings {
   /** Which of our panels is showing, if any. */
@@ -105,51 +115,62 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
   let noticeTimer: number | undefined;
   /** Which plugins have their options revealed. Survives a re-render. */
   const expanded = new Set<string>();
+  /** Search text per screen, so switching screens does not carry a filter over. */
+  const queries = new Map<string, string>();
 
-  const callbacks = {
-    refresh: () => renderActive(),
-    notify: (message: string) => {
-      notice = message;
-      window.clearTimeout(noticeTimer);
-      noticeTimer = window.setTimeout(() => {
-        notice = undefined;
-        renderActive();
-      }, 6000);
+  const notify = (message: string): void => {
+    notice = message;
+    window.clearTimeout(noticeTimer);
+    noticeTimer = window.setTimeout(() => {
+      notice = undefined;
       renderActive();
-    },
-    isExpanded: (pluginId: string) => expanded.has(pluginId),
-    toggleExpanded: (pluginId: string) => {
+    }, 6000);
+    renderActive();
+  };
+
+  const catalog = createCatalogStore(api, { changed: () => renderActive(), notify });
+
+  const callbacksFor = (panelId: string): SectionCallbacks => ({
+    refresh: () => renderActive(),
+    notify,
+    isExpanded: (pluginId) => expanded.has(pluginId),
+    toggleExpanded: (pluginId) => {
       if (!expanded.delete(pluginId)) expanded.add(pluginId);
       renderActive();
-    }
-  };
+    },
+    query: queries.get(panelId) ?? "",
+    setQuery: (value) => {
+      queries.set(panelId, value);
+      renderActive();
+      // Redrawing replaces the field, so the caret has to be put back.
+      const replacement = find(panelId)?.screen?.querySelector<HTMLInputElement>('input[type="search"]');
+      replacement?.focus();
+      replacement?.setSelectionRange(replacement.value.length, replacement.value.length);
+    },
+    catalog
+  });
 
-  const builtIn: Panel = {
-    id: BUILT_IN,
-    label: BUILT_IN,
-    render: (container) => container.replaceChildren(buildSettingsScreen(api, callbacks, notice)),
+  const panel = (id: string, build: (api: BetterGravityApi, callbacks: SectionCallbacks, notice?: string) => HTMLElement): Panel => ({
+    id,
+    label: id,
+    render: (container) => container.replaceChildren(build(api, callbacksFor(id), notice)),
     navEntry: undefined,
     screen: undefined
-  };
+  });
 
-  // Browsing is a screen of its own rather than another group on the one above:
-  // it is a list of things you do not have, next to a list of things you do.
-  const community = createCommunityPanel(api);
-  const communityPanel: Panel = {
-    id: COMMUNITY,
-    label: COMMUNITY,
-    render: (container) => community.render(container),
-    navEntry: undefined,
-    screen: undefined
-  };
+  const own: readonly Panel[] = [
+    panel(PANEL.settings, buildSettingsScreen),
+    panel(PANEL.plugins, buildPluginsScreen),
+    panel(PANEL.themes, buildThemesScreen)
+  ];
 
   /** Keeps each contributed panel's DOM across re-registrations. */
   const extra = new Map<string, Panel>();
 
   /**
-   * BetterGravity's own screen first, then whatever plugins have registered.
-   * Reconciles against the registry on the way, so a section that has been
-   * unregistered takes its sidebar entry and screen with it.
+   * Our own screens first, then whatever plugins have registered. Reconciles
+   * against the registry on the way, so a section that has been unregistered
+   * takes its sidebar entry and screen with it.
    */
   const panels = (): readonly Panel[] => {
     const contributed: Panel[] = [];
@@ -164,21 +185,21 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
         contributed.push(existing);
         continue;
       }
-      const panel: Panel = {
+      const added: Panel = {
         id: section.id,
         label: section.label,
         render: section.render,
         navEntry: undefined,
         screen: undefined
       };
-      extra.set(section.id, panel);
-      contributed.push(panel);
+      extra.set(section.id, added);
+      contributed.push(added);
     }
 
-    for (const [id, panel] of extra) {
+    for (const [id, entry] of extra) {
       if (live.has(id)) continue;
-      panel.navEntry?.remove();
-      panel.screen?.remove();
+      entry.navEntry?.remove();
+      entry.screen?.remove();
       extra.delete(id);
       if (activeId === id) {
         activeId = undefined;
@@ -186,18 +207,18 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
       }
     }
 
-    return [builtIn, communityPanel, ...contributed];
+    return [...own, ...contributed];
   };
 
-  const find = (id: string): Panel | undefined => panels().find((panel) => panel.id === id);
+  const find = (id: string): Panel | undefined => panels().find((entry) => entry.id === id);
 
   const renderActive = (): void => {
-    const panel = activeId === undefined ? undefined : find(activeId);
-    if (!panel?.screen) return;
+    const active = activeId === undefined ? undefined : find(activeId);
+    if (!active?.screen) return;
     try {
-      panel.render(panel.screen);
+      active.render(active.screen);
     } catch (error) {
-      report(`${panel.id}: rendering its settings section threw: ${String(error)}`);
+      report(`${active.id}: rendering its settings section threw: ${String(error)}`);
     }
   };
 
@@ -224,39 +245,39 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
       const files = [...(event.dataTransfer?.files ?? [])];
       const stylesheets = files.filter((file) => file.name.toLowerCase().endsWith(".css"));
       if (stylesheets.length === 0) {
-        callbacks.notify(files.length > 0 ? "Only .css files can be dropped here." : "Nothing to add.");
+        notify(files.length > 0 ? "Only .css files can be dropped here." : "Nothing to add.");
         return;
       }
 
       void Promise.all(stylesheets.map(async (file) => api.content.addThemeText(file.name, await file.text()))).then(
         (results) => {
           const failure = results.find((result) => !result.ok);
-          callbacks.notify(failure?.message ?? `Added ${results.length} theme${results.length === 1 ? "" : "s"}.`);
+          notify(failure?.message ?? `Added ${results.length} theme${results.length === 1 ? "" : "s"}.`);
         }
       );
     });
   };
 
-  const setNavState = (panel: Panel, isActive: boolean): void => {
-    const entry = panel.navEntry;
-    if (!entry) return;
-    entry.className = `${NATIVE.navItem} ${isActive ? NATIVE.navItemActive : NATIVE.navItemIdle}`;
-    const label = entry.firstElementChild;
+  const setNavState = (entry: Panel, isActive: boolean): void => {
+    const button = entry.navEntry;
+    if (!button) return;
+    button.className = `${NATIVE.navItem} ${isActive ? NATIVE.navItemActive : NATIVE.navItemIdle}`;
+    const label = button.firstElementChild;
     if (label) label.className = `${NATIVE.navLabel} ${isActive ? NATIVE.navLabelActive : NATIVE.navLabelIdle}`;
   };
 
   const activate = (id: string): void => {
     const all = panels();
-    const target = all.find((panel) => panel.id === id);
+    const target = all.find((entry) => entry.id === id);
     const modal = document.querySelector(SELECTOR.modal);
     const container = modal?.querySelector(SELECTOR.screens);
     if (!target?.screen || !container) return;
 
     for (const native of nativeScreens(container)) hideNative(native);
-    for (const panel of all) {
-      const isTarget = panel.id === id;
-      if (panel.screen) panel.screen.style.display = isTarget ? "block" : "none";
-      setNavState(panel, isTarget);
+    for (const entry of all) {
+      const isTarget = entry.id === id;
+      if (entry.screen) entry.screen.style.display = isTarget ? "block" : "none";
+      setNavState(entry, isTarget);
     }
 
     activeId = id;
@@ -266,57 +287,69 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
   const deactivate = (): void => {
     if (activeId === undefined) return;
     activeId = undefined;
-    for (const panel of panels()) {
-      if (panel.screen) panel.screen.style.display = "none";
-      setNavState(panel, false);
+    for (const entry of panels()) {
+      if (entry.screen) entry.screen.style.display = "none";
+      setNavState(entry, false);
     }
     restoreNative();
+  };
+
+  /** The heading and list our entries live in, created once per dialog. */
+  const ensureGroup = (modal: Element): HTMLElement | undefined => {
+    const existing = modal.querySelector<HTMLElement>(`[${GROUP_LIST_ATTRIBUTE}]`);
+    if (existing) return existing;
+
+    const hostList = findNavList(modal);
+    if (!hostList) return undefined;
+
+    const group = navGroup(HEADING);
+    group.element.setAttribute(GROUP_ATTRIBUTE, "");
+    group.list.setAttribute(GROUP_LIST_ATTRIBUTE, "");
+    // Directly after Antigravity's own settings entries, before its projects.
+    hostList.after(group.element);
+    return group.list;
   };
 
   const inject = (): void => {
     const modal = document.querySelector(SELECTOR.modal);
     if (!modal) {
       // The dialog is closed; anything we added went with it.
-      builtIn.navEntry = undefined;
-      builtIn.screen = undefined;
-      communityPanel.navEntry = undefined;
-      communityPanel.screen = undefined;
-      for (const panel of extra.values()) {
-        panel.navEntry = undefined;
-        panel.screen = undefined;
+      for (const entry of [...own, ...extra.values()]) {
+        entry.navEntry = undefined;
+        entry.screen = undefined;
       }
       activeId = undefined;
       hiddenScreens.clear();
       return;
     }
 
-    const navList = findNavList(modal);
+    const list = ensureGroup(modal);
     const container = modal.querySelector(SELECTOR.screens);
-    if (!navList || !container) return;
+    if (!list || !container) return;
 
-    for (const panel of panels()) {
-      if (!navList.querySelector(`[${NAV_ATTRIBUTE}="${CSS.escape(panel.id)}"]`)) {
-        panel.navEntry = navButton(panel.id, panel.label, activeId === panel.id, () => activate(panel.id));
-        navList.append(panel.navEntry);
+    for (const entry of panels()) {
+      if (!list.querySelector(`[${NAV_ATTRIBUTE}="${CSS.escape(entry.id)}"]`)) {
+        entry.navEntry = navButton(entry.id, entry.label, activeId === entry.id, () => activate(entry.id));
+        list.append(entry.navEntry);
       }
 
-      if (!container.querySelector(`[${SCREEN_ATTRIBUTE}="${CSS.escape(panel.id)}"]`)) {
+      if (!container.querySelector(`[${SCREEN_ATTRIBUTE}="${CSS.escape(entry.id)}"]`)) {
         // Deliberately imposes no height. Antigravity's own screen wrappers
         // carry no classes at all, and letting this one size to its content is
         // what keeps scrolling on the dialog's outer container, where the
         // scrollbar has a reserved gutter. Constraining it here makes the inner
         // pane scroll instead, which insets the scrollbar by that gutter's width.
         const screen = el("div", {
-          [SCREEN_ATTRIBUTE]: panel.id,
+          [SCREEN_ATTRIBUTE]: entry.id,
           // A stable handle for themes that want to restyle the section.
-          id: panel.id === BUILT_IN ? BUILT_IN_SCREEN_ID : undefined,
+          id: entry.id === PANEL.settings ? BUILT_IN_SCREEN_ID : undefined,
           class: "rounded-lg transition-shadow"
         });
-        screen.style.display = activeId === panel.id ? "block" : "none";
-        if (panel.id === BUILT_IN) acceptDrop(screen);
-        panel.screen = screen;
+        screen.style.display = activeId === entry.id ? "block" : "none";
+        if (entry.id === PANEL.themes) acceptDrop(screen);
+        entry.screen = screen;
         container.append(screen);
-        if (activeId === panel.id) renderActive();
+        if (activeId === entry.id) renderActive();
       }
     }
   };
@@ -334,15 +367,15 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
   const observer = new MutationObserver(() => {
     inject();
     if (activeId === undefined) return;
-    const panel = find(activeId);
-    const container = panel?.screen?.parentElement;
-    if (!panel?.screen || !container) return;
+    const active = find(activeId);
+    const container = active?.screen?.parentElement;
+    if (!active?.screen || !container) return;
 
     // A re-render can restore a native screen underneath ours; put it back.
     for (const native of nativeScreens(container)) {
       if (native.style.display !== "none") hideNative(native);
     }
-    if (panel.screen.style.display !== "block") panel.screen.style.display = "block";
+    if (active.screen.style.display !== "block") active.screen.style.display = "block";
   });
 
   // Registering or removing a plugin section while the dialog is open should
@@ -378,16 +411,14 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
   };
 
   return {
-    refresh: () => {
-      if (activeId === BUILT_IN) renderActive();
-    },
+    refresh: () => renderActive(),
     refreshSection: (id) => {
       if (activeId === id) renderActive();
     },
     open: () => {
       if (document.querySelector(SELECTOR.modal)) {
         inject();
-        activate(BUILT_IN);
+        activate(PANEL.settings);
         return;
       }
       if (!openHostSettings()) {
@@ -397,23 +428,24 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
       // The dialog mounts asynchronously.
       window.setTimeout(() => {
         inject();
-        activate(BUILT_IN);
+        activate(PANEL.settings);
       }, 400);
     },
     // Hands the dialog back to whichever screen Antigravity had selected.
     close: deactivate,
-    isOpen: () => activeId === BUILT_IN,
+    isOpen: () => activeId !== undefined,
     destroy: () => {
       document.removeEventListener("click", onClick, true);
       stopWatchingSections();
       stopWatchingRefreshes();
       observer.disconnect();
-      for (const panel of [builtIn, communityPanel, ...extra.values()]) {
-        panel.screen?.remove();
-        panel.navEntry?.remove();
-        panel.screen = undefined;
-        panel.navEntry = undefined;
+      for (const entry of [...own, ...extra.values()]) {
+        entry.screen?.remove();
+        entry.navEntry?.remove();
+        entry.screen = undefined;
+        entry.navEntry = undefined;
       }
+      document.querySelector(`[${GROUP_ATTRIBUTE}]`)?.remove();
       extra.clear();
       activeId = undefined;
     }

@@ -19,6 +19,11 @@ export const NATIVE = {
   navLabelActive: "text-foreground",
   navLabelIdle: "text-secondary-foreground group-hover:text-foreground",
 
+  /** Antigravity groups its sidebar with a small heading above a list. */
+  navGroupHeadingBlock: "px-4 mt-2",
+  navGroupHeading: "m-0 text-xs font-medium text-muted-foreground select-none",
+  navList: "flex flex-col gap-0.5",
+
   screen: "w-full bg-transparent h-full overflow-y-auto",
   page: "p-6 flex flex-col gap-4 w-full max-w-2xl mx-auto",
   headerBlock: "flex flex-col gap-2 w-full mb-2 bg-transparent",
@@ -57,6 +62,21 @@ export const NATIVE = {
 } as const;
 
 export const NAV_ATTRIBUTE = "data-bettergravity-nav";
+
+/**
+ * A heading and its list, built the way Antigravity builds "Projects" and
+ * "Not in Project". They are siblings in the sidebar's flex column rather than
+ * nested, so the wrapper lays itself out as though it were not there.
+ */
+export function navGroup(heading: string): { readonly element: HTMLElement; readonly list: HTMLElement } {
+  const list = el("div", { class: NATIVE.navList });
+  const element = el("div", {}, [
+    el("div", { class: NATIVE.navGroupHeadingBlock }, [el("h2", { class: NATIVE.navGroupHeading, text: heading })]),
+    list
+  ]);
+  element.style.display = "contents";
+  return { element, list };
+}
 
 export function navButton(id: string, label: string, active: boolean, onClick: () => void): HTMLButtonElement {
   const button = el(
@@ -107,7 +127,8 @@ export function nativeButton(label: string, onClick: () => void, title?: string)
 export const ICON = {
   gear: "M370-80l-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z",
   folder: "M180-180h600v-360H460l-80-80H180v440Zm0 60q-24 0-42-18t-18-42v-540q0-24 18-42t42-18h224l80 80h316q24 0 42 18t18 42v460q0 24-18 42t-42 18H180Z",
-  trash: "M292-120q-29 0-49.5-20.5T222-190v-547h-49v-60h176v-38h262v38h176v60h-49v547q0 29-20.5 49.5T668-120H292Zm376-617H292v547h376v-547ZM378-267h60v-397h-60v397Zm144 0h60v-397h-60v397ZM292-737v547-547Z"
+  trash: "M292-120q-29 0-49.5-20.5T222-190v-547h-49v-60h176v-38h262v38h176v60h-49v547q0 29-20.5 49.5T668-120H292Zm376-617H292v547h376v-547ZM378-267h60v-397h-60v397Zm144 0h60v-397h-60v397ZM292-737v547-547Z",
+  link: "M212-180q-59 0-99.5-40.5T72-320q0-59 40.5-99.5T212-460h128v60H212q-33 0-56.5 23.5T132-320q0 33 23.5 56.5T212-240h128v60H212Zm148-110v-60h240v60H360Zm260 110v-60h128q33 0 56.5-23.5T828-320q0-33-23.5-56.5T748-400H620v-60h128q59 0 99.5 40.5T888-320q0 59-40.5 99.5T748-180H620Z"
 } as const;
 
 function icon(pathData: string): string {

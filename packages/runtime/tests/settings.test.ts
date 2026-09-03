@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isNewer } from "../src/world/settings/community.js";
+import { isNewer } from "../src/world/settings/catalog-store.js";
 import { installNativeSettings, type NativeSettings } from "../src/world/settings/host.js";
 import { registerSection, requestSectionRefresh, resetSections } from "../src/world/ui/sections-registry.js";
 import {
@@ -19,19 +19,25 @@ let fake: FakeApi;
 let settings: NativeSettings;
 let reported: string[];
 
-const ours = () => document.getElementById("bettergravity-settings");
-const ourNav = () => document.querySelector<HTMLButtonElement>('[data-testid="settings-nav-item-BetterGravity"]');
+/** MutationObserver callbacks are queued rather than run inline. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const navFor = (id: string) => document.querySelector<HTMLButtonElement>(`[data-bettergravity-nav="${id}"]`);
+const screenFor = (id: string) => document.querySelector<HTMLElement>(`[data-bettergravity-screen="${id}"]`);
 const hostNav = (name: string) => document.querySelector<HTMLButtonElement>(`[data-testid="settings-nav-item-${name}"]`);
 const hostScreen = (name: string) =>
   [...document.querySelectorAll<HTMLElement>("div.grow.w-full > div")].find((div) => div.querySelector("h2")?.textContent === name);
 
-/** MutationObserver callbacks are queued rather than run inline. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** Opening Themes or Plugins starts a catalog fetch, so this waits for it. */
+const open = async (id: string): Promise<void> => {
+  navFor(id)?.click();
+  await settle();
+};
 
-const labelled = (label: string) => document.querySelector<HTMLElement>(`#bettergravity-settings [aria-label="${label}"]`);
-const sectionText = () => ours()?.textContent ?? "";
-const buttonLabelled = (label: string) =>
-  [...(ours()?.querySelectorAll("button") ?? [])].find((button) => button.textContent === label);
+const textIn = (id: string) => screenFor(id)?.textContent ?? "";
+const labelledIn = (id: string, label: string) => screenFor(id)?.querySelector<HTMLElement>(`[aria-label="${label}"]`) ?? null;
+const buttonIn = (id: string, label: string) =>
+  [...(screenFor(id)?.querySelectorAll("button") ?? [])].find((button) => button.textContent === label);
 
 beforeEach(() => {
   document.body.innerHTML = "";
@@ -42,6 +48,7 @@ beforeEach(() => {
 afterEach(() => {
   settings.destroy();
   unmountHostSettings();
+  resetSections();
 });
 
 function install(): void {
@@ -51,27 +58,67 @@ function install(): void {
 describe("injection", () => {
   it("does nothing while the dialog is closed", () => {
     install();
-    expect(ourNav()).toBeNull();
-    expect(ours()).toBeNull();
+    expect(navFor("Settings")).toBeNull();
+    expect(screenFor("Settings")).toBeNull();
   });
 
-  it("adds itself once the dialog appears", async () => {
+  it("adds its group once the dialog appears", async () => {
     install();
     mountHostSettings();
     await settle();
 
-    expect(ourNav()).not.toBeNull();
-    expect(ours()).not.toBeNull();
+    expect(navFor("Settings")).not.toBeNull();
+    expect(screenFor("Settings")).not.toBeNull();
+  });
+
+  // Antigravity groups its sidebar under small headings, so BetterGravity's
+  // entries belong under one of their own rather than loose among the app's.
+  it("heads its entries with a BetterGravity heading", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    const group = document.querySelector("[data-bettergravity-nav-group]");
+    expect(group?.querySelector("h2")?.textContent).toBe("BetterGravity");
+  });
+
+  it("offers Settings, Plugins, and Themes in that order", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    const list = document.querySelector("[data-bettergravity-nav-list]");
+    const labels = [...(list?.children ?? [])].map((node) => node.textContent);
+    expect(labels).toEqual(["Settings", "Plugins", "Themes"]);
+  });
+
+  it("names its entries the way Antigravity names its own", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    expect(navFor("Themes")?.getAttribute("data-testid")).toBe("settings-nav-item-Themes");
+  });
+
+  // The group sits directly after the app's own settings entries, so it reads
+  // as another settings section rather than as something after the projects.
+  it("puts its group after Antigravity's own entries", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    const hostList = hostNav("General")?.parentElement;
+    expect(hostList?.nextElementSibling?.hasAttribute("data-bettergravity-nav-group")).toBe(true);
   });
 
   // The account entry lives in its own footer list; joining that one would put
   // BetterGravity underneath the signed-in user.
-  it("joins the main nav list rather than the account footer", async () => {
+  it("measures the main nav list rather than the account footer", async () => {
     install();
     mountHostSettings();
     await settle();
 
-    const siblings = [...(ourNav()?.parentElement?.children ?? [])].map((node) => node.getAttribute("data-testid"));
+    const siblings = [...(hostNav("General")?.parentElement?.children ?? [])].map((node) => node.getAttribute("data-testid"));
     expect(siblings).toContain("settings-nav-item-General");
     expect(siblings).not.toContain("settings-nav-item-Account");
   });
@@ -83,11 +130,11 @@ describe("injection", () => {
 
     unmountHostSettings();
     await settle();
-    expect(ourNav()).toBeNull();
+    expect(navFor("Settings")).toBeNull();
 
     mountHostSettings();
     await settle();
-    expect(ourNav()).not.toBeNull();
+    expect(navFor("Settings")).not.toBeNull();
   });
 
   it("never adds itself twice", async () => {
@@ -97,7 +144,8 @@ describe("injection", () => {
     document.body.append(document.createElement("span"));
     await settle();
 
-    expect(document.querySelectorAll('[data-testid="settings-nav-item-BetterGravity"]')).toHaveLength(1);
+    expect(document.querySelectorAll("[data-bettergravity-nav-group]")).toHaveLength(1);
+    expect(document.querySelectorAll('[data-bettergravity-nav="Settings"]')).toHaveLength(1);
     expect(document.querySelectorAll("#bettergravity-settings")).toHaveLength(1);
   });
 
@@ -110,7 +158,7 @@ describe("injection", () => {
     mountHostSettings();
     await settle();
 
-    const wrapper = ours();
+    const wrapper = screenFor("Settings");
     expect(wrapper?.className).not.toMatch(/(^|\s)h-full(\s|$)/);
     expect(wrapper?.className).not.toMatch(/(^|\s)(max-)?h-\[/);
     expect(wrapper?.style.height).toBe("");
@@ -123,8 +171,9 @@ describe("injection", () => {
 
     settings.destroy();
 
-    expect(ourNav()).toBeNull();
-    expect(ours()).toBeNull();
+    expect(navFor("Settings")).toBeNull();
+    expect(screenFor("Themes")).toBeNull();
+    expect(document.querySelector("[data-bettergravity-nav-group]")).toBeNull();
   });
 });
 
@@ -135,44 +184,54 @@ describe("switching screens", () => {
     await settle();
   });
 
-  it("shows the section and hides Antigravity's when selected", () => {
-    ourNav()?.click();
+  it("shows the screen and hides Antigravity's when selected", async () => {
+    await open("Settings");
 
-    expect(ours()?.style.display).toBe("block");
+    expect(screenFor("Settings")?.style.display).toBe("block");
     expect(hostScreen("General")?.style.display).toBe("none");
-    expect(ourNav()?.className).toContain("bg-sidebar-secondary");
+    expect(navFor("Settings")?.className).toContain("bg-sidebar-secondary");
+  });
+
+  it("moves between its own screens", async () => {
+    await open("Settings");
+    await open("Themes");
+
+    expect(screenFor("Settings")?.style.display).toBe("none");
+    expect(screenFor("Themes")?.style.display).toBe("block");
+    expect(navFor("Themes")?.className).toContain("bg-sidebar-secondary");
+    expect(navFor("Settings")?.className).not.toContain("bg-sidebar-secondary");
   });
 
   // Regression: hiding Antigravity's screens with inline styles left the one it
   // already considered selected hidden, so returning to it showed a blank pane.
-  it("gives back the screen it hid when the user returns to it", () => {
-    ourNav()?.click();
+  it("gives back the screen it hid when the user returns to it", async () => {
+    await open("Settings");
     expect(hostScreen("General")?.style.display).toBe("none");
 
     hostNav("General")?.click();
 
     expect(hostScreen("General")?.style.display).toBe("block");
-    expect(ours()?.style.display).toBe("none");
-    expect(ourNav()?.className).not.toContain("bg-sidebar-secondary");
+    expect(screenFor("Settings")?.style.display).toBe("none");
+    expect(navFor("Settings")?.className).not.toContain("bg-sidebar-secondary");
   });
 
-  it("steps aside for any of Antigravity's entries", () => {
-    ourNav()?.click();
+  it("steps aside for any of Antigravity's entries", async () => {
+    await open("Plugins");
     hostNav("Appearance")?.click();
-    expect(ours()?.style.display).toBe("none");
+    expect(screenFor("Plugins")?.style.display).toBe("none");
   });
 
-  it("can be selected again after leaving", () => {
-    ourNav()?.click();
+  it("can be selected again after leaving", async () => {
+    await open("Settings");
     hostNav("General")?.click();
-    ourNav()?.click();
+    await open("Settings");
 
-    expect(ours()?.style.display).toBe("block");
+    expect(screenFor("Settings")?.style.display).toBe("block");
     expect(hostScreen("General")?.style.display).toBe("none");
   });
 
   it("stays put when a re-render tries to show a screen underneath it", async () => {
-    ourNav()?.click();
+    await open("Settings");
 
     // Stands in for React restoring its own selection during a re-render.
     const general = hostScreen("General");
@@ -180,77 +239,140 @@ describe("switching screens", () => {
     await settle();
 
     expect(general?.style.display).toBe("none");
-    expect(ours()?.style.display).toBe("block");
+    expect(screenFor("Settings")?.style.display).toBe("block");
   });
 
-  it("close leaves Antigravity's own screen showing", () => {
-    ourNav()?.click();
+  it("close leaves Antigravity's own screen showing", async () => {
+    await open("Settings");
     settings.close();
 
-    expect(ours()?.style.display).toBe("none");
+    expect(screenFor("Settings")?.style.display).toBe("none");
     expect(hostScreen("General")?.style.display).toBe("block");
+  });
+
+  it("open goes to the Settings screen", () => {
+    settings.open();
+
+    expect(screenFor("Settings")?.style.display).toBe("block");
+    expect(settings.isOpen()).toBe(true);
   });
 });
 
-describe("themes", () => {
+describe("the Settings screen", () => {
   beforeEach(async () => {
     install();
     mountHostSettings();
     await settle();
   });
 
-  it("invites the user to add one when there are none", () => {
-    ourNav()?.click();
-    expect(sectionText()).toContain("No themes yet");
+  it("shows which versions are running", async () => {
+    await open("Settings");
+    expect(textIn("Settings")).toContain("Version 0.1.3 on Antigravity 2.11.0");
+  });
 
-    buttonLabelled("Add a theme")?.click();
+  it("summarises what is installed", async () => {
+    fake.state = runtimeState({ themes: [theme("midnight.css", true), theme("dawn.css", false)] });
+    await open("Settings");
+
+    expect(textIn("Settings")).toContain("2 installed, 1 on.");
+  });
+
+  it("toggles reapplying after a host update", async () => {
+    await open("Settings");
+    labelledIn("Settings", "Reapply after Antigravity updates")?.click();
+
+    expect(fake.patches).toEqual([{ reapplyAfterHostUpdate: false }]);
+  });
+
+  it("opens the content folder", async () => {
+    await open("Settings");
+    buttonIn("Settings", "Open")?.click();
+
+    expect(fake.opened).toEqual(["root"]);
+  });
+
+  it("surfaces anything that failed to load", async () => {
+    fake.state = runtimeState({ diagnostics: [{ source: "broken.css", message: "Could not read it." }] });
+    await open("Settings");
+
+    expect(textIn("Settings")).toContain("Problems");
+    expect(textIn("Settings")).toContain("Could not read it.");
+  });
+});
+
+describe("the Themes screen", () => {
+  beforeEach(async () => {
+    install();
+    mountHostSettings();
+    await settle();
+  });
+
+  it("invites the user to add one when there are none", async () => {
+    await open("Themes");
+    expect(textIn("Themes")).toContain("No themes yet");
+
+    buttonIn("Themes", "Add a theme")?.click();
     expect(fake.calls).toContain("addThemes");
   });
 
-  it("offers Add and Open folder beside the heading", () => {
-    ourNav()?.click();
-    expect(buttonLabelled("Add theme")).toBeDefined();
-    expect(buttonLabelled("Open folder")).toBeDefined();
+  it("offers Add and Open folder beside the heading", async () => {
+    await open("Themes");
+    expect(buttonIn("Themes", "Add theme")).toBeDefined();
+    expect(buttonIn("Themes", "Open folder")).toBeDefined();
   });
 
-  it("lists each theme with a switch, a reveal, and a delete", () => {
+  it("lists each theme with a switch, a reveal, and a delete", async () => {
     fake.state = runtimeState({ themes: [theme("midnight.css", true)] });
-    ourNav()?.click();
+    await open("Themes");
 
-    expect(labelled("Enable midnight")?.getAttribute("aria-checked")).toBe("true");
-    labelled("Show midnight.css in Explorer")?.click();
-    labelled("Delete midnight")?.click();
+    expect(labelledIn("Themes", "Enable midnight")?.getAttribute("aria-checked")).toBe("true");
+    labelledIn("Themes", "Show midnight.css in Explorer")?.click();
+    labelledIn("Themes", "Delete midnight")?.click();
 
-    expect(fake.calls).toEqual(["reveal:theme:midnight.css", "remove:theme:midnight.css"]);
+    expect(fake.calls).toContain("reveal:theme:midnight.css");
+    expect(fake.calls).toContain("remove:theme:midnight.css");
   });
 
-  it("turns one on through the settings patch", () => {
+  it("turns one on through the settings patch", async () => {
     fake.state = runtimeState({ themes: [theme("dawn.css", false)] });
-    ourNav()?.click();
-    labelled("Enable dawn")?.click();
+    await open("Themes");
+    labelledIn("Themes", "Enable dawn")?.click();
+
     expect(fake.patches).toEqual([{ themes: { enabled: ["dawn.css"] } }]);
   });
 
   it("reports what happened, since the change lands out of view", async () => {
     fake.nextResult = { ok: true, message: "Added 1 theme." };
-    ourNav()?.click();
-    buttonLabelled("Add theme")?.click();
+    await open("Themes");
+    buttonIn("Themes", "Add theme")?.click();
     await settle();
 
-    expect(sectionText()).toContain("Added 1 theme.");
+    expect(textIn("Themes")).toContain("Added 1 theme.");
   });
 
   it("says nothing when the user cancels the dialog", async () => {
     fake.nextResult = { ok: false };
-    ourNav()?.click();
-    buttonLabelled("Add theme")?.click();
+    await open("Themes");
+    buttonIn("Themes", "Add theme")?.click();
     await settle();
 
-    expect(sectionText()).not.toContain("undefined");
+    expect(textIn("Themes")).not.toContain("undefined");
+  });
+
+  it("filters the installed list as the user searches", async () => {
+    fake.state = runtimeState({ themes: [theme("midnight.css"), theme("dawn.css")] });
+    await open("Themes");
+
+    const search = screenFor("Themes")?.querySelector<HTMLInputElement>('input[type="search"]');
+    if (search) search.value = "dawn";
+    search?.dispatchEvent(new Event("input"));
+
+    expect(textIn("Themes")).toContain("dawn");
+    expect(textIn("Themes")).not.toContain("midnight");
   });
 });
 
-describe("plugins", () => {
+describe("the Plugins screen", () => {
   const withDeveloperMode = (summaries: readonly ReturnType<typeof pluginSummary>[]) => {
     fake.state = runtimeState({
       settings: {
@@ -269,26 +391,26 @@ describe("plugins", () => {
     await settle();
   });
 
-  it("stays behind developer mode and says why", () => {
-    ourNav()?.click();
-    expect(sectionText()).toContain("credentials");
-    expect(labelled("Enable Session Timer")).toBeNull();
+  it("stays behind developer mode and says why", async () => {
+    await open("Plugins");
+    expect(textIn("Plugins")).toContain("credentials");
+    expect(labelledIn("Plugins", "Enable Session Timer")).toBeNull();
   });
 
-  it("offers no gear for a plugin that declares nothing", () => {
+  it("offers no gear for a plugin that declares nothing", async () => {
     withDeveloperMode([pluginSummary()]);
-    ourNav()?.click();
-    expect(labelled("Show Session Timer options")).toBeNull();
+    await open("Plugins");
+    expect(labelledIn("Plugins", "Show Session Timer options")).toBeNull();
   });
 
   // A plugin's options only exist once it has run and registered them.
-  it("offers no gear for a plugin that is not running", () => {
+  it("offers no gear for a plugin that is not running", async () => {
     withDeveloperMode([pluginSummary({ running: false, schema: { compact: { type: "boolean", label: "Compact", default: false } } })]);
-    ourNav()?.click();
-    expect(labelled("Show Session Timer options")).toBeNull();
+    await open("Plugins");
+    expect(labelledIn("Plugins", "Show Session Timer options")).toBeNull();
   });
 
-  it("reveals the options under the plugin when the gear is pressed", () => {
+  it("reveals the options under the plugin when the gear is pressed", async () => {
     withDeveloperMode([
       pluginSummary({
         schema: {
@@ -305,25 +427,25 @@ describe("plugins", () => {
         }
       })
     ]);
-    ourNav()?.click();
-    expect(ours()?.querySelectorAll(".pl-6")).toHaveLength(0);
+    await open("Plugins");
+    expect(screenFor("Plugins")?.querySelectorAll(".pl-6")).toHaveLength(0);
 
-    labelled("Show Session Timer options")?.click();
+    labelledIn("Plugins", "Show Session Timer options")?.click();
 
-    expect(ours()?.querySelectorAll(".pl-6")).toHaveLength(2);
-    expect(labelled("Hide Session Timer options")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screenFor("Plugins")?.querySelectorAll(".pl-6")).toHaveLength(2);
+    expect(labelledIn("Plugins", "Hide Session Timer options")?.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("hides them again when the gear is pressed a second time", () => {
+  it("hides them again when the gear is pressed a second time", async () => {
     withDeveloperMode([pluginSummary({ schema: { compact: { type: "boolean", label: "Compact", default: false } } })]);
-    ourNav()?.click();
-    labelled("Show Session Timer options")?.click();
-    labelled("Hide Session Timer options")?.click();
+    await open("Plugins");
+    labelledIn("Plugins", "Show Session Timer options")?.click();
+    labelledIn("Plugins", "Hide Session Timer options")?.click();
 
-    expect(ours()?.querySelectorAll(".pl-6")).toHaveLength(0);
+    expect(screenFor("Plugins")?.querySelectorAll(".pl-6")).toHaveLength(0);
   });
 
-  it("writes a changed option straight through to the plugin", () => {
+  it("writes a changed option straight through to the plugin", async () => {
     withDeveloperMode([
       pluginSummary({
         schema: {
@@ -339,34 +461,42 @@ describe("plugins", () => {
         }
       })
     ]);
-    ourNav()?.click();
-    labelled("Show Session Timer options")?.click();
+    await open("Plugins");
+    labelledIn("Plugins", "Show Session Timer options")?.click();
 
-    const select = ours()?.querySelector("select");
+    const select = screenFor("Plugins")?.querySelector("select");
     select!.value = "top-right";
     select!.dispatchEvent(new Event("change"));
 
     expect(fake.settingValues["corner"]).toBe("top-right");
   });
 
-  it("keeps a plugin expanded across a re-render", () => {
+  it("keeps a plugin expanded across a re-render", async () => {
     withDeveloperMode([pluginSummary({ schema: { compact: { type: "boolean", label: "Compact", default: false } } })]);
-    ourNav()?.click();
-    labelled("Show Session Timer options")?.click();
+    await open("Plugins");
+    labelledIn("Plugins", "Show Session Timer options")?.click();
 
     settings.refresh();
 
-    expect(labelled("Hide Session Timer options")).not.toBeNull();
+    expect(labelledIn("Plugins", "Hide Session Timer options")).not.toBeNull();
   });
 
-  it("reveals and deletes a plugin by folder", () => {
+  it("reveals and deletes a plugin by folder", async () => {
     withDeveloperMode([pluginSummary()]);
-    ourNav()?.click();
+    await open("Plugins");
 
-    labelled("Show timer in Explorer")?.click();
-    labelled("Delete Session Timer")?.click();
+    labelledIn("Plugins", "Show timer in Explorer")?.click();
+    labelledIn("Plugins", "Delete Session Timer")?.click();
 
-    expect(fake.calls).toEqual(["reveal:plugin:timer", "remove:plugin:timer"]);
+    expect(fake.calls).toContain("reveal:plugin:timer");
+    expect(fake.calls).toContain("remove:plugin:timer");
+  });
+
+  it("turns developer mode on through the settings patch", async () => {
+    await open("Plugins");
+    labelledIn("Plugins", "Enable developer mode")?.click();
+
+    expect(fake.patches).toEqual([{ plugins: { developerMode: true } }]);
   });
 });
 
@@ -392,189 +522,153 @@ describe("version comparison", () => {
   });
 });
 
-describe("community", () => {
-  const communityNav = () => document.querySelector<HTMLButtonElement>('[data-bettergravity-nav="Community"]');
-  const screen = () => document.querySelector<HTMLElement>('[data-bettergravity-screen="Community"]');
-  const text = () => screen()?.textContent ?? "";
-  const button = (label: string) =>
-    [...(screen()?.querySelectorAll("button") ?? [])].find((node) => node.textContent === label);
-
-  const open = async (): Promise<void> => {
-    communityNav()?.click();
-    // The panel renders a placeholder, fetches, then renders the listings.
-    await settle();
-  };
-
+/**
+ * The catalogue is not a screen of its own: what you could install sits under
+ * what you have, on the same screen, so the two read as one list.
+ */
+describe("the catalogue", () => {
   beforeEach(async () => {
     install();
     mountHostSettings();
     await settle();
   });
 
-  it("has an entry of its own in Antigravity's sidebar", () => {
-    expect(communityNav()?.textContent).toBe("Community");
-    expect(communityNav()?.getAttribute("data-testid")).toBe("settings-nav-item-Community");
-  });
-
-  // Fetching on open rather than on start is what keeps an installation that
-  // never browses from making any network request at all.
-  it("asks for nothing until the screen is opened", async () => {
+  it("asks for nothing until a screen that needs it is opened", async () => {
+    await open("Settings");
     expect(fake.calls).toEqual([]);
 
-    await open();
-
+    await open("Themes");
     expect(fake.calls).toEqual(["catalog"]);
   });
 
-  it("lists what the catalog returned, grouped by kind", async () => {
-    fake.catalogResult = {
-      ok: true,
-      entries: [catalogEntry({ name: "Midnight" }), catalogEntry({ kind: "plugin", name: "Word Count" })]
-    };
+  it("fetches once for both screens rather than once each", async () => {
+    await open("Themes");
+    await open("Plugins");
 
-    await open();
-
-    expect(text()).toContain("Midnight");
-    expect(text()).toContain("Word Count");
-    expect(text()).toContain("Themes");
-    expect(text()).toContain("Plugins");
+    expect(fake.calls.filter((call) => call.startsWith("catalog"))).toEqual(["catalog"]);
   });
 
-  it("credits the author and version", async () => {
-    fake.catalogResult = { ok: true, entries: [catalogEntry({ author: "someone", version: "2.1.0" })] };
-    await open();
+  it("lists what you could install under what you have", async () => {
+    fake.catalogResult = { ok: true, entries: [catalogEntry({ name: "Midnight" })] };
+    await open("Themes");
 
-    expect(text()).toContain("someone · 2.1.0");
+    expect(textIn("Themes")).toContain("Available");
+    expect(textIn("Themes")).toContain("Midnight");
+    expect(buttonIn("Themes", "Install")).toBeDefined();
   });
 
-  it("says when there is nothing listed yet", async () => {
-    await open();
-    expect(text()).toContain("No themes listed yet.");
+  it("keeps a theme listing off the Plugins screen", async () => {
+    fake.catalogResult = { ok: true, entries: [catalogEntry({ name: "Midnight" })] };
+    await open("Plugins");
+
+    expect(textIn("Plugins")).not.toContain("Midnight");
   });
 
   it("installs a listing when asked", async () => {
     fake.catalogResult = { ok: true, entries: [catalogEntry()] };
-    await open();
+    await open("Themes");
 
-    button("Install")?.click();
+    buttonIn("Themes", "Install")?.click();
     await settle();
 
-    expect(fake.installed.map((listing) => listing.id)).toEqual(["midnight.css"]);
+    expect(fake.installed.map((entry) => entry.id)).toEqual(["midnight.css"]);
   });
 
-  it("reports what happened, since the file lands out of view", async () => {
+  it("reports the outcome, since the file lands out of view", async () => {
     fake.catalogResult = { ok: true, entries: [catalogEntry()] };
     fake.nextResult = { ok: true, message: "Added Midnight." };
-    await open();
+    await open("Themes");
 
-    button("Install")?.click();
+    buttonIn("Themes", "Install")?.click();
     await settle();
 
-    expect(text()).toContain("Added Midnight.");
+    expect(textIn("Themes")).toContain("Added Midnight.");
   });
 
   it("will not start a second install while one is running", async () => {
     fake.catalogResult = { ok: true, entries: [catalogEntry()] };
-    await open();
+    await open("Themes");
 
-    button("Install")?.click();
-    button("Install")?.click();
+    buttonIn("Themes", "Install")?.click();
+    buttonIn("Themes", "Install")?.click();
     await settle();
 
     expect(fake.installed).toHaveLength(1);
   });
 
-  it("shows a listing already installed at the same version as installed", async () => {
-    fake.state = runtimeState({ themes: [theme("midnight.css", false, { version: "1.0.0" })] });
-    fake.catalogResult = { ok: true, entries: [catalogEntry({ id: "midnight.css", version: "1.0.0" })] };
+  // Something you already have belongs in Installed, not offered again below.
+  it("leaves out what is already installed", async () => {
+    fake.state = runtimeState({ themes: [theme("midnight.css")] });
+    fake.catalogResult = { ok: true, entries: [catalogEntry({ id: "midnight.css" })] };
+    await open("Themes");
 
-    await open();
-
-    expect(text()).toContain("Installed");
-    expect(button("Install")).toBeUndefined();
+    expect(textIn("Themes")).toContain("Nothing else to install yet.");
   });
 
-  it("offers an update when the catalog is ahead of what is installed", async () => {
+  // Where you manage a thing is where you should be told a newer one exists.
+  it("offers an update on the row of the thing it updates", async () => {
     fake.state = runtimeState({ themes: [theme("midnight.css", false, { version: "1.0.0" })] });
     fake.catalogResult = { ok: true, entries: [catalogEntry({ id: "midnight.css", version: "1.2.0" })] };
+    await open("Themes");
 
-    await open();
-
-    expect(button("Update to 1.2.0")).toBeDefined();
+    expect(buttonIn("Themes", "Update to 1.2.0")).toBeDefined();
   });
 
-  it("filters as the user searches", async () => {
-    fake.catalogResult = {
-      ok: true,
-      entries: [catalogEntry({ id: "midnight.css", name: "Midnight" }), catalogEntry({ id: "dawn.css", name: "Dawn" })]
-    };
-    await open();
+  it("offers no update when what you have is current", async () => {
+    fake.state = runtimeState({ themes: [theme("midnight.css", false, { version: "1.0.0" })] });
+    fake.catalogResult = { ok: true, entries: [catalogEntry({ id: "midnight.css", version: "1.0.0" })] };
+    await open("Themes");
 
-    const search = screen()?.querySelector<HTMLInputElement>('input[type="search"]');
-    if (search) search.value = "dawn";
-    search?.dispatchEvent(new Event("input"));
-
-    expect(text()).toContain("Dawn");
-    expect(text()).not.toContain("Midnight");
+    expect(buttonIn("Themes", "Update to 1.0.0")).toBeUndefined();
   });
 
-  it("says when a search matches nothing", async () => {
-    fake.catalogResult = { ok: true, entries: [catalogEntry({ name: "Midnight" })] };
-    await open();
-
-    const search = screen()?.querySelector<HTMLInputElement>('input[type="search"]');
-    if (search) search.value = "nothing like this";
-    search?.dispatchEvent(new Event("input"));
-
-    expect(text()).toContain("No themes match that search.");
-  });
-
-  it("offers a way back when the catalog cannot be read", async () => {
+  it("offers a way back when the catalogue cannot be read", async () => {
     fake.catalogResult = { ok: false, message: "Could not reach the catalog." };
-    await open();
+    await open("Themes");
 
-    expect(text()).toContain("Could not reach the catalog.");
-    expect(button("Try again")).toBeDefined();
+    expect(textIn("Themes")).toContain("Could not reach the catalog.");
+    expect(buttonIn("Themes", "Try again")).toBeDefined();
   });
 
   it("retries on request", async () => {
     fake.catalogResult = { ok: false, message: "Could not reach the catalog." };
-    await open();
+    await open("Themes");
 
-    button("Try again")?.click();
+    buttonIn("Themes", "Try again")?.click();
     await settle();
 
     expect(fake.calls).toEqual(["catalog", "catalog:refresh"]);
   });
 
   it("refreshes past the cache when asked", async () => {
-    await open();
-    button("Refresh")?.click();
+    await open("Themes");
+    buttonIn("Themes", "Refresh")?.click();
     await settle();
 
     expect(fake.calls).toEqual(["catalog", "catalog:refresh"]);
   });
 
-  it("shows that it is working while the catalog loads", async () => {
+  // Empty groups would read as "there is nothing here" rather than "this has
+  // not arrived yet".
+  it("says it is loading rather than showing an empty list", async () => {
     fake.deferCatalog = true;
-    await open();
+    await open("Themes");
 
-    expect(text()).toContain("Loading listings…");
+    expect(textIn("Themes")).toContain("Loading listings…");
 
     fake.deferCatalog = false;
     fake.releaseCatalog();
     await settle();
 
-    expect(text()).not.toContain("Loading listings…");
+    expect(textIn("Themes")).not.toContain("Loading listings…");
   });
 
-  // Installing a plugin is allowed either way, but it will sit there doing
-  // nothing until the gate is open, which is worth saying before the click.
-  it("warns that a plugin will not run while developer mode is off", async () => {
+  it("still offers plugins to install while developer mode is off", async () => {
     fake.catalogResult = { ok: true, entries: [catalogEntry({ kind: "plugin", name: "Word Count" })] };
-    await open();
+    await open("Plugins");
 
-    expect(text()).toContain("Developer mode is off");
+    expect(textIn("Plugins")).toContain("Word Count");
+    expect(textIn("Plugins")).toContain("Nothing will run until developer mode is on");
   });
 
   it("drops the warning once developer mode is on", async () => {
@@ -587,17 +681,24 @@ describe("community", () => {
       }
     });
     fake.catalogResult = { ok: true, entries: [catalogEntry({ kind: "plugin", name: "Word Count" })] };
-    await open();
+    await open("Plugins");
 
-    expect(text()).not.toContain("Developer mode is off");
+    expect(textIn("Plugins")).not.toContain("Nothing will run until developer mode is on");
   });
 
-  it("hides Antigravity's screens and BetterGravity's while it shows", async () => {
-    await open();
+  it("filters listings as the user searches", async () => {
+    fake.catalogResult = {
+      ok: true,
+      entries: [catalogEntry({ id: "midnight.css", name: "Midnight" }), catalogEntry({ id: "dawn.css", name: "Dawn" })]
+    };
+    await open("Themes");
 
-    expect(hostScreen("General")?.style.display).toBe("none");
-    expect(ours()?.style.display).toBe("none");
-    expect(screen()?.style.display).toBe("block");
+    const search = screenFor("Themes")?.querySelector<HTMLInputElement>('input[type="search"]');
+    if (search) search.value = "dawn";
+    search?.dispatchEvent(new Event("input"));
+
+    expect(textIn("Themes")).toContain("Dawn");
+    expect(textIn("Themes")).not.toContain("Midnight");
   });
 });
 
@@ -607,8 +708,8 @@ describe("community", () => {
  * dance as BetterGravity's own.
  */
 describe("plugin sections", () => {
-  const pluginNav = () => document.querySelector<HTMLButtonElement>('[data-bettergravity-nav="demo:Advanced"]');
-  const pluginScreen = () => document.querySelector<HTMLElement>('[data-bettergravity-screen="demo:Advanced"]');
+  const pluginNav = () => navFor("demo:Advanced");
+  const pluginScreen = () => screenFor("demo:Advanced");
 
   const addSection = (render: (container: HTMLElement) => void = (container) => (container.textContent = "Plugin content")) =>
     registerSection({ id: "demo:Advanced", pluginId: "demo", label: "Advanced", render });
@@ -619,13 +720,18 @@ describe("plugin sections", () => {
     await settle();
   });
 
-  afterEach(() => resetSections());
-
-  it("adds a sidebar entry beside BetterGravity's own", () => {
+  it("adds a sidebar entry under the same heading", () => {
     addSection();
 
     expect(pluginNav()?.textContent).toBe("Advanced");
-    expect(pluginNav()?.parentElement).toBe(ourNav()?.parentElement);
+    expect(pluginNav()?.parentElement).toBe(navFor("Settings")?.parentElement);
+  });
+
+  it("comes after BetterGravity's own entries", () => {
+    addSection();
+
+    const list = document.querySelector("[data-bettergravity-nav-list]");
+    expect([...(list?.children ?? [])].map((node) => node.textContent)).toEqual(["Settings", "Plugins", "Themes", "Advanced"]);
   });
 
   it("names the entry the way Antigravity names its own", () => {
@@ -643,59 +749,51 @@ describe("plugin sections", () => {
     expect(pluginNav()).not.toBeNull();
   });
 
-  it("renders the plugin's content when selected", () => {
+  it("renders the plugin's content when selected", async () => {
     addSection();
-    pluginNav()?.click();
+    await open("demo:Advanced");
 
     expect(pluginScreen()?.style.display).toBe("block");
     expect(pluginScreen()?.textContent).toBe("Plugin content");
   });
 
-  it("hides Antigravity's screens while it is showing", () => {
+  it("hides Antigravity's screens while it is showing", async () => {
     addSection();
-    pluginNav()?.click();
+    await open("demo:Advanced");
 
     expect(hostScreen("General")?.style.display).toBe("none");
   });
 
-  it("hides BetterGravity's screen when the user switches to it", () => {
+  it("hides BetterGravity's screens when the user switches to it", async () => {
     addSection();
-    ourNav()?.click();
-    pluginNav()?.click();
+    await open("Settings");
+    await open("demo:Advanced");
 
-    expect(ours()?.style.display).toBe("none");
+    expect(screenFor("Settings")?.style.display).toBe("none");
     expect(pluginScreen()?.style.display).toBe("block");
   });
 
-  it("hands back to BetterGravity when the user switches away", () => {
+  it("hands back to BetterGravity when the user switches away", async () => {
     addSection();
-    pluginNav()?.click();
-    ourNav()?.click();
+    await open("demo:Advanced");
+    await open("Settings");
 
     expect(pluginScreen()?.style.display).toBe("none");
-    expect(ours()?.style.display).toBe("block");
+    expect(screenFor("Settings")?.style.display).toBe("block");
   });
 
-  it("gives Antigravity its screens back when the user leaves", () => {
+  it("gives Antigravity its screens back when the user leaves", async () => {
     addSection();
-    pluginNav()?.click();
+    await open("demo:Advanced");
     hostNav("General")?.click();
 
     expect(pluginScreen()?.style.display).toBe("none");
     expect(hostScreen("General")?.style.display).toBe("block");
   });
 
-  it("marks only the selected entry as active", () => {
-    addSection();
-    pluginNav()?.click();
-
-    expect(pluginNav()?.className).toContain("bg-sidebar-secondary");
-    expect(ourNav()?.className).not.toContain("bg-sidebar-secondary");
-  });
-
   it("stays put when a re-render tries to show a screen underneath it", async () => {
     addSection();
-    pluginNav()?.click();
+    await open("demo:Advanced");
 
     const general = hostScreen("General");
     if (general) general.style.display = "block";
@@ -705,10 +803,10 @@ describe("plugin sections", () => {
     expect(pluginScreen()?.style.display).toBe("block");
   });
 
-  it("re-renders on request while it is showing", () => {
+  it("re-renders on request while it is showing", async () => {
     let count = 0;
     addSection((container) => (container.textContent = `Rendered ${(count += 1)}`));
-    pluginNav()?.click();
+    await open("demo:Advanced");
 
     requestSectionRefresh("demo:Advanced");
 
@@ -737,7 +835,7 @@ describe("plugin sections", () => {
 
   it("gives Antigravity its screens back if it is disabled while showing", async () => {
     const remove = addSection();
-    pluginNav()?.click();
+    await open("demo:Advanced");
     expect(hostScreen("General")?.style.display).toBe("none");
 
     remove();
@@ -746,17 +844,17 @@ describe("plugin sections", () => {
     expect(hostScreen("General")?.style.display).toBe("block");
   });
 
-  it("reports a section whose render throws instead of breaking the dialog", () => {
+  it("reports a section whose render throws instead of breaking the dialog", async () => {
     addSection(() => {
       throw new Error("plugin bug");
     });
-    pluginNav()?.click();
+    await open("demo:Advanced");
 
     expect(reported.join()).toContain("demo:Advanced");
-    expect(ourNav()).not.toBeNull();
+    expect(navFor("Settings")).not.toBeNull();
   });
 
-  it("keeps two plugins' sections apart", () => {
+  it("keeps two plugins' sections apart", async () => {
     addSection();
     registerSection({
       id: "other:Advanced",
@@ -765,11 +863,11 @@ describe("plugin sections", () => {
       render: (container) => (container.textContent = "Other content")
     });
 
-    // BetterGravity and Community, plus one for each plugin.
-    expect(document.querySelectorAll("[data-bettergravity-nav]")).toHaveLength(4);
-    document.querySelector<HTMLButtonElement>('[data-bettergravity-nav="other:Advanced"]')?.click();
+    // Settings, Plugins, and Themes, plus one for each plugin.
+    expect(document.querySelectorAll("[data-bettergravity-nav]")).toHaveLength(5);
+    await open("other:Advanced");
 
-    expect(document.querySelector<HTMLElement>('[data-bettergravity-screen="other:Advanced"]')?.textContent).toBe("Other content");
+    expect(screenFor("other:Advanced")?.textContent).toBe("Other content");
     expect(pluginScreen()?.style.display).toBe("none");
   });
 

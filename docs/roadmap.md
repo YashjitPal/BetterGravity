@@ -44,8 +44,8 @@ directly. These are the equivalents that do work here.
 
 ## 0.4 · Community preview — in progress
 
-- A Community screen listing source-linked themes and plugins, installing and
-  updating them in place. **Done.**
+- Source-linked listings on the Themes and Plugins screens, under what is
+  already installed, installing and updating in place. **Done.**
 - Per-file hashes in the catalogue, checked on install, so what lands on disk is
   what was reviewed. **Done.**
 - Signed catalogue updates. The hashes tie content to a reviewed commit but are
