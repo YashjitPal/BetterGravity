@@ -13,8 +13,10 @@ import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const PORT = 9333;
-const HOST_URL_PREFIX = "https://127.0.0.1:";
+// Overridable so the same tool can drive the installer, which serves its UI
+// from a file:// URL on a different port.
+const PORT = Number(process.env["BG_INSPECT_PORT"] ?? 9333);
+const HOST_URL_PREFIX = process.env["BG_INSPECT_URL_PREFIX"] ?? "https://127.0.0.1:";
 const executable = path.join(
   process.env["LOCALAPPDATA"] ?? "",
   "Programs",

@@ -34,6 +34,9 @@
     "productName": "BetterGravity Installer",
     "artifactName": "BetterGravity-Installer-${version}.${ext}",
     "asar": true,
+    "asarUnpack": [
+      "dist-electron/runtime/**"
+    ],
     "directories": {
       "output": "../../release-0.1.3"
     },

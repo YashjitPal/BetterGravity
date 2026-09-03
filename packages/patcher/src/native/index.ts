@@ -7,7 +7,7 @@ import { isBootstrapArchive, readHostManifest, readMarker, sha256, uncacheAll } 
 import { closeAntigravity } from "./process.js";
 import { installationPaths, type InstallationPaths } from "./paths.js";
 
-export { findAntigravityInstallation, installationPaths } from "./paths.js";
+export { findAntigravityInstallation, installationPaths, unpackedPath } from "./paths.js";
 export { closeAntigravity } from "./process.js";
 export { bootstrapSource } from "./bootstrap.js";
 
@@ -123,7 +123,7 @@ export function deployRuntime(paths: InstallationPaths, runtimeSource: string): 
   fs.mkdirSync(paths.runtimeCode, { recursive: true });
   for (const file of RUNTIME_FILES) {
     const from = path.join(runtimeSource, file);
-    if (!fs.existsSync(from)) throw new Error(`The BetterGravity runtime file ${file} is missing from the installer.`);
+    if (!fs.existsSync(from)) throw new Error(`The BetterGravity runtime file ${file} is missing from the installer (looked in ${runtimeSource}).`);
     fs.writeFileSync(path.join(paths.runtimeCode, file), fs.readFileSync(from));
   }
   for (const directory of ["themes", "plugins"]) {

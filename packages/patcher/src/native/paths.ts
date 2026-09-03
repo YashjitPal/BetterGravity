@@ -47,3 +47,17 @@ function candidateRoots(): readonly string[] {
 export function findAntigravityInstallation(): string | undefined {
   return candidateRoots().find((candidate) => fs.existsSync(installationPaths(candidate).executable));
 }
+
+/**
+ * Rewrites a path inside a packaged `app.asar` to its unpacked twin.
+ *
+ * The patcher reads and writes through `original-fs`, which has no idea that
+ * asar archives can be browsed as directories, so files it needs must exist as
+ * real files. electron-builder is told to unpack the runtime, and this maps the
+ * path to where they actually land. Outside a packaged app there is no
+ * `app.asar` segment and the path is returned unchanged.
+ */
+export function unpackedPath(target: string): string {
+  const packaged = `app.asar${path.sep}`;
+  return target.includes(packaged) ? target.replace(packaged, `app.asar.unpacked${path.sep}`) : target;
+}

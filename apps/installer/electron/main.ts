@@ -1,22 +1,17 @@
 import path from "node:path";
 import { BrowserWindow, app, dialog, ipcMain, shell } from "electron";
 import type { InstallOperation, OperationProgress } from "@bettergravity/patcher";
-import {
-  findAntigravityInstallation,
-  inspectInstallation,
-  installationPaths,
-  runOperation,
-  uninstall
-} from "@bettergravity/patcher/native";
+import { findAntigravityInstallation, inspectInstallation, runOperation, uninstall, unpackedPath } from "@bettergravity/patcher/native";
 import { INSTALLER_CHANNEL } from "./ipc.js";
 
 // Set only by the dev script. Without it the built files are loaded, so the
 // packaged app and a local `start:desktop` behave identically.
 const devServerUrl = process.env["BG_DEV_SERVER_URL"];
 
-// The runtime bundles sit next to the compiled main process in both the dev and
-// the packaged layout, so one path works for each.
-const runtimeSource = path.join(__dirname, "runtime");
+// The runtime bundles sit next to the compiled main process. In a packaged
+// build they are unpacked out of app.asar, because the patcher reads through
+// original-fs and cannot see inside an archive.
+const runtimeSource = path.join(unpackedPath(__dirname), "runtime");
 
 function createWindow(): void {
   const window = new BrowserWindow({
