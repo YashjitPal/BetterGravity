@@ -11,6 +11,10 @@
   tokens, targeting components, replacing animations, and where the limits are.
 - **[Plugins](plugins.md)** — a folder with a manifest and a script. Covers
   settings, storage, DOM helpers, and cleanup.
+- **[Adding to Antigravity's interface](interface.md)** — toasts, menu entries,
+  toolbar buttons, dialogs, and a settings screen of your own.
+- **[Reaching into Antigravity](advanced.md)** — patching its functions, reading
+  its React tree, watching its language server, and rewriting its bundle.
 - **[Plugin API reference](plugin-api.md)** — every call, in one place.
 
 ## Understanding it

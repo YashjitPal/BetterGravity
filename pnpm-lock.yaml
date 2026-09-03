@@ -76,6 +76,15 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
+  examples/plugins/ui-showcase:
+    devDependencies:
+      '@bettergravity/plugin-api':
+        specifier: workspace:*
+        version: link:../../../packages/plugin-api
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
   packages/marketplace:
     dependencies:
       '@bettergravity/plugin-api':

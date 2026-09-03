@@ -167,6 +167,58 @@ Antigravity uses connect-rpc, so the service and method are in the URL path and
 are **not** minified. Bodies are protobuf. See
 [the language server, by name](advanced.md#the-language-server-by-name).
 
+### `plugin.ui`
+
+Puts a plugin's own controls into Antigravity's interface, built from the host's
+own class names. See [adding to Antigravity's interface](interface.md).
+
+```ts
+plugin.ui.toast(options: ToastOptions): ToastHandle;
+plugin.ui.contextMenu(contributor: MenuContributor): Unpatch;
+plugin.ui.button(spec: ButtonSpec): ButtonHandle;
+plugin.ui.modal(options: ModalOptions): ModalHandle;
+plugin.ui.settingsSection(options: SettingsSectionOptions): SettingsSectionHandle;
+
+plugin.ui.element(tag: string, attributes?, children?): HTMLElement;
+plugin.ui.icon(path: string, size?: number): SVGElement;
+readonly classes: HostClasses;   // the host's class strings
+readonly icons: Record<IconName, string>;
+```
+
+```ts
+type ToastOptions = {
+  title: string;
+  body?: string;
+  kind?: "info" | "success" | "warning" | "error";
+  duration?: number;             // 0 keeps it until dismissed
+  actions?: readonly { label: string; onSelect(): void }[];
+};
+
+type MenuContributor = (menu: MenuContext) => readonly MenuItemSpec[] | undefined;
+
+type MenuContext = {
+  element: HTMLElement;
+  testids: readonly string[];    // the host's own entries, which identify the menu
+  labels: readonly string[];
+  has(testid: string): boolean;
+  trigger: HTMLElement | undefined;
+  close(): void;
+};
+
+type MenuItemSpec = { label: string; icon?: string; disabled?: boolean; danger?: boolean; onSelect(): void };
+
+type ButtonSpec = { area: "titleBar" | "sidebar"; label: string; icon?: string; tooltip?: string; onClick(event: MouseEvent): void };
+type ButtonHandle = { element: HTMLElement | undefined; setLabel(label): void; setActive(active): void; remove(): void };
+
+type ModalOptions = { title: string; description?: string; width?: number; render(body: HTMLElement, close: () => void): void; onClose?(): void };
+type SettingsSectionOptions = { label: string; render(container: HTMLElement): void };
+```
+
+Identify a menu with `menu.has(testid)`; component names are mangled but
+`data-testid` values survive. `ButtonHandle.element` changes whenever the host
+rebuilds its toolbar, so read it rather than holding on to it. Every
+registration is undone when the plugin stops.
+
 ### `plugin.onDispose`
 
 ```ts

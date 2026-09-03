@@ -188,10 +188,25 @@ in settings shows the same failures.
 If the runtime itself fails, Antigravity starts as though BetterGravity were not
 installed. Nothing you write can stop the editor from opening.
 
-## A complete example
+## Complete examples
 
 [`examples/plugins/session-timer`](../examples/plugins/session-timer) exercises
-the whole surface: settings, storage, styles, DOM work, and cleanup.
+the basics: settings, storage, styles, DOM work, and cleanup.
+
+[`examples/plugins/ui-showcase`](../examples/plugins/ui-showcase) uses every
+interface surface: a toast, an entry in Antigravity's conversation menu, a
+sidebar button, a dialog, and a settings screen of its own.
+
+## Going further
+
+This page covers what a plugin does on its own. Two more pages cover what it can
+do to Antigravity:
+
+- **[Adding to Antigravity's interface](interface.md)** — toasts, menu entries,
+  toolbar buttons, dialogs, and a screen in the app's settings.
+- **[Reaching into Antigravity](advanced.md)** — intercepting its functions,
+  reading its React tree, watching its language server, and rewriting its bundle
+  before it runs.
 
 ## Sharing a plugin
 

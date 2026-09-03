@@ -56,12 +56,17 @@ export const NATIVE = {
   emptyNote: "text-xs text-muted-foreground whitespace-pre-wrap"
 } as const;
 
-export function navButton(label: string, active: boolean, onClick: () => void): HTMLButtonElement {
+export const NAV_ATTRIBUTE = "data-bettergravity-nav";
+
+export function navButton(id: string, label: string, active: boolean, onClick: () => void): HTMLButtonElement {
   const button = el(
     "button",
     {
       type: "button",
-      "data-testid": "settings-nav-item-BetterGravity",
+      // Matches the host's own naming so the entry is indistinguishable, while
+      // the BetterGravity attribute is what the host code keys off.
+      "data-testid": `settings-nav-item-${label}`,
+      [NAV_ATTRIBUTE]: id,
       class: `${NATIVE.navItem} ${active ? NATIVE.navItemActive : NATIVE.navItemIdle}`
     },
     [el("span", { class: `${NATIVE.navLabel} ${active ? NATIVE.navLabelActive : NATIVE.navLabelIdle}`, text: label })]

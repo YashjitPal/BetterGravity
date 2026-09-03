@@ -1,8 +1,10 @@
 # Reaching into Antigravity
 
-The [plugin guide](plugins.md) covers styling, storage, settings, and the DOM.
-This page is about the rest: intercepting Antigravity's own functions, reading
-its React tree, and watching what it sends to its language server.
+The [plugin guide](plugins.md) covers styling, storage, settings, and the DOM,
+and [adding to Antigravity's interface](interface.md) covers putting your own
+controls into the app. This page is about the rest: intercepting Antigravity's
+own functions, reading its React tree, and watching what it sends to its
+language server.
 
 Read [what is not possible](#what-is-not-possible) first. It is short, and it
 will save you time.

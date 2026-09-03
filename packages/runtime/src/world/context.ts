@@ -4,6 +4,7 @@ import { createDomUtilities } from "./dom.js";
 import { createNetworkTools } from "./hooks/net.js";
 import { createPatcher } from "./hooks/patcher.js";
 import { createReactTools } from "./hooks/react.js";
+import { createUiTools } from "./ui/index.js";
 
 export const PLUGIN_STYLE_ATTRIBUTE = "data-bettergravity-plugin-style";
 
@@ -138,6 +139,7 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
       patcher: createPatcher(track),
       react: createReactTools(),
       net: createNetworkTools(track),
+      ui: createUiTools(record.id, track),
       onDispose: track
     },
     dispose: () => {

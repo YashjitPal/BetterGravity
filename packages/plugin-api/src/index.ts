@@ -221,6 +221,171 @@ export interface PluginNetwork {
   onRequest(handler: (method: string, url: string) => void): Unpatch;
 }
 
+// ---------------------------------------------------------------------------
+// Adding to Antigravity's interface
+// ---------------------------------------------------------------------------
+
+export type ToastKind = "info" | "success" | "warning" | "error";
+
+export interface ToastAction {
+  readonly label: string;
+  onSelect(): void;
+}
+
+export interface ToastOptions {
+  readonly title: string;
+  readonly body?: string;
+  readonly kind?: ToastKind;
+  /** Milliseconds until it dismisses itself. 0 keeps it until dismissed. */
+  readonly duration?: number;
+  readonly actions?: readonly ToastAction[];
+}
+
+export interface ToastHandle {
+  dismiss(): void;
+}
+
+/**
+ * Material Symbols path data on a `0 -960 960 960` viewBox, which is the set
+ * and the box Antigravity draws its own icons from. `ICONS` carries a few.
+ */
+export type IconPath = string;
+
+export interface MenuItemSpec {
+  readonly label: string;
+  readonly icon?: IconPath;
+  readonly disabled?: boolean;
+  /** Renders in the host's destructive colour, as its own delete entries do. */
+  readonly danger?: boolean;
+  onSelect(): void;
+}
+
+/**
+ * A menu Antigravity has just opened. Component names are mangled, so a menu is
+ * identified by the `data-testid`s of the entries the host put in it.
+ */
+export interface MenuContext {
+  readonly element: HTMLElement;
+  readonly testids: readonly string[];
+  readonly labels: readonly string[];
+  has(testid: string): boolean;
+  /** The control the menu was opened from, where it can be determined. */
+  readonly trigger: HTMLElement | undefined;
+  close(): void;
+}
+
+/** Return the entries to add, or nothing to leave the menu alone. */
+export type MenuContributor = (menu: MenuContext) => readonly MenuItemSpec[] | undefined;
+
+/**
+ * `titleBar` is the strip beside the window's menus; `sidebar` is the column of
+ * full-width actions above the conversation list.
+ */
+export type ButtonArea = "titleBar" | "sidebar";
+
+export interface ButtonSpec {
+  readonly area: ButtonArea;
+  readonly label: string;
+  readonly icon?: IconPath;
+  readonly tooltip?: string;
+  onClick(event: MouseEvent): void;
+}
+
+export interface ButtonHandle {
+  /** Replaced whenever the host rebuilds its toolbar, so read it each time. */
+  readonly element: HTMLElement | undefined;
+  setLabel(label: string): void;
+  setActive(active: boolean): void;
+  remove(): void;
+}
+
+export interface ModalOptions {
+  readonly title: string;
+  readonly description?: string;
+  /** Fills the dialog's body. Call `close` to dismiss it from inside. */
+  render(body: HTMLElement, close: () => void): void;
+  /** Maximum width in pixels. Defaults to 520. */
+  readonly width?: number;
+  onClose?(): void;
+}
+
+export interface ModalHandle {
+  close(): void;
+}
+
+export interface SettingsSectionOptions {
+  /** Appears in Antigravity's settings sidebar, under the built-in entries. */
+  readonly label: string;
+  /** Called with an empty container each time the section is shown. */
+  render(container: HTMLElement): void;
+}
+
+export interface SettingsSectionHandle {
+  /** Re-runs `render` if the section is currently on screen. */
+  refresh(): void;
+  remove(): void;
+}
+
+/**
+ * Antigravity styles itself with utility classes over CSS custom properties.
+ * These are its own class strings, so UI built with them inherits the app's
+ * theme and spacing — including when the user switches Antigravity themes.
+ */
+export interface HostClasses {
+  readonly button: string;
+  readonly buttonQuiet: string;
+  readonly card: string;
+  readonly input: string;
+  readonly menu: string;
+  readonly menuItem: string;
+  readonly separator: string;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly row: string;
+  readonly group: string;
+  readonly groupHeading: string;
+}
+
+/**
+ * Places a plugin's own controls in Antigravity's interface, using the host's
+ * markup so they are indistinguishable from its own. Every registration is
+ * undone when the plugin is disabled.
+ */
+export interface PluginUi {
+  /** Shows a message in Antigravity's own toast area. */
+  toast(options: ToastOptions): ToastHandle;
+  /** Adds entries to the host's menus as it opens them. */
+  contextMenu(contributor: MenuContributor): Unpatch;
+  /** Adds a button to a toolbar, re-adding it if the host rebuilds. */
+  button(spec: ButtonSpec): ButtonHandle;
+  /** Opens a dialog centred over the app. */
+  modal(options: ModalOptions): ModalHandle;
+  /** Gives the plugin its own entry in Antigravity's settings sidebar. */
+  settingsSection(options: SettingsSectionOptions): SettingsSectionHandle;
+  /** Builds an element from a tag, attributes, and children. */
+  element(tag: string, attributes?: Readonly<Record<string, unknown>>, children?: readonly (Node | string)[]): HTMLElement;
+  /** Renders a Material Symbols path as an SVG matching the host's icons. */
+  icon(path: IconPath, size?: number): SVGElement;
+  readonly classes: HostClasses;
+  /** A few Material Symbols paths, for menu entries and toolbar buttons. */
+  readonly icons: Readonly<Record<IconName, IconPath>>;
+}
+
+export type IconName =
+  | "gear"
+  | "folder"
+  | "trash"
+  | "copy"
+  | "star"
+  | "download"
+  | "refresh"
+  | "plus"
+  | "check"
+  | "close"
+  | "info"
+  | "warning"
+  | "error";
+
 export interface PluginContext {
   readonly manifest: PluginManifest;
   readonly log: PluginLogger;
@@ -231,6 +396,7 @@ export interface PluginContext {
   readonly patcher: PluginPatcher;
   readonly react: PluginReact;
   readonly net: PluginNetwork;
+  readonly ui: PluginUi;
   /**
    * Registers cleanup to run when the plugin is disabled. Injected code cannot
    * be truly unloaded, so this is how a plugin undoes its own visible effects.

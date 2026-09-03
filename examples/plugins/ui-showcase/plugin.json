@@ -1,0 +1,7 @@
+{
+  "name": "UI Showcase",
+  "description": "Demonstrates every way a plugin can add to Antigravity's interface.",
+  "version": "1.0.0",
+  "author": "BetterGravity Contributors",
+  "main": "index.js"
+}

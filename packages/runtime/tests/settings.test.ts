@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { installNativeSettings, type NativeSettings } from "../src/world/settings/host.js";
+import { registerSection, requestSectionRefresh, resetSections } from "../src/world/ui/sections-registry.js";
 import {
   createFakeApi,
   mountHostSettings,
@@ -364,5 +365,186 @@ describe("plugins", () => {
     labelled("Delete Session Timer")?.click();
 
     expect(fake.calls).toEqual(["reveal:plugin:timer", "remove:plugin:timer"]);
+  });
+});
+
+/**
+ * A plugin can claim a sidebar entry of its own. The host owns the dialog, so
+ * these check that a plugin's screen takes part in the same show-and-restore
+ * dance as BetterGravity's own.
+ */
+describe("plugin sections", () => {
+  const pluginNav = () => document.querySelector<HTMLButtonElement>('[data-bettergravity-nav="demo:Advanced"]');
+  const pluginScreen = () => document.querySelector<HTMLElement>('[data-bettergravity-screen="demo:Advanced"]');
+
+  const addSection = (render: (container: HTMLElement) => void = (container) => (container.textContent = "Plugin content")) =>
+    registerSection({ id: "demo:Advanced", pluginId: "demo", label: "Advanced", render });
+
+  beforeEach(async () => {
+    install();
+    mountHostSettings();
+    await settle();
+  });
+
+  afterEach(() => resetSections());
+
+  it("adds a sidebar entry beside BetterGravity's own", () => {
+    addSection();
+
+    expect(pluginNav()?.textContent).toBe("Advanced");
+    expect(pluginNav()?.parentElement).toBe(ourNav()?.parentElement);
+  });
+
+  it("names the entry the way Antigravity names its own", () => {
+    addSection();
+
+    expect(pluginNav()?.getAttribute("data-testid")).toBe("settings-nav-item-Advanced");
+  });
+
+  it("appears without the user reopening the dialog", async () => {
+    expect(pluginNav()).toBeNull();
+
+    addSection();
+    await settle();
+
+    expect(pluginNav()).not.toBeNull();
+  });
+
+  it("renders the plugin's content when selected", () => {
+    addSection();
+    pluginNav()?.click();
+
+    expect(pluginScreen()?.style.display).toBe("block");
+    expect(pluginScreen()?.textContent).toBe("Plugin content");
+  });
+
+  it("hides Antigravity's screens while it is showing", () => {
+    addSection();
+    pluginNav()?.click();
+
+    expect(hostScreen("General")?.style.display).toBe("none");
+  });
+
+  it("hides BetterGravity's screen when the user switches to it", () => {
+    addSection();
+    ourNav()?.click();
+    pluginNav()?.click();
+
+    expect(ours()?.style.display).toBe("none");
+    expect(pluginScreen()?.style.display).toBe("block");
+  });
+
+  it("hands back to BetterGravity when the user switches away", () => {
+    addSection();
+    pluginNav()?.click();
+    ourNav()?.click();
+
+    expect(pluginScreen()?.style.display).toBe("none");
+    expect(ours()?.style.display).toBe("block");
+  });
+
+  it("gives Antigravity its screens back when the user leaves", () => {
+    addSection();
+    pluginNav()?.click();
+    hostNav("General")?.click();
+
+    expect(pluginScreen()?.style.display).toBe("none");
+    expect(hostScreen("General")?.style.display).toBe("block");
+  });
+
+  it("marks only the selected entry as active", () => {
+    addSection();
+    pluginNav()?.click();
+
+    expect(pluginNav()?.className).toContain("bg-sidebar-secondary");
+    expect(ourNav()?.className).not.toContain("bg-sidebar-secondary");
+  });
+
+  it("stays put when a re-render tries to show a screen underneath it", async () => {
+    addSection();
+    pluginNav()?.click();
+
+    const general = hostScreen("General");
+    if (general) general.style.display = "block";
+    await settle();
+
+    expect(general?.style.display).toBe("none");
+    expect(pluginScreen()?.style.display).toBe("block");
+  });
+
+  it("re-renders on request while it is showing", () => {
+    let count = 0;
+    addSection((container) => (container.textContent = `Rendered ${(count += 1)}`));
+    pluginNav()?.click();
+
+    requestSectionRefresh("demo:Advanced");
+
+    expect(pluginScreen()?.textContent).toBe("Rendered 2");
+  });
+
+  it("does no work refreshing a section the user cannot see", () => {
+    let count = 0;
+    addSection((container) => (container.textContent = `Rendered ${(count += 1)}`));
+
+    requestSectionRefresh("demo:Advanced");
+
+    expect(count).toBe(0);
+  });
+
+  it("takes its entry and screen away when the plugin is disabled", async () => {
+    const remove = addSection();
+    await settle();
+
+    remove();
+    await settle();
+
+    expect(pluginNav()).toBeNull();
+    expect(pluginScreen()).toBeNull();
+  });
+
+  it("gives Antigravity its screens back if it is disabled while showing", async () => {
+    const remove = addSection();
+    pluginNav()?.click();
+    expect(hostScreen("General")?.style.display).toBe("none");
+
+    remove();
+    await settle();
+
+    expect(hostScreen("General")?.style.display).toBe("block");
+  });
+
+  it("reports a section whose render throws instead of breaking the dialog", () => {
+    addSection(() => {
+      throw new Error("plugin bug");
+    });
+    pluginNav()?.click();
+
+    expect(reported.join()).toContain("demo:Advanced");
+    expect(ourNav()).not.toBeNull();
+  });
+
+  it("keeps two plugins' sections apart", () => {
+    addSection();
+    registerSection({
+      id: "other:Advanced",
+      pluginId: "other",
+      label: "Advanced",
+      render: (container) => (container.textContent = "Other content")
+    });
+
+    expect(document.querySelectorAll("[data-bettergravity-nav]")).toHaveLength(3);
+    document.querySelector<HTMLButtonElement>('[data-bettergravity-nav="other:Advanced"]')?.click();
+
+    expect(document.querySelector<HTMLElement>('[data-bettergravity-screen="other:Advanced"]')?.textContent).toBe("Other content");
+    expect(pluginScreen()?.style.display).toBe("none");
+  });
+
+  it("takes plugin sections with it on destroy", () => {
+    addSection();
+
+    settings.destroy();
+
+    expect(pluginNav()).toBeNull();
+    expect(pluginScreen()).toBeNull();
   });
 });
