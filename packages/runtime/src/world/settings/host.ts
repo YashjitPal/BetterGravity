@@ -189,7 +189,12 @@ export function installNativeSettings(api: BetterGravityApi, report: (message: s
     }
 
     if (!container.querySelector(`#${OURS}`)) {
-      screen = el("div", { id: OURS, class: "h-full rounded-lg transition-shadow" });
+      // Deliberately imposes no height. Antigravity's own screen wrappers carry
+      // no classes at all, and letting this one size to its content is what
+      // keeps scrolling on the dialog's outer container, where the scrollbar has
+      // a reserved gutter. Constraining it here makes the inner pane scroll
+      // instead, which insets the scrollbar by the width of that gutter.
+      screen = el("div", { id: OURS, class: "rounded-lg transition-shadow" });
       screen.style.display = active ? "block" : "none";
       acceptDrop(screen);
       container.append(screen);

@@ -98,6 +98,21 @@ describe("injection", () => {
     expect(document.querySelectorAll("#bettergravity-settings")).toHaveLength(1);
   });
 
+  // Regression: an `h-full` here gave the inner pane a definite height, so it
+  // scrolled itself instead of letting the dialog's outer container scroll. The
+  // scrollbar then sat inset by the width of that container's reserved gutter,
+  // visibly out of line with every other settings tab.
+  it("leaves the screen wrapper free to size to its content", async () => {
+    install();
+    mountHostSettings();
+    await settle();
+
+    const wrapper = ours();
+    expect(wrapper?.className).not.toMatch(/(^|\s)h-full(\s|$)/);
+    expect(wrapper?.className).not.toMatch(/(^|\s)(max-)?h-\[/);
+    expect(wrapper?.style.height).toBe("");
+  });
+
   it("takes everything with it on destroy", async () => {
     install();
     mountHostSettings();
