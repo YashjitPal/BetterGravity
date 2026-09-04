@@ -40,3 +40,14 @@ electron-builder.yml
 *.pem
 *.key
 *.crt
+*.cer
+*.pfx
+*.p12
+
+# Runtime state from a real installation, which normally lives in %APPDATA% but
+# would carry an API key with it if one were ever copied in here. storage.json is
+# where a plugin's settings are saved; api-calls.jsonl is the Gemini audit log.
+# (No bare settings.json rule: .vscode/settings.json above is committed.)
+storage.json
+trust.json
+*.jsonl

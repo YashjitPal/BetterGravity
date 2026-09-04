@@ -35,12 +35,90 @@ All notable changes to this project are documented here. The format follows
   before any plugin does. Patches anchor on string literals, which the compiler
   cannot mangle, and each carries a `find` guard so a patch is skipped and
   reported rather than applied somewhere unintended when the host changes.
+- **Discord Rich Presence.** `plugin.presence` puts an activity on the user's
+  Discord profile, and the **Discord Rich Presence** plugin uses it to show
+  whether the agent is working or idle, and for how long. It sends nothing
+  identifying: it reads only whether a stop control is on screen, never a
+  project, conversation, model, or message.
+
+  The socket lives in the main process because it cannot live anywhere else.
+  Discord's WebSocket transport matches the `Origin` header against a list
+  registered on the application, and Antigravity serves its UI from a port that
+  changes every launch, so no registered origin would keep matching. The
+  capability dials Discord's own socket names and nothing else, so it does not
+  become a general outbound socket for plugins.
+- **A Gemini key of your own.** `plugin.gemini` and the **Custom Gemini API Key**
+  plugin send Antigravity's chat through a key from Google AI Studio instead of
+  the bundled subscription — your own quota, and the model's own thinking passed
+  through to the interface, which the bundled route does not offer.
+
+  Antigravity's chat does not speak the public Gemini API; it speaks a protocol of
+  its own to an address its language server is given on the command line. So the
+  runtime becomes that address: it mints a local certificate authority, serves a
+  loopback HTTPS listener, rewrites that one argument as the language server is
+  spawned, and translates each request into a public API call and each reply back.
+
+  The endpoint is only rewritten once the authority is trusted, because an
+  untrusted authority means a refused handshake and no chat at all, which is worse
+  than chat carrying on through Google. Nobody is asked to arrange that: switching
+  the plugin on adds the authority to `Cert:\CurrentUser\Root` — no administrator
+  rights, nothing outside the account — and the first launch where no plugin wants
+  it takes it back out. Switching the plugin off returns chat to the bundled
+  subscription immediately, without waiting for a restart. Every path that cannot
+  translate forwards instead, so no state of this feature stops you talking to the
+  agent.
+
+  A **Base URL** moves where the key is spent off Google's own API, for a key that
+  belongs to a relay of your own or to a gateway a workplace puts in front of it.
+  The key itself is held in the main process, sent to that address and nowhere
+  else, and kept out of every status, log line, and the optional request log —
+  which records the model, the timings, and the outcome, never a prompt.
+  `.gitignore` covers runtime state, so a key cannot reach a clone of this
+  repository by accident.
+- **The signed-in name.** `plugin.account` gives a plugin the first name on the
+  Google account Antigravity is signed in with, so it can address the person
+  using the app instead of asking them to type their own name into a settings
+  field.
+
+  Antigravity does not keep the name. Its language server reports the address the
+  user signed in with and nothing more, and there is no display name anywhere in
+  the bundle. The name exists on the machine all the same, because the app signs
+  in through a Chromium profile of its own and Chromium writes Google's answer
+  into that profile's `Preferences`, so the main process reads it from there —
+  matching the account Antigravity is actually using, since more than one can be
+  signed into the same profile.
+
+  Only the name crosses to the page, the given name and the full name, never the
+  address they belong to, and nothing is written back. One read is shared by
+  every plugin on the page, because Google's record does not change between two
+  visits to a home screen; a read that fails is not remembered, so a profile
+  being rewritten as the page loads is asked again rather than held wrong for the
+  session. No profile, no answer, and no failure either — the read resolves with
+  no name, so a greeting goes without one instead of taking its plugin down.
 - **Interface hooks.** `plugin.ui` adds toasts, entries in Antigravity's menus,
   sidebar and title-bar buttons, dialogs, and a plugin's own screen in the app's
   settings sidebar — all built from Antigravity's own class strings, so plugin
   UI follows the user's theme. Registrations are undone when a plugin stops.
 - **Live reload** for both themes and plugins; editing a plugin restarts it.
 - **Theme metadata** read from a comment header, so a theme stays one file.
+- **Stylesheets in a plugin's manifest.** `"styles"` in `plugin.json` names
+  `.css` files that are folded like a folder theme and injected while the plugin
+  runs, so a plugin whose look outweighs its behaviour keeps its CSS in CSS
+  files. Editing one restarts the plugin; a plugin that is only a look may omit
+  its script.
+- **Gemini App plugin.** Antigravity restyled after the Gemini app, built element
+  by element from Willow's measurements: the left sidebar, the model selector,
+  the prompt box, the conversation, and the home screen — the glow behind the
+  prompt box, the box centred on the pane the way Willow centres its own, and
+  "Hello there, <name>" above it — with the prompt box's model pill shortened to
+  "3.1 Pro" the way Willow's is. Its plus menu gains the agent's tools — Goal,
+  Boost, and the rest, read from Antigravity itself rather than listed here —
+  which the app otherwise only offers behind a slash. The greeting's name comes
+  from `plugin.account`, and submitting a prompt slides the box down into the
+  conversation it starts, over a distance that only exists once it happens;
+  opening a conversation from the sidebar does not, which is a deliberate
+  departure from Willow. None of that can come from CSS, so it is a plugin rather
+  than a theme.
 - **A community submission path.** Themes and plugins are submitted to
   `community/` as pull requests, validated by `pnpm community:check` in CI, and
   built into a catalogue.
@@ -55,7 +133,7 @@ All notable changes to this project are documented here. The format follows
   anything.
 - Two reference plugins: `session-timer` for the basics and `ui-showcase` for
   every interface surface.
-- A test suite of 330 tests, run on Windows and Linux in CI, plus a job that
+- A test suite of 578 tests, run on Windows and Linux in CI, plus a job that
   builds the portable executable.
 
 ### Changed

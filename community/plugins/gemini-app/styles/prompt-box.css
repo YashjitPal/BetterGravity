@@ -1,0 +1,560 @@
+/* ===========================================================================
+ * 2. Prompt box
+ * ===========================================================================
+ * Willow's chat composer is a 660px-wide #1e1f21 card with a 32px radius, no
+ * border, and a soft shadow. With a one-line draft everything shares one 64px
+ * row: a 32px "+" on the left, the 17px Google Sans Flex text, then the model
+ * pill, a 32px mic and a 32px green send disc on the right. Once the draft is
+ * more than one line the text takes the full width and the controls drop to a
+ * row of their own beneath it.
+ *
+ * Antigravity always stacks the text above a control row, so the inner card is
+ * turned into a grid: its wrappers are flattened with display: contents and
+ * each control is placed by name, which gives Willow's one-row layout without
+ * any fixed widths. A draft with more than one paragraph switches the grid to
+ * Willow's two-row layout. A single paragraph that merely wraps cannot be told
+ * apart in CSS, so it keeps the one-row layout with the text column narrower.
+ */
+
+/* --- 2a. Width and card ------------------------------------------------------ */
+[data-testid="agent-input-box"] {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100%;
+  max-width: 660px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* The shell carries the surface, so the running-items panel above the editor
+ * shares it; the inner card goes transparent. */
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 32px !important;
+  background: var(--gemini-composer-bg) !important;
+  box-shadow: var(--gemini-composer-shadow) !important;
+}
+
+[data-testid="running-items-panel"] .rounded-t-2xl {
+  border-top-left-radius: 32px !important;
+  border-top-right-radius: 32px !important;
+}
+
+/* --- 2b. The grid -------------------------------------------------------------
+ * One row: plus | text | pill | mic | send. The pill is 40px tall and sets the
+ * row; the 32px controls sit 4px up so they are centred on it, as in Willow's
+ * trailing cluster. The text is centred on the row; the controls hug its bottom
+ * so a wrapped draft grows upward above them. */
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card {
+  display: grid !important;
+  grid-template-columns: 32px minmax(0, 1fr) auto 32px 32px;
+  grid-template-areas: "plus text pill mic send";
+  column-gap: 4px;
+  row-gap: 0;
+  align-items: end;
+  min-height: 64px;
+  padding: 12px 15px 12px 20px !important;
+  border-radius: 32px !important;
+  background: transparent !important;
+  font-family: var(--gemini-font);
+  font-variation-settings: var(--gemini-font-axes);
+}
+
+/* Flatten the control row and every wrapper inside it, so the buttons become
+ * grid items of the card itself. */
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between,
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between div {
+  display: contents !important;
+}
+
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .relative.w-full {
+  grid-area: text;
+  align-self: center;
+  min-width: 0;
+}
+
+/* Willow puts the plus 16px from the bottom of the 64px card, centred on the
+ * 40px pill row like the mic and send. */
+[data-testid="agent-input-box"] button[aria-label="Add context"] {
+  grid-area: plus;
+  margin-bottom: 4px;
+}
+
+[data-testid="agent-input-box"] [data-testid="model-selector-trigger"] {
+  grid-area: pill;
+  justify-self: end;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"] {
+  grid-area: mic;
+  margin-bottom: 4px;
+}
+
+[data-testid="agent-input-box"] [data-testid="send-button"] {
+  grid-area: send;
+  margin-bottom: 4px;
+}
+
+/* Two rows when expanded without tool chip: multiline draft, attachments, or text reaching model selector. */
+[data-testid="agent-input-box"][data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+  grid-template-columns: 32px minmax(0, 1fr) auto 32px 32px;
+  grid-template-areas:
+    "text text text text text"
+    "plus . pill mic send";
+  row-gap: 10px;
+  padding: 16px 15px 12px 18px !important;
+}
+
+/* Two rows when tool chip is present: column 1 is 32px (plus), column 2 is auto (chip) */
+[data-testid="agent-input-box"]:has([data-gemini-tool-chip]) > .rounded-2xl.bg-card-border > .bg-card {
+  grid-template-columns: 32px auto minmax(0, 1fr) auto 32px 32px;
+  grid-template-areas:
+    "text text text text text text"
+    "plus chip . pill mic send";
+  row-gap: 10px;
+  padding: 16px 15px 12px 18px !important;
+}
+
+[data-testid="agent-input-box"][data-expanded="true"] [role="combobox"][contenteditable],
+[data-testid="agent-input-box"]:has([data-gemini-tool-chip]) [role="combobox"][contenteditable],
+[data-testid="agent-input-box"][data-expanded="true"] [role="combobox"][contenteditable] ~ *,
+[data-testid="agent-input-box"]:has([data-gemini-tool-chip]) [role="combobox"][contenteditable] ~ * {
+  padding: 0 9px 0 6px !important;
+}
+
+/* --- 2c. The text area ---------------------------------------------------------
+ * Willow: 17px Google Sans Flex on a 24px line, white, #bdc1c6 placeholder, no
+ * visible scrollbar. 8px from the plus (4px gap + 4px padding). */
+[data-testid="agent-input-box"] [role="combobox"][contenteditable] {
+  min-height: 24px !important;
+  padding: 0 8px 0 4px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #ffffff !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 17px !important;
+  line-height: 24px !important;
+  scrollbar-width: none;
+}
+
+[data-testid="agent-input-box"] [role="combobox"][contenteditable]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Lexical lays the placeholder over the editor as a sibling; match its metrics. */
+[data-testid="agent-input-box"] [role="combobox"][contenteditable] ~ * {
+  inset: 0 !important;
+  padding: 0 8px 0 4px !important;
+  color: var(--gemini-composer-placeholder) !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 17px !important;
+  line-height: 24px !important;
+}
+
+/* --- 2d. The controls ----------------------------------------------------------
+ * All 32px discs with 24px glyphs. */
+[data-testid="agent-input-box"] button[aria-label="Add context"],
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"],
+[data-testid="agent-input-box"] [data-testid="send-button"] {
+  width: 32px !important;
+  height: 32px !important;
+  padding: 4px !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* The glyphs themselves.
+ *
+ * Willow draws all three from Luminous Symbols, the Gemini app's own icon face,
+ * at 24px and weight 300. Antigravity draws them from Material Symbols at 16px,
+ * which comes out thin and undersized once scaled up, and its mic is a
+ * different drawing besides — a taller capsule on a narrow stem where Gemini's
+ * is rounder and sits on a wider base. Scaling cannot fix a different glyph, so
+ * each host icon is hidden and the Luminous one put in its place, addressed by
+ * ligature name exactly as Willow addresses it. */
+[data-testid="agent-input-box"] button[aria-label="Add context"] > svg,
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"] > svg,
+[data-testid="agent-input-box"] [data-testid="send-button"] > svg {
+  display: none !important;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Add context"]::before,
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"]::before,
+[data-testid="agent-input-box"] [data-testid="send-button"]::before {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  /* Clipped to the glyph's box: the face is reached by ligature, so until it
+   * arrives — or if it never does — this is what keeps a word from painting
+   * where an icon belongs. */
+  overflow: hidden;
+  color: inherit;
+  font-family: var(--gemini-icon-font);
+  font-variation-settings: var(--gemini-icon-axes);
+  font-size: 24px;
+  line-height: 24px;
+  font-weight: 300;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The "+": #e6e6e6 glyph, #333537 on hover, and it turns into a cross while its
+ * menu is open. Willow rotates the same glyph 45deg rather than swapping it —
+ * a plus has 90deg rotational symmetry, so 45deg is the one angle that lands
+ * its arms on the diagonals. */
+[data-testid="agent-input-box"] button[aria-label="Add context"] {
+  background: transparent !important;
+  color: var(--gemini-text) !important;
+  transition: background-color 150ms ease !important;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Add context"]:hover,
+[data-testid="agent-input-box"] button[aria-label="Add context"][data-popup-open] {
+  background: var(--gemini-control-hover) !important;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Add context"]::before {
+  content: "plus";
+  transition: transform 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-testid="agent-input-box"] button[aria-label="Add context"][data-popup-open]::before {
+  transform: rotate(45deg);
+}
+
+/* The mic: #e6e6e6 glyph, white/8 on hover. */
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"] {
+  background: transparent !important;
+  color: var(--gemini-text) !important;
+  transition: background-color 200ms ease !important;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"]:hover {
+  background: var(--gemini-mic-hover) !important;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"]::before {
+  content: "mic";
+}
+
+/* The send disc: Willow Green, darker on hover, white arrow_upward. */
+[data-testid="agent-input-box"] [data-testid="send-button"] {
+  background: var(--gemini-send-bg) !important;
+  color: #ffffff !important;
+  box-shadow: var(--gemini-control-shadow) !important;
+  transition: background-color 200ms ease !important;
+}
+
+[data-testid="agent-input-box"] [data-testid="send-button"]:hover {
+  background: var(--gemini-send-bg-hover) !important;
+}
+
+[data-testid="agent-input-box"] [data-testid="send-button"]::before {
+  content: "arrow_upward";
+}
+
+/* --- 2e. Nothing to send, no send button --------------------------------------
+ * Gemini mounts its send button on the draft's first character and unmounts it
+ * on the last delete — with an empty box the trailing cluster is [pill][mic]
+ * and no send node exists at all. Willow follows that (Composer.tsx,
+ * `showSubmitControl`), and Antigravity states the same thing a different way:
+ * it keeps the button mounted and marks it `disabled` whenever there is nothing
+ * to send, attachments counted. So `:disabled` is the empty-state signal, and
+ * the row can be rebuilt around it without a line of script.
+ *
+ * The column leaves with the button, which is what slides the pill and the mic
+ * right as the draft empties and left again on the next character.
+ *
+ * The condition is two negatives rather than `:has(:disabled)` so that it also
+ * holds while a reply streams: this slot becomes the stop control then, and it
+ * must keep its column whether Antigravity restyles the same button or mounts
+ * a different one. The cancel tooltip is what says so in either case. */
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):not([data-expanded="true"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+  grid-template-columns: 32px minmax(0, 1fr) auto 32px;
+  grid-template-areas: "plus text pill mic";
+}
+
+/* Two rows with nothing to send without tool chip: multiline draft, attachments, or text reaching model selector */
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"]))[data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+  grid-template-columns: 32px minmax(0, 1fr) auto 32px;
+  grid-template-areas:
+    "text text text text"
+    "plus . pill mic";
+}
+
+/* Two rows with nothing to send WITH tool chip */
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):has([data-gemini-tool-chip]) > .rounded-2xl.bg-card-border > .bg-card {
+  grid-template-columns: 32px auto minmax(0, 1fr) auto 32px;
+  grid-template-areas:
+    "text text text text text"
+    "plus chip . pill mic";
+}
+
+/* The stop control, wherever it lives: same slot, same disc, and Willow's
+ * #171717 rather than the send green, since it is no longer a send.
+ * Willow's Composer.tsx: w-8 h-8 rounded-full flex items-center justify-center
+ * (32x32px, padding: 0, no border). */
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-cancel-tooltip"],
+[data-testid="agent-input-box"] button[aria-label^="Cancel"] {
+  grid-area: send;
+  margin-bottom: 4px;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--gemini-stop-bg, #171717) !important;
+  color: #e6e6e6 !important;
+  box-shadow: var(--gemini-control-shadow) !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: background-color 200ms ease, opacity 150ms ease !important;
+  animation: gemini-send-enter 250ms linear both;
+}
+
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-cancel-tooltip"]:hover,
+[data-testid="agent-input-box"] button[aria-label^="Cancel"]:hover {
+  background: var(--gemini-stop-bg-hover, #282828) !important;
+}
+
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-cancel-tooltip"]:active,
+[data-testid="agent-input-box"] button[aria-label^="Cancel"]:active {
+  opacity: 0.8 !important;
+}
+
+/* Hide host child inside cancel button (small red div) */
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-cancel-tooltip"] > div,
+[data-testid="agent-input-box"] button[aria-label^="Cancel"] > div {
+  display: none !important;
+}
+
+/* Willow's exact STOP_BUTTON_ICON:
+ * size 24, variationSettings: "FILL" 1, "GRAD" 0, "ROND" 100, "opsz" 24, "wght" 300, color #e6e6e6
+ * In Google Symbols font, this renders an exact 11px x 11px rounded square glyph centered in the 24px box. */
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-cancel-tooltip"]::before,
+[data-testid="agent-input-box"] button[aria-label^="Cancel"]::before {
+  content: "stop" !important;
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  color: #e6e6e6 !important;
+  font-family: "Google Symbols", var(--gemini-symbols-font) !important;
+  font-variation-settings: "FILL" 1, "GRAD" 0, "ROND" 100, "opsz" 24, "wght" 300 !important;
+  font-size: 24px !important;
+  line-height: 24px !important;
+  font-weight: 300 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  direction: ltr !important;
+  font-feature-settings: "liga" 1 !important;
+  -webkit-font-feature-settings: "liga" 1 !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+[data-testid="agent-input-box"] [data-testid="send-button"]:disabled {
+  display: none !important;
+}
+
+/* Gemini fades the button in over 250ms, holding it invisible for the first
+ * fifth. Willow's `willow-composer-send-enter`: a linear animation with the
+ * easing declared per keyframe, so the hold is exact rather than approximated
+ * by a delay. */
+@keyframes gemini-send-enter {
+  0% {
+    opacity: 0;
+    animation-timing-function: linear;
+  }
+  20% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+[data-testid="agent-input-box"] [data-testid="send-button"]:not(:disabled) {
+  animation: gemini-send-enter 250ms linear both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="agent-input-box"] [data-testid="send-button"]:not(:disabled),
+  [data-testid="agent-input-box"] [data-tooltip-id="input-send-button-cancel-tooltip"],
+  [data-testid="agent-input-box"] button[aria-label^="Cancel"] {
+    animation: none;
+  }
+}
+
+/* --- 2f. AI disclaimer line under prompt box ---------------------------------
+ * Willow (features/chat/src/composer/Composer.tsx:1108-1114 &
+ * features/spark/src/SparkTaskDetail.css:3245-3255):
+ * 13px/17px weight 400 in #c4c7c5, Google Sans Flex, centered under the composer.
+ */
+.gemini-ai-disclaimer {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 14px auto 6px !important;
+  padding: 0 16px !important;
+  color: #c4c7c5 !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+  text-align: center !important;
+  letter-spacing: normal !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+/* --- 2g. Willow ToolChip (when a tool is selected) ---------------------------
+ * Willow (features/chat/src/composer/Composer.tsx:512-557 &
+ * apps/studio/test/gemini-tool-chip.test.mjs):
+ * Single button, 24px tall (h-6), rounded-full, tonal bg rgba(255, 255, 255, 0.12),
+ * color rgb(230, 230, 230) (#e6e6e6), padding 0 8px 0 4px at rest, 0 4px 0 4px on hover.
+ * Grows instantly by 16px on hover as the 16px close glyph appears. NO animation or transition.
+ * Tool glyph: 16px, weight 330, opsz 16, ROND 100 in Luminous Symbols (or Google Symbols).
+ * Label: 13px / 17px, weight 400, "wdth" 92 in Google Sans Flex.
+ * Close glyph: 16px, weight 330 in Luminous Symbols ("close"), hidden at rest, flex on hover/focus.
+ */
+[data-gemini-tool-chip] {
+  grid-area: chip !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  z-index: 10 !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #e6e6e6 !important;
+  padding: 0 8px 0 4px !important;
+  border: none !important;
+  outline: none !important;
+  cursor: default !important;
+  user-select: none !important;
+  margin: 0 0 8px 4px !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+[data-gemini-tool-chip]:hover,
+[data-gemini-tool-chip]:focus-visible {
+  padding-right: 4px !important;
+}
+
+.gemini-tool-chip-inner {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.gemini-tool-chip-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  color: #e6e6e6 !important;
+  font-family: var(--gemini-icon-font) !important;
+  font-variation-settings: "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 16, "wght" 330 !important;
+  font-size: 16px !important;
+  line-height: 16px !important;
+  font-weight: 330 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  font-feature-settings: "liga" 1 !important;
+  -webkit-font-smoothing: antialiased !important;
+  overflow: hidden !important;
+}
+
+.gemini-tool-chip-icon.gemini-symbols-font {
+  font-family: "Google Symbols", var(--gemini-symbols-font) !important;
+}
+
+.gemini-tool-chip-label {
+  display: inline-block !important;
+  white-space: nowrap !important;
+  color: #e6e6e6 !important;
+  font-family: "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 17px !important;
+}
+
+.gemini-tool-chip-close {
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  color: #e6e6e6 !important;
+  font-family: var(--gemini-icon-font) !important;
+  font-variation-settings: "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 16, "wght" 330 !important;
+  font-size: 16px !important;
+  line-height: 16px !important;
+  font-weight: 330 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  font-feature-settings: "liga" 1 !important;
+  -webkit-font-smoothing: antialiased !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+}
+
+[data-gemini-tool-chip]:hover .gemini-tool-chip-close,
+[data-gemini-tool-chip]:focus-visible .gemini-tool-chip-close {
+  display: inline-flex !important;
+}
+
+/* Also style any inline mentions in Lexical editor with Willow's chip look */
+[data-testid="agent-input-box"] [data-beautiful-mention],
+[data-testid="agent-input-box"] [data-mention] {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 22px !important;
+  box-sizing: border-box !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #e6e6e6 !important;
+  padding: 0 8px 0 6px !important;
+  font-family: "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  vertical-align: middle !important;
+  margin: 0 2px !important;
+}
+

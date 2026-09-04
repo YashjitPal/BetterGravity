@@ -3,18 +3,23 @@ import path from "node:path";
 import { BrowserWindow, app, ipcMain, session, shell } from "electron";
 import {
   CHANNEL,
+  SETTING_PREFIX,
   type CatalogEntry,
   type ContentKind,
   type ContentResult,
   type DirectoryKey,
+  type GeminiConfig,
+  type GeminiStatus,
   type PresenceActivity,
   type PresenceStatus,
   type RuntimeContext,
   type RuntimeState,
   type SettingsPatch
 } from "../protocol.js";
-import { readPluginPatches, readPlugins, readThemes } from "./catalog.js";
+import { readAccountProfile } from "./account.js";
+import { readGeminiPlugins, readPluginPatches, readPlugins, readThemes } from "./catalog.js";
 import { importPlugin, importThemeFolder, importThemes, installThemeText, removeItem, revealItem } from "./content.js";
+import { GeminiTranslator } from "./gemini/index.js";
 import { fetchCatalog, installEntry } from "./marketplace.js";
 import { logger } from "./logger.js";
 import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, type RuntimePaths } from "./paths.js";
@@ -88,7 +93,60 @@ function registerPresenceChannels(presence: PresenceConnection): void {
   ipcMain.handle(CHANNEL.presenceClose, () => presence.close());
 }
 
-function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage: PluginStorageStore): void {
+function registerGeminiChannels(gemini: GeminiTranslator): void {
+  gemini.onStatusChanged((status: GeminiStatus) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      const contents = window.webContents;
+      if (!contents.isDestroyed()) contents.send(CHANNEL.geminiStatus, status);
+    }
+  });
+
+  ipcMain.handle(CHANNEL.geminiConfigure, (_event, config: GeminiConfig | undefined) => gemini.configure(config));
+  ipcMain.handle(CHANNEL.geminiRead, () => gemini.status());
+  ipcMain.handle(CHANNEL.geminiTest, () => gemini.test());
+}
+
+/**
+ * The settings a Gemini plugin saved last time, read out of its own storage
+ * bucket. The panel writes them there behind {@link SETTING_PREFIX}, and this is
+ * the only way the main process can know the user's key before the page — and
+ * with it the plugin — has loaded.
+ */
+function storedGeminiConfig(storage: PluginStorageStore, pluginId: string): GeminiConfig {
+  const values = storage.namespace(pluginId);
+  const read = (key: string): unknown => values[`${SETTING_PREFIX}${key}`];
+  const text = (key: string): string | undefined => {
+    const value = read(key);
+    return typeof value === "string" ? value : undefined;
+  };
+  const flag = (key: string): boolean | undefined => {
+    const value = read(key);
+    return typeof value === "boolean" ? value : undefined;
+  };
+
+  const apiKey = text("apiKey");
+  const baseUrl = text("baseUrl");
+  const stream = flag("stream");
+  const thoughts = flag("thoughts");
+  const audit = flag("audit");
+  // `bypass` is deliberately not read. The panel no longer offers it, so a value
+  // left behind by an older version would switch the translator off at every
+  // launch with nothing on screen to explain it.
+  return {
+    ...(apiKey === undefined ? {} : { apiKey }),
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+    ...(stream === undefined ? {} : { stream }),
+    ...(thoughts === undefined ? {} : { thoughts }),
+    ...(audit === undefined ? {} : { audit })
+  };
+}
+
+function registerChannels(
+  paths: RuntimePaths,
+  context: RuntimeContext,
+  storage: PluginStorageStore,
+  gemini: GeminiTranslator
+): void {
   ipcMain.handle(CHANNEL.getState, () => buildState(paths, context));
 
   ipcMain.handle(CHANNEL.readStorage, () => storage.snapshot());
@@ -100,6 +158,13 @@ function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage:
   ipcMain.handle(CHANNEL.setSettings, (_event, patch: SettingsPatch) => {
     const next = applyPatch(readSettings(paths.settings), patch ?? {});
     writeSettings(paths.settings, next);
+    // The translator follows the enabled list, not just the settings a running
+    // plugin sends it. Switching the plugin off has to put chat back on the
+    // bundled subscription there and then, and switching it on has to arm the
+    // translator before the plugin's own script has had a chance to load.
+    const owner = readGeminiPlugins(paths.plugins, next)[0];
+    if (owner === undefined) gemini.suspend();
+    else gemini.resume(() => storedGeminiConfig(storage, owner));
     const state = buildState(paths, context);
     broadcast(state);
     return state;
@@ -112,6 +177,11 @@ function registerChannels(paths: RuntimePaths, context: RuntimeContext, storage:
   });
 
   ipcMain.on(CHANNEL.log, (_event, message: string) => logger.info(`renderer: ${message}`));
+
+  // Read on demand rather than cached: signing into a different Google account
+  // rewrites the profile while Antigravity is running, and the read is one small
+  // file.
+  ipcMain.handle(CHANNEL.readAccount, () => readAccountProfile(app.getPath("home")));
 
   // Adding or deleting content changes what is on disk, so each one answers with
   // the rebuilt state; the watcher would otherwise race the reply.
@@ -158,8 +228,28 @@ export function activate(context: RuntimeContext): void {
 
   const storage = new PluginStorageStore(paths.storage);
   const presence = new PresenceConnection();
-  registerChannels(paths, context, storage);
+  const gemini = new GeminiTranslator(paths.gemini);
+  registerChannels(paths, context, storage, gemini);
   registerPresenceChannels(presence);
+  registerGeminiChannels(gemini);
+
+  // Armed here rather than after app.whenReady() because Antigravity spawns its
+  // language server from the ready handler, and the endpoint it is given has to
+  // already be ours by then. Everything on this path is synchronous apart from
+  // the listener binding, which finishes long before the spawn.
+  const geminiPlugins = readGeminiPlugins(paths.plugins, readSettings(paths.settings));
+  const firstGeminiPlugin = geminiPlugins[0];
+  if (firstGeminiPlugin !== undefined) {
+    if (geminiPlugins.length > 1) {
+      logger.info(`Several plugins asked for the Gemini translator; ${firstGeminiPlugin} is the one it follows.`);
+    }
+    gemini.arm(storedGeminiConfig(storage, firstGeminiPlugin));
+  } else {
+    // Nothing asks for the translator, so its authority comes back out of the
+    // trust store. Launch is the one moment that is safe: no language server has
+    // been pointed at a certificate signed by it yet.
+    void gemini.retire();
+  }
 
   // Antigravity's own before-quit handler cancels the first quit to run its
   // shutdown, so this fires more than once.
@@ -170,6 +260,7 @@ export function activate(context: RuntimeContext): void {
     // Storage writes are debounced, so a quit has to force the last one out.
     storage.flush();
     presence.dispose();
+    void gemini.dispose();
     if (readSettings(paths.settings).reapplyAfterHostUpdate) {
       spawnGuardian(path.join(context.runtimeDirectory, "runtime"), paths.log);
     }

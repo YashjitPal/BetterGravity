@@ -68,6 +68,16 @@ from disk, owns settings and plugin storage, watches for changes, relaxes CSP,
 and registers the preload. It uses `session.registerPreloadScript`, which is
 *additive*: Antigravity's own preload and its `contextBridge` APIs keep working.
 
+It also owns the two capabilities the page cannot have: the Discord socket behind
+[`plugin.presence`](plugin-api.md#pluginpresence), and the Gemini translator
+behind [`plugin.gemini`](plugin-api.md#plugingemini) — a loopback HTTPS listener
+and a rewrite of the language server's endpoint argument, both of which have to
+exist before Antigravity spawns that server, and so before any plugin runs. The
+one file read on the page's behalf lives here too:
+[`plugin.account`](plugin-api.md#pluginaccount) answers out of the Chromium
+profile Antigravity signs into Google through, which is the only place on the
+machine that has the user's name.
+
 **Preload** (`src/preload`) is sandboxed and context-isolated. It exposes a
 JSON-only bridge and injects theme CSS. Themes live here rather than in the page
 world so they keep working even if the plugin runtime fails to boot.

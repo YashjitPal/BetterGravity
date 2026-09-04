@@ -193,4 +193,83 @@ describe("readPlugins", () => {
     fs.writeFileSync(path.join(root, "plugins", "stray.js"), "console.log(1);");
     expect(readPlugins(path.join(root, "plugins"), settingsWith({ plugins: { developerMode: true } })).entries).toEqual([]);
   });
+
+  describe("declared stylesheets", () => {
+    const dev = () => settingsWith({ plugins: { developerMode: true } });
+
+    it("folds the stylesheets a manifest names, imports and all", () => {
+      writePlugin("styled", { name: "Styled", styles: "styles/main.css" });
+      const styles = path.join(root, "plugins", "styled", "styles");
+      fs.mkdirSync(styles);
+      fs.writeFileSync(path.join(styles, "main.css"), '@import "part.css";\nbody { color: red; }');
+      fs.writeFileSync(path.join(styles, "part.css"), "h1 { margin: 0; }");
+
+      const [plugin] = readPlugins(path.join(root, "plugins"), dev()).entries;
+
+      expect(plugin?.styles).toContain("h1 { margin: 0; }");
+      expect(plugin?.styles).toContain("body { color: red; }");
+      expect(plugin?.styles).not.toContain("@import");
+    });
+
+    it("accepts a list of stylesheets and keeps their order", () => {
+      writePlugin("listed", { name: "Listed", styles: ["a.css", "b.css"] });
+      fs.writeFileSync(path.join(root, "plugins", "listed", "a.css"), "a { }");
+      fs.writeFileSync(path.join(root, "plugins", "listed", "b.css"), "b { }");
+
+      const [plugin] = readPlugins(path.join(root, "plugins"), dev()).entries;
+
+      expect(plugin?.styles?.indexOf("a { }")).toBeLessThan(plugin?.styles?.indexOf("b { }") ?? -1);
+    });
+
+    it("leaves styles absent when the manifest declares none", () => {
+      writePlugin("plain", { name: "Plain" });
+      const [plugin] = readPlugins(path.join(root, "plugins"), dev()).entries;
+      expect(plugin).not.toHaveProperty("styles");
+    });
+
+    it("reports a stylesheet that is not there and still loads the plugin", () => {
+      writePlugin("missing", { name: "Missing", styles: "nope.css" });
+
+      const { entries, diagnostics } = readPlugins(path.join(root, "plugins"), dev());
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).not.toHaveProperty("styles");
+      expect(diagnostics[0]?.message).toMatch(/"nope.css" was not found/);
+    });
+
+    it("refuses a stylesheet path that escapes the plugin directory", () => {
+      writePlugin("escape", { name: "Escape", styles: "../other.css" });
+      fs.writeFileSync(path.join(root, "plugins", "other.css"), "body { }");
+
+      const { entries, diagnostics } = readPlugins(path.join(root, "plugins"), dev());
+
+      expect(entries).toEqual([]);
+      expect(diagnostics[0]?.message).toMatch(/escapes the plugin directory/);
+    });
+
+    it("lets a plugin that is only a look go without a script", () => {
+      const directory = path.join(root, "plugins", "look");
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(path.join(directory, "plugin.json"), JSON.stringify({ name: "Look", styles: "look.css" }));
+      fs.writeFileSync(path.join(directory, "look.css"), "body { color: red; }");
+
+      const { entries, diagnostics } = readPlugins(path.join(root, "plugins"), dev());
+
+      expect(diagnostics).toEqual([]);
+      expect(entries[0]).toMatchObject({ id: "look", source: "" });
+      expect(entries[0]?.styles).toContain("body { color: red; }");
+    });
+
+    it("still requires the script when main is declared explicitly", () => {
+      const directory = path.join(root, "plugins", "explicit");
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(path.join(directory, "plugin.json"), JSON.stringify({ name: "Explicit", main: "run.js", styles: "look.css" }));
+      fs.writeFileSync(path.join(directory, "look.css"), "body { }");
+
+      const { entries, diagnostics } = readPlugins(path.join(root, "plugins"), dev());
+
+      expect(entries).toEqual([]);
+      expect(diagnostics).toHaveLength(1);
+    });
+  });
 });

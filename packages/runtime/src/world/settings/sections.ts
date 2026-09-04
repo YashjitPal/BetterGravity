@@ -13,7 +13,9 @@ import {
   expandedOptions,
   iconButton,
   nativeButton,
+  nativeNote,
   nativeNumberInput,
+  nativeSecretInput,
   nativeSelect,
   nativeSwitch,
   nativeTextInput,
@@ -286,7 +288,47 @@ export function buildThemesScreen(api: BetterGravityApi, callbacks: SectionCallb
 // Plugins
 // ---------------------------------------------------------------------------
 
-function optionControl(api: BetterGravityApi, pluginId: string, key: string, setting: PluginSetting, onChanged: () => void): Node {
+/**
+ * One row inside a plugin's expanded options. Most rows are a value the user
+ * sets; an action row is a button the plugin answers, and a note row is the
+ * plugin reporting something back.
+ */
+function optionControl(
+  api: BetterGravityApi,
+  pluginId: string,
+  key: string,
+  setting: PluginSetting,
+  callbacks: SectionCallbacks
+): Node {
+  const onChanged = callbacks.refresh;
+
+  if (setting.type === "note") {
+    try {
+      return nativeNote(setting.read());
+    } catch (error) {
+      return nativeNote(error instanceof Error ? error.message : "Unavailable.");
+    }
+  }
+
+  if (setting.type === "action") {
+    // The button is disabled while the plugin is working, so a slow action —
+    // installing a certificate means PowerShell — cannot be started twice.
+    const button = nativeButton(setting.action, () => {
+      button.disabled = true;
+      void Promise.resolve()
+        .then(() => setting.onSelect())
+        .then((message) => {
+          if (typeof message === "string" && message !== "") callbacks.notify(message);
+        })
+        .catch((error: unknown) => callbacks.notify(error instanceof Error ? error.message : String(error)))
+        .finally(() => {
+          button.disabled = false;
+          onChanged();
+        });
+    });
+    return button;
+  }
+
   const current = api.plugins.getSetting(pluginId, key);
   const commit = (value: unknown) => {
     api.plugins.setSetting(pluginId, key, value);
@@ -298,7 +340,11 @@ function optionControl(api: BetterGravityApi, pluginId: string, key: string, set
   if (setting.type === "number") {
     return nativeNumberInput(typeof current === "number" ? current : setting.default, setting.min, setting.max, commit);
   }
-  return nativeTextInput(typeof current === "string" ? current : setting.default, setting.placeholder, commit);
+
+  const text = typeof current === "string" ? current : setting.default;
+  return setting.secret === true
+    ? nativeSecretInput(text, setting.placeholder, commit)
+    : nativeTextInput(text, setting.placeholder, commit);
 }
 
 function pluginEntry(
@@ -339,7 +385,7 @@ function pluginEntry(
     row,
     expandedOptions(
       options.map(([key, setting]) =>
-        optionRow(setting.label, setting.description, optionControl(api, plugin.id, key, setting, callbacks.refresh))
+        optionRow(setting.label, setting.description, optionControl(api, plugin.id, key, setting, callbacks))
       )
     )
   ];

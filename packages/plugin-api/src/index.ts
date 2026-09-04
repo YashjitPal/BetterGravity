@@ -7,6 +7,10 @@
  *   BetterGravity  the shared runtime api
  *   plugin         this plugin's context, typed as PluginContext below
  *
+ * The manifest may also list stylesheets under `styles`; they are injected for
+ * as long as the plugin is enabled, so a plugin that is mostly a look keeps its
+ * CSS in .css files rather than in a string.
+ *
  * Nothing here executes; this package is types only, so plugin authors can
  * depend on it without shipping any runtime weight.
  */
@@ -31,31 +35,61 @@ interface SettingBase {
 
 export type PluginSetting =
   | (SettingBase & { readonly type: "boolean"; readonly default: boolean })
-  | (SettingBase & { readonly type: "string"; readonly default: string; readonly placeholder?: string })
+  | (SettingBase & {
+      readonly type: "string";
+      readonly default: string;
+      readonly placeholder?: string;
+      /**
+       * Renders as a password field and is never shown in full, for values like
+       * an API key. It is still stored in plain text with the plugin's other
+       * settings; this hides it from someone looking at the screen, nothing more.
+       */
+      readonly secret?: boolean;
+    })
   | (SettingBase & { readonly type: "number"; readonly default: number; readonly min?: number; readonly max?: number })
   | (SettingBase & {
       readonly type: "select";
       readonly default: string;
       readonly options: readonly { readonly value: string; readonly label: string }[];
+    })
+  | (SettingBase & {
+      /** A button rather than a value: nothing is stored for this key. */
+      readonly type: "action";
+      /** Text on the button. */
+      readonly action: string;
+      /** Awaited. A returned string is shown in the panel as a notice. */
+      onSelect(): void | string | Promise<void | string>;
+    })
+  | (SettingBase & {
+      /** Read-only text rather than a value: nothing is stored for this key. */
+      readonly type: "note";
+      /** Called each time the panel renders, so it can report live state. */
+      read(): string;
     });
 
 export type PluginSettingsSchema = Readonly<Record<string, PluginSetting>>;
 
+/** Rows that are a control or a readout, and so hold no stored value. */
+export type ValuelessSetting = { readonly type: "action" } | { readonly type: "note" };
+
 /** The value type a single declared setting holds. */
-export type SettingValue<Setting extends PluginSetting> = Setting extends { type: "boolean" }
-  ? boolean
-  : Setting extends { type: "number" }
-    ? number
-    : Setting extends { type: "select"; options: readonly { value: infer Option }[] }
-      ? Option
-      : string;
+export type SettingValue<Setting extends PluginSetting> = Setting extends ValuelessSetting
+  ? never
+  : Setting extends { type: "boolean" }
+    ? boolean
+    : Setting extends { type: "number" }
+      ? number
+      : Setting extends { type: "select"; options: readonly { value: infer Option }[] }
+        ? Option
+        : string;
 
 /**
  * Live view over a plugin's settings. Reading a property returns the current
- * value, and assigning to one persists it and notifies listeners.
+ * value, and assigning to one persists it and notifies listeners. Action and
+ * note rows are left out, since they hold nothing to read or write.
  */
 export type SettingsAccessor<Schema extends PluginSettingsSchema> = {
-  [Key in keyof Schema]: SettingValue<Schema[Key]>;
+  [Key in keyof Schema as Schema[Key] extends ValuelessSetting ? never : Key]: SettingValue<Schema[Key]>;
 };
 
 export interface PluginSettingsApi {
@@ -386,6 +420,184 @@ export type IconName =
   | "warning"
   | "error";
 
+/** What Discord shows while the presence is set. Every field is optional. */
+export interface PresenceActivity {
+  /** The first line under the application name. */
+  readonly details?: string;
+  /** The second line. */
+  readonly state?: string;
+  /**
+   * Epoch milliseconds. Discord counts up from it by itself, so a running
+   * timer needs one update rather than one per second.
+   */
+  readonly startedAt?: number;
+  readonly endsAt?: number;
+  /** An art asset key from the Discord application, or an image URL. */
+  readonly largeImage?: string;
+  /** Tooltip for the large image. */
+  readonly largeText?: string;
+  readonly smallImage?: string;
+  readonly smallText?: string;
+}
+
+export type PresencePhase = "off" | "connecting" | "connected" | "unavailable";
+
+export interface PresenceStatus {
+  readonly phase: PresencePhase;
+  /** The signed-in Discord account, once connected. */
+  readonly user?: string;
+  /** Why the phase is what it is, phrased for display. */
+  readonly message?: string;
+}
+
+/**
+ * Drives Discord Rich Presence through the main process, which owns the socket
+ * because reaching it needs Node and the page does not have it.
+ *
+ * `unavailable` is the ordinary state when Discord is closed, not an error;
+ * the runtime keeps retrying and reports `connected` when it comes back, so a
+ * plugin can set an activity once and leave it.
+ */
+export interface PluginPresence {
+  /** Points the connection at a Discord application id. Safe to call repeatedly. */
+  open(clientId: string): Promise<PresenceStatus>;
+  /** Passing nothing clears the presence but stays connected. */
+  update(activity?: PresenceActivity): Promise<PresenceStatus>;
+  /** Disconnects and lets Discord drop the presence. */
+  close(): Promise<PresenceStatus>;
+  status(): PresenceStatus;
+  onStatusChanged(listener: (status: PresenceStatus) => void): Unpatch;
+}
+
+/**
+ * `off` — no key configured, the plugin asked to be bypassed, or the plugin has
+ * been switched off and requests are being forwarded untranslated.
+ * `listening` — the translator is up but Antigravity's language server is still
+ * talking to Google directly, so it has to be restarted.
+ * `routing` — the language server is pointed at the translator.
+ * `blocked` — something is wrong with the translator, described by `message`; the
+ * usual case is a trust store that would not take its certificate.
+ */
+export type GeminiPhase = "off" | "listening" | "routing" | "blocked";
+
+export interface GeminiCounts {
+  /** Requests answered with the user's own key. */
+  readonly translated: number;
+  /** Requests handed to Google unchanged, on the host's own credentials. */
+  readonly passedThrough: number;
+  readonly failed: number;
+}
+
+export interface GeminiStatus {
+  readonly phase: GeminiPhase;
+  /** Loopback port the translator listens on, once it is up. */
+  readonly port?: number;
+  /** Whether a key is configured. Never the key itself. */
+  readonly keyed: boolean;
+  /** Whether the generated authority is in this account's trust store. */
+  readonly trusted: boolean;
+  /** SHA-1 thumbprint of that authority, so it can be found by hand. */
+  readonly thumbprint?: string;
+  /**
+   * Whether restarting Antigravity would change anything: the translator is
+   * serving and the language server that is running is not using it. The endpoint
+   * is an argument to a process that has already started, so nothing else can
+   * redirect it.
+   */
+  readonly restartRequired: boolean;
+  readonly message?: string;
+  readonly counts: GeminiCounts;
+}
+
+export interface GeminiConfig {
+  /**
+   * A Google AI Studio key. It is held in the main process and sent to the API
+   * below; it is never written to a log, and never leaves the machine anywhere
+   * else.
+   */
+  readonly apiKey?: string;
+  /**
+   * Where the translated requests go, as an origin with an optional path —
+   * `https://generativelanguage.googleapis.com` when empty or unreadable. The
+   * standard `/v1beta/...` path is appended, so anything that speaks the public
+   * Gemini API works. `http://` is accepted for loopback addresses only, since
+   * off this machine it would put the key on the wire in clear text.
+   */
+  readonly baseUrl?: string;
+  /** Streams replies as they arrive rather than answering in one piece. Default true. */
+  readonly stream?: boolean;
+  /** Passes the model's own thinking through to the interface. Default true. */
+  readonly thoughts?: boolean;
+  /** Leaves Antigravity on its bundled subscription while staying installed. */
+  readonly bypass?: boolean;
+  /** Records one redacted line per request under the runtime directory. */
+  readonly audit?: boolean;
+}
+
+export interface GeminiKeyTest {
+  readonly ok: boolean;
+  /** How the API answered, phrased for display. */
+  readonly message: string;
+  /** How many models the key can reach, when it works. */
+  readonly models?: number;
+}
+
+/**
+ * Routes Antigravity's model traffic through the user's own Gemini API key.
+ *
+ * The work is in the main process: it serves a loopback HTTPS endpoint,
+ * translates between Antigravity's internal protocol and the public Gemini API,
+ * and rewrites the language server's endpoint argument as it starts. A plugin
+ * only supplies the key and the preferences, and reads the status back.
+ *
+ * Requires the plugin's manifest to declare `"gemini": true`, because the
+ * endpoint has to be in place before the language server starts, which is
+ * before any plugin runs.
+ *
+ * The certificate is not part of this interface on purpose. The language server
+ * will only talk to the translator over a certificate the platform trusts, so
+ * the runtime installs its own authority into the current user's store while a
+ * plugin declares the flag — no administrator rights, nothing outside this
+ * account — and removes it again when none does. A plugin has nothing to decide
+ * there, and a user has nothing to press.
+ */
+export interface PluginGemini {
+  /** Supplies the key and preferences. Safe to call repeatedly. */
+  configure(config: GeminiConfig): Promise<GeminiStatus>;
+  status(): GeminiStatus;
+  /** Asks the API what the configured key can see, changing nothing. */
+  test(): Promise<GeminiKeyTest>;
+  onStatusChanged(listener: (status: GeminiStatus) => void): Unpatch;
+}
+
+/**
+ * The name on the Google account Antigravity is signed in with. Both fields are
+ * absent when it cannot be read — no name, rather than a guessed one.
+ *
+ * There is no address and no identifier here on purpose. This is for addressing
+ * the user by name, and the runtime does not hand a plugin the account the user
+ * signs in with.
+ */
+export interface AccountProfile {
+  /** Google's own `given_name` — "Ada" in "Ada Lovelace". */
+  readonly firstName?: string;
+  readonly fullName?: string;
+  readonly email?: string;
+  readonly pictureUrl?: string;
+}
+
+/**
+ * Who is signed in, for an interface that greets the user by name.
+ *
+ * Antigravity itself knows only the address the user signed in with, so the name
+ * is read from the Chromium profile it signs into Google through, which needs the
+ * main process: the page cannot read files. The answer is cached for the life of
+ * the page and shared by every plugin, so calling this on every render is fine.
+ */
+export interface PluginAccount {
+  read(): Promise<AccountProfile>;
+}
+
 export interface PluginContext {
   readonly manifest: PluginManifest;
   readonly log: PluginLogger;
@@ -397,6 +609,9 @@ export interface PluginContext {
   readonly react: PluginReact;
   readonly net: PluginNetwork;
   readonly ui: PluginUi;
+  readonly presence: PluginPresence;
+  readonly gemini: PluginGemini;
+  readonly account: PluginAccount;
   /**
    * Registers cleanup to run when the plugin is disabled. Injected code cannot
    * be truly unloaded, so this is how a plugin undoes its own visible effects.

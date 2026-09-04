@@ -1,0 +1,328 @@
+/* ===========================================================================
+ * 1. Model selector
+ * =========================================================================== */
+
+/* --- 1a. The trigger --------------------------------------------------------
+ * Willow: a 40px pill, 15px Google Sans Flex, model name in #e6e6e6 with the
+ * effort level dimmed beside it, and a 24px chevron that points down when
+ * closed and flips up while the menu is open.
+ * Antigravity: a 28px rounded-lg button with 12px text and a 14px up-chevron.
+ */
+
+[data-testid="model-selector-trigger"] {
+  height: 40px !important;
+  padding: 0 12px 0 16px !important;
+  gap: 8px !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  color: var(--gemini-text-trigger) !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 15px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
+}
+
+[data-testid="model-selector-trigger"]:hover,
+[data-testid="model-selector-trigger"][data-popup-open] {
+  background: var(--gemini-trigger-hover) !important;
+  color: var(--gemini-text-trigger-hover) !important;
+}
+
+/* The label: model name, then the effort level dimmed. */
+[data-testid="model-selector-trigger"] > span {
+  margin-right: -4px;
+  font-size: 15px !important;
+  line-height: 20px !important;
+  color: var(--gemini-text) !important;
+}
+
+[data-testid="model-selector-trigger"] > span > span {
+  opacity: 1 !important;
+  color: var(--gemini-text-dim) !important;
+}
+
+/* The chevron. Antigravity's glyph points up, so it is rotated to point down at
+ * rest and turned back while open, which is Willow's rotate-180 in reverse. */
+[data-testid="model-selector-trigger"] > svg {
+  width: 24px !important;
+  height: 24px !important;
+  color: inherit !important;
+  transform: rotate(180deg);
+  transition: transform 200ms ease !important;
+}
+
+[data-testid="model-selector-trigger"][data-popup-open] > svg {
+  transform: rotate(0deg);
+}
+
+/* --- 1b. The model menu -----------------------------------------------------
+ * Willow: a 241px #1f1f1f card with a 20px radius, 8px padding, no border, a
+ * soft double shadow, and 52px rows with a 36px check column on the left.
+ * Antigravity: a bg-card rounded-lg bordered card with 4px padding, 24px rows,
+ * and the check on the right that swaps for a chevron on hover.
+ */
+
+[role="menu"]:has(> [data-testid="model-selector-panel"]) {
+  width: 241px !important;
+  min-width: 241px !important;
+  max-width: 241px !important;
+  padding: 8px !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  background: var(--gemini-surface) !important;
+  box-shadow: var(--gemini-menu-shadow) !important;
+  color: var(--gemini-text) !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  gap: 0 !important;
+}
+
+/* Willow's picker has no heading above the list. */
+[data-testid="model-selector-header"] {
+  display: none !important;
+}
+
+/* Willow's model list is at most 208px tall and scrolls inside without a
+ * scrollbar; the separator and the row beneath stay fixed under it. */
+[data-testid="model-selector-panel"] {
+  max-height: none !important;
+}
+
+[data-testid="model-selector-panel"] .overflow-y-auto {
+  max-height: 208px;
+  scrollbar-width: none;
+}
+
+[data-testid="model-selector-panel"] .overflow-y-auto::-webkit-scrollbar {
+  display: none;
+}
+
+[data-testid="model-selector-panel"] .flex-col.gap-px,
+[data-testid="model-selector-panel"] .flex-col.gap-0\.5 {
+  gap: 0 !important;
+}
+
+[data-testid="model-selector-panel"] .pb-1 {
+  padding-bottom: 0 !important;
+}
+
+/* Every row in the menu. */
+[data-testid="model-selector-panel"] [role="menuitem"] {
+  position: relative;
+  min-height: 52px;
+  padding: 0 8px 0 36px !important;
+  gap: 0 !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: var(--gemini-text) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  transition: background-color 150ms ease !important;
+}
+
+[data-testid="model-selector-panel"] [role="menuitem"]:hover,
+[data-testid="model-selector-panel"] [role="menuitem"]:focus,
+[data-testid="model-selector-panel"] [role="menuitem"][data-highlighted],
+[data-testid="model-selector-panel"] [role="menuitem"][data-popup-open] {
+  background: var(--gemini-surface-hover) !important;
+  color: var(--gemini-text) !important;
+}
+
+/* A model row's label block: name on the first line, effort (and any badge)
+ * dimmed on the second, which is Willow's two-line row. */
+[data-testid="model-selector-panel"] [role="menuitem"] > span:first-child {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 0;
+  padding: 8px 8px 8px 0;
+  white-space: normal;
+}
+
+[data-testid="model-selector-panel"] [role="menuitem"] > span:first-child > [data-testid="model-selector-effort-group"] {
+  flex: 0 0 100%;
+  white-space: nowrap;
+}
+
+[data-testid="model-selector-panel"] [role="menuitem"] [data-testid="model-selector-effort-group"],
+[data-testid="model-selector-panel"] [role="menuitem"] > span:first-child > span,
+[data-testid="model-selector-panel"] [role="menuitem"] [data-model-label] {
+  font-size: 13px !important;
+  line-height: 17px !important;
+  color: var(--gemini-text);
+}
+
+/* The effort level under the name. */
+[data-testid="model-selector-panel"] [role="menuitem"] > span:first-child > span.opacity-70 {
+  opacity: 1 !important;
+  color: var(--gemini-text-dim) !important;
+}
+
+/* The "Fast" tag, restyled as Willow's small badge. */
+[data-testid="model-selector-panel"] [role="menuitem"] > span:first-child > div.rounded-full {
+  opacity: 1 !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 10px !important;
+  line-height: 14px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+/* The check for the current model sits in Willow's 36px column on the left, and
+ * stays put on hover rather than swapping for the chevron. */
+[data-testid="model-selector-panel"] [role="menuitem"] > span.ml-auto {
+  display: flex !important;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: var(--gemini-text);
+}
+
+[data-testid="model-selector-panel"] [role="menuitem"] > span.ml-auto > svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* The submenu chevron on the right, always visible as on Willow's effort row. */
+[data-testid="model-selector-panel"] [role="menuitem"] > span.opacity-50 {
+  display: flex !important;
+  opacity: 1 !important;
+  padding-left: 8px !important;
+  color: var(--gemini-text-dim);
+}
+
+[data-testid="model-selector-panel"] [role="menuitem"] > span.opacity-50 > svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Single-line rows (models without effort levels, View Usage) match Willow's
+ * 48px utility row. */
+[data-testid="model-selector-panel"] [role="menuitem"][data-testid="model-selector-item"],
+[data-testid="model-selector-panel"] [role="separator"] ~ * [role="menuitem"] {
+  min-height: 48px;
+}
+
+/* The leading icon on View Usage. */
+[data-testid="model-selector-panel"] [role="menuitem"] > span:first-child > svg {
+  width: 20px !important;
+  height: 20px !important;
+  margin-right: 4px;
+  color: var(--gemini-text);
+}
+
+/* Willow's separator: 1px of #444746 with 8px above and below. */
+[data-testid="model-selector-panel"] [role="separator"] {
+  height: 1px !important;
+  margin: 8px 0 !important;
+  background: var(--gemini-separator) !important;
+}
+
+/* --- 1c. The effort submenu -------------------------------------------------
+ * Willow: a 220px card in the same surface, 48px rows, check column on the left.
+ * Antigravity: the same menu component as above, nested, with menuitemradio rows.
+ */
+
+[role="menu"][data-nested]:has([data-testid="model-selector-effort-option"]) {
+  width: 220px !important;
+  min-width: 220px !important;
+  padding: 8px !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  background: var(--gemini-surface) !important;
+  box-shadow: var(--gemini-submenu-shadow) !important;
+  color: var(--gemini-text) !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  gap: 0 !important;
+}
+
+[role="menu"][data-nested]:has([data-testid="model-selector-effort-option"]) [role="group"] {
+  gap: 0 !important;
+}
+
+[role="menu"][data-nested] [role="menuitemradio"]:has([data-testid="model-selector-effort-option"]) {
+  position: relative;
+  height: 48px;
+  padding: 0 12px 0 36px !important;
+  gap: 0 !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: var(--gemini-text) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  transition: background-color 150ms ease !important;
+}
+
+[role="menu"][data-nested] [role="menuitemradio"]:has([data-testid="model-selector-effort-option"]):hover,
+[role="menu"][data-nested] [role="menuitemradio"]:has([data-testid="model-selector-effort-option"]):focus,
+[role="menu"][data-nested] [role="menuitemradio"][data-highlighted]:has([data-testid="model-selector-effort-option"]) {
+  background: var(--gemini-surface-hover) !important;
+}
+
+[role="menu"][data-nested] [role="menuitemradio"] > span[data-checked] {
+  display: flex;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 36px;
+  align-items: center;
+  justify-content: center;
+  color: var(--gemini-text);
+}
+
+[role="menu"][data-nested] [role="menuitemradio"] > span[data-checked] > svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* --- 1d. Motion -------------------------------------------------------------
+ * Willow's dropdownOpenUp: 200ms out of scale(0.95) translateY(6px), and a
+ * 150ms reverse on close, both on cubic-bezier(0.16, 1, 0.3, 1). Antigravity
+ * drives the same states through Base UI's data-starting-style and
+ * data-ending-style, so only the values change.
+ */
+
+[role="menu"]:has(> [data-testid="model-selector-panel"]) {
+  transition: opacity 200ms var(--gemini-ease), transform 200ms var(--gemini-ease) !important;
+}
+
+[role="menu"]:has(> [data-testid="model-selector-panel"])[data-ending-style] {
+  transition-duration: 150ms !important;
+}
+
+[role="menu"]:has(> [data-testid="model-selector-panel"])[data-starting-style],
+[role="menu"]:has(> [data-testid="model-selector-panel"])[data-ending-style] {
+  opacity: 0 !important;
+  transform: scale(0.95) translateY(6px) !important;
+}
+
+[role="menu"][data-side="bottom"]:has(> [data-testid="model-selector-panel"])[data-starting-style],
+[role="menu"][data-side="bottom"]:has(> [data-testid="model-selector-panel"])[data-ending-style] {
+  transform: scale(0.95) translateY(-6px) !important;
+}
+
+/* Willow's submenu appears in place; a short fade keeps it from popping. */
+[role="menu"][data-nested]:has([data-testid="model-selector-effort-option"]) {
+  transition: opacity 120ms ease !important;
+}
+
+[role="menu"][data-nested]:has([data-testid="model-selector-effort-option"])[data-starting-style],
+[role="menu"][data-nested]:has([data-testid="model-selector-effort-option"])[data-ending-style] {
+  opacity: 0 !important;
+  transform: none !important;
+}

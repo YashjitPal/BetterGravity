@@ -1,0 +1,9 @@
+{
+  "name": "Custom Gemini API Key",
+  "description": "Sends Antigravity's chat through a Gemini API key of your own instead of its bundled subscription, translating between the two protocols on your machine.",
+  "version": "1.0.0",
+  "author": "Yashjit Pal",
+  "main": "index.js",
+  "gemini": true,
+  "source": "https://github.com/YashjitPal/BetterGravity"
+}

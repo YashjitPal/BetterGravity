@@ -26,8 +26,22 @@ export const CHANNEL = {
   presenceUpdate: "bettergravity:presence-update",
   presenceClose: "bettergravity:presence-close",
   presenceStatus: "bettergravity:presence-status",
+  geminiConfigure: "bettergravity:gemini-configure",
+  geminiRead: "bettergravity:gemini-read",
+  geminiTest: "bettergravity:gemini-test",
+  geminiStatus: "bettergravity:gemini-status",
+  readAccount: "bettergravity:read-account",
   log: "bettergravity:log"
 } as const;
+
+/**
+ * Reserved prefix for a plugin's declared settings inside its own storage. The
+ * settings panel writes them, `context.settings` reads them, and the main
+ * process reads them at launch for a feature that has to be running before any
+ * plugin script does — so the prefix is part of the contract, not a detail of
+ * the page.
+ */
+export const SETTING_PREFIX = "setting:";
 
 export type ContentKind = "theme" | "plugin";
 
@@ -80,6 +94,69 @@ export interface PresenceStatus {
   readonly message?: string;
 }
 
+/**
+ * Where the Gemini key translator has got to. `listening` means it is serving but
+ * the language server has not been pointed at it, so a restart is what is left;
+ * `routing` means it has. `blocked` is something wrong with the translator
+ * itself, described by `message`.
+ */
+export type GeminiPhase = "off" | "listening" | "routing" | "blocked";
+
+export interface GeminiCounts {
+  readonly translated: number;
+  readonly passedThrough: number;
+  readonly failed: number;
+}
+
+/**
+ * Deliberately says only whether a key exists, never what it is. This crosses
+ * to the page, so anything in here is readable by every plugin.
+ */
+export interface GeminiStatus {
+  readonly phase: GeminiPhase;
+  readonly port?: number;
+  readonly keyed: boolean;
+  readonly trusted: boolean;
+  readonly thumbprint?: string;
+  readonly restartRequired: boolean;
+  readonly message?: string;
+  readonly counts: GeminiCounts;
+}
+
+/** What a plugin supplies. The key travels one way only, page to main. */
+export interface GeminiConfig {
+  readonly apiKey?: string;
+  /** Where the translated requests go. Google's own API when empty. */
+  readonly baseUrl?: string;
+  readonly stream?: boolean;
+  readonly thoughts?: boolean;
+  readonly bypass?: boolean;
+  readonly audit?: boolean;
+}
+
+export interface GeminiKeyTest {
+  readonly ok: boolean;
+  readonly message: string;
+  readonly models?: number;
+}
+
+/**
+ * The name on the Google account Antigravity is signed in with.
+ *
+ * Deliberately a name and nothing else: no address, no identifier, no picture.
+ * This crosses to the page, so anything in here is readable by every plugin, and
+ * what a plugin needs to greet the user by name is the name. Both fields are
+ * absent when Google's own record cannot be read, which is the honest answer
+ * rather than a name guessed from an address.
+ */
+export interface AccountProfile {
+  /** Google's own `given_name` — "Ada" in "Ada Lovelace". */
+  readonly firstName?: string;
+  readonly fullName?: string;
+  readonly email?: string;
+  readonly pictureUrl?: string;
+}
+
 /** Persisted per-plugin key/value data, keyed by plugin id. */
 export type PluginStorageSnapshot = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
 
@@ -112,6 +189,12 @@ export interface PluginRecord {
   readonly version: string;
   readonly author: string;
   readonly source: string;
+  /**
+   * The stylesheets the manifest's `styles` names, folded into one string the
+   * way a folder theme is. Injected while the plugin runs; absent when the
+   * manifest declares none.
+   */
+  readonly styles?: string;
   readonly enabled: boolean;
 }
 

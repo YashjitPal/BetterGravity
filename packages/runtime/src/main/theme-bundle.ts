@@ -190,6 +190,29 @@ function fold(file: string, context: Context): string {
   });
 }
 
+export interface StylesheetBundle {
+  /** The folded stylesheet, ready to inject. */
+  readonly css: string;
+  /** Things that did not resolve. The bundle is still usable without them. */
+  readonly warnings: readonly string[];
+}
+
+/**
+ * Folds one stylesheet and everything it imports into a single string. Local
+ * `@import`s are inlined, local `url()`s become data URIs, and remote
+ * `@import`s move to the top, where the page will honour them. References are
+ * confined to `root`; the same folding serves theme folders and the
+ * stylesheets a plugin declares.
+ */
+export function bundleStylesheet(root: string, entryFile: string): StylesheetBundle {
+  const resolvedRoot = path.resolve(root);
+  const resolvedEntry = path.resolve(entryFile);
+  const context: Context = { root: resolvedRoot, hoisted: [], warnings: [], chain: [resolvedEntry] };
+  const folded = fold(resolvedEntry, context);
+  const css = context.hoisted.length > 0 ? `${context.hoisted.join("\n")}\n${folded}` : folded;
+  return { css, warnings: context.warnings };
+}
+
 /**
  * Folds a theme folder into one stylesheet. Throws when the folder has no entry
  * stylesheet or is over the size limit; everything else is reported as a
@@ -205,9 +228,7 @@ export function bundleThemeFolder(folder: string): ThemeBundle {
     throw new Error(`The folder is ${Math.round(size / 1024)} KB, above the ${Math.round(MAX_THEME_FOLDER_BYTES / 1024)} KB limit.`);
   }
 
-  const context: Context = { root, hoisted: [], warnings: [], chain: [entryFile] };
   const entryCss = fs.readFileSync(entryFile, "utf8");
-  const folded = fold(entryFile, context);
-  const css = context.hoisted.length > 0 ? `${context.hoisted.join("\n")}\n${folded}` : folded;
-  return { css, entryCss, entryFile, warnings: context.warnings };
+  const { css, warnings } = bundleStylesheet(root, entryFile);
+  return { css, entryCss, entryFile, warnings };
 }

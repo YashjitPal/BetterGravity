@@ -283,6 +283,8 @@ export interface PluginFiles {
    * the one string this package is given, so the caller does the walking.
    */
   readonly files: readonly CatalogFile[];
+  /** Each stylesheet in the folder with its text, so remote references can be reviewed. Optional. */
+  readonly stylesheets?: readonly { readonly name: string; readonly css: string }[];
 }
 
 /** Worth a reviewer's attention rather than grounds for rejection. */
@@ -321,13 +323,41 @@ export function validatePlugin(folderName: string, files: PluginFiles): Validati
   const version = requireText(manifest["version"], "version", findings);
   const author = requireText(manifest["author"], "author", findings);
 
+  // `styles`: one path or a list. Each must be a .css file inside the folder.
+  const declaredStyles = manifest["styles"];
+  const styles: string[] = [];
+  if (declaredStyles !== undefined) {
+    const list = Array.isArray(declaredStyles) ? declaredStyles : [declaredStyles];
+    for (const item of list) {
+      if (typeof item !== "string" || !item.trim()) {
+        findings.push(error("styles must be a path or a list of paths."));
+        continue;
+      }
+      const sheet = item.trim();
+      if (sheet.startsWith("/") || sheet.includes("..") || sheet.includes("\\")) {
+        findings.push(error(`styles "${sheet}" must stay inside the plugin folder.`));
+      } else if (!/\.css$/i.test(sheet)) {
+        findings.push(error(`styles "${sheet}" must be a .css file.`));
+      } else if (!files.fileNames.includes(sheet)) {
+        findings.push(error(`styles "${sheet}" does not exist in the folder.`));
+      } else {
+        styles.push(sheet);
+      }
+    }
+  }
+
+  // The entry script is optional only for a plugin that declares stylesheets
+  // and leaves `main` unsaid: a look with no behaviour needs no script.
   const declared = manifest["main"];
   const main = typeof declared === "string" && declared.trim() ? declared.trim() : "index.js";
+  const scriptOptional = styles.length > 0 && typeof declared !== "string";
   if (main.startsWith("/") || main.includes("..") || main.includes("\\")) {
     findings.push(error(`main "${main}" must stay inside the plugin folder.`));
-  } else if (!files.fileNames.includes(main)) {
+  } else if (!files.fileNames.includes(main) && !scriptOptional) {
     findings.push(error(`main "${main}" does not exist in the folder.`));
   }
+
+  for (const sheet of files.stylesheets ?? []) reviewRemoteReferences(sheet.css, findings, sheet.name);
 
   if (files.totalBytes > LIMITS.pluginBytes) {
     findings.push(

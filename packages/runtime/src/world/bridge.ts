@@ -1,9 +1,13 @@
 import type {
+  AccountProfile,
   CatalogEntry,
   CatalogResult,
   ContentKind,
   ContentResult,
   DirectoryKey,
+  GeminiConfig,
+  GeminiKeyTest,
+  GeminiStatus,
   PluginStorageSnapshot,
   PresenceActivity,
   PresenceStatus,
@@ -34,6 +38,11 @@ export interface RuntimeBridge {
   presenceUpdate(activity: PresenceActivity | undefined): Promise<PresenceStatus>;
   presenceClose(): Promise<PresenceStatus>;
   onPresenceStatus(listener: (status: PresenceStatus) => void): void;
+  geminiConfigure(config: GeminiConfig): Promise<GeminiStatus>;
+  geminiRead(): Promise<GeminiStatus>;
+  geminiTest(): Promise<GeminiKeyTest>;
+  onGeminiStatus(listener: (status: GeminiStatus) => void): void;
+  readAccount(): Promise<AccountProfile>;
   log(message: string): void;
   onStateChanged(listener: (state: RuntimeState) => void): void;
 }

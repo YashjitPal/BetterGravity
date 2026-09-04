@@ -128,13 +128,19 @@ if (existsSync(pluginsDirectory)) {
       // A broken manifest is reported by the validator below.
     }
 
+    const fileNames = listFiles(full);
     const files = describeFiles(full);
+    // A plugin's stylesheets are reviewed for remote references as a theme's are.
+    const stylesheets = fileNames
+      .filter((relative) => relative.toLowerCase().endsWith(".css") && statSync(path.join(full, relative)).isFile())
+      .map((relative) => ({ name: relative, css: readFileSync(path.join(full, relative), "utf8") }));
     const result = validatePlugin(folderName, {
       manifest,
-      fileNames: listFiles(full),
+      fileNames,
       entrySource,
       totalBytes: files.reduce((total, file) => total + file.bytes, 0),
-      files
+      files,
+      stylesheets
     });
     for (const finding of result.findings) {
       (finding.severity === "error" ? problems : notes).push([`plugins/${folderName}`, finding.message]);

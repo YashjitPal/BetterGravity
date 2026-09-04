@@ -1,0 +1,1281 @@
+/* ===========================================================================
+ * 3. Conversation
+ * ===========================================================================
+ * Willow's thread is a 704px column of 17px Google Sans Flex on a 24px line,
+ * #e3e3e3 on #0f0f0f. A sent message sits on the right in a #171717 bubble
+ * with a 40px radius and 20px/28px padding, at most 508px wide. Replies are
+ * plain text on the page, paragraphs 16px apart, with inline code in small
+ * #171717 pills set in Google Sans Code.
+ *
+ * Antigravity renders a sent message as a full-width card with a hover
+ * toolbar, and replies as 14px markdown. The card becomes the bubble, the
+ * toolbar moves beneath it, and the markdown takes Willow's type scale. Code
+ * blocks are left for a later pass, once one is in view to measure against.
+ */
+
+/* --- 3a. Page and column ----------------------------------------------------- */
+:root {
+  --background: var(--gemini-page-bg) !important;
+  /* Willow's 760px thread minus its 28px side padding. */
+  --max-conversation-width: 704px !important;
+}
+
+[data-testid="conversation-view"] {
+  font-family: var(--gemini-font);
+  font-variation-settings: var(--gemini-font-axes);
+  color: var(--gemini-body-text);
+}
+
+/* Willow's MESSAGE_GAP: 52px at every turn boundary. Antigravity keeps 12px
+ * between turns and 16px under the sent message's sticky header. */
+[data-testid="conversation-view"] .flex.flex-col.gap-y-3 {
+  row-gap: 52px !important;
+}
+
+/* Antigravity pins each sent prompt to the top of the scroller while its reply
+ * is on screen, so the prompt hangs there as you read and only lets go at the
+ * next turn. Gemini does not: a prompt scrolls away like everything else, and
+ * the thread is one continuous column. Antigravity builds the pin with a
+ * `sticky top-0` wrapper around the turn, so unsetting the position is the
+ * whole of it — the wrapper stays exactly where it sits in the flow.
+ *
+ * Matched on being sticky and holding a prompt rather than on `top-0`, so the
+ * rule does not depend on which offset class the wrapper carries. The lift out
+ * of the stacking order goes with it; nothing needs to paint over the reply
+ * once it no longer overlaps it. */
+[data-testid="conversation-view"] .sticky:has([data-testid="user-input-step"]) {
+  position: static !important;
+  z-index: auto !important;
+  margin-bottom: 52px !important;
+}
+
+/* --- 3b. The sent message ----------------------------------------------------- */
+[data-testid="user-input-step"] {
+  align-items: flex-end !important;
+  padding-top: 0 !important;
+}
+
+/* The outer wrapper drew a 1px border ring; the bubble has none. */
+[data-testid="user-input-step"] > [data-testid="lifted-context-menu-trigger"] {
+  width: fit-content;
+  max-width: 508px;
+  padding: 0 !important;
+  border-radius: 40px !important;
+  background: transparent !important;
+}
+
+[data-testid="lifted-context-menu-trigger"] > .bg-card {
+  padding: 20px 28px !important;
+  border-radius: 40px !important;
+  background: var(--gemini-bubble-bg) !important;
+  overflow: visible !important;
+}
+
+/* Willow clips a long message at four lines (96px) before offering to expand. */
+[data-testid="lifted-context-menu-trigger"] > .bg-card > .flex-1 {
+  padding: 0 !important;
+  max-height: 96px !important;
+}
+
+[data-testid="lifted-context-menu-trigger"] .whitespace-pre-wrap {
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 17px !important;
+  line-height: 24px !important;
+  color: var(--gemini-body-text) !important;
+  overflow-wrap: anywhere;
+}
+
+/* The time, copy, and revert controls appear on hover. Inside a padded bubble
+ * they would sit on the text, so they hang beneath it as Willow's do. */
+[data-testid="lifted-context-menu-trigger"] .user-input-buttons-container {
+  top: 100% !important;
+  bottom: auto !important;
+  right: 12px !important;
+  padding: 6px 4px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* --- 3c. The reply ------------------------------------------------------------- */
+[data-testid="planner-response-text"] {
+  padding: 0 !important;
+}
+
+[data-testid="planner-response-text"],
+[data-testid="planner-response-text"] > div,
+[role="article"][aria-label="Agent response"] .leading-relaxed {
+  gap: 16px !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 17px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  color: var(--gemini-body-text) !important;
+  overflow-wrap: break-word !important;
+  word-break: auto-phrase !important;
+}
+
+/* Antigravity passes `text-sm` (14px) on its markdown wrapper; lift it to Willow's 17px */
+[data-testid="planner-response-text"] .text-sm,
+[data-testid="planner-response-text"].text-sm,
+[role="article"][aria-label="Agent response"] .leading-relaxed.text-sm,
+[role="article"][aria-label="Agent response"] .leading-relaxed .text-sm {
+  font-size: 17px !important;
+  line-height: 24px !important;
+  font-family: var(--gemini-font) !important;
+}
+
+/* Secondary collapsibles: "Worked for <n>m", tool groups ("Explored 3 files"), command executions */
+[data-testid="worked-for-collapsible"],
+[data-testid="worked-for-collapsible"] *,
+[data-testid="tool-group-collapsible"],
+[data-testid="tool-group-collapsible"] *,
+[data-testid="thinking-collapsible-trigger"],
+[data-testid="thinking-collapsible-trigger"] *,
+[data-testid="run-command-step"] {
+  font-size: 14px !important;
+  line-height: 20px !important;
+}
+
+/* Paragraphs: Willow's 17px/24px with 16px vertical rhythm */
+[data-testid="planner-response-text"] p,
+[role="article"][aria-label="Agent response"] .leading-relaxed p {
+  margin: 0 !important;
+  font-size: 17px !important;
+  line-height: 24px !important;
+  color: var(--gemini-body-text) !important;
+  white-space: pre-wrap !important;
+}
+
+[data-testid="planner-response-text"] p + p,
+[role="article"][aria-label="Agent response"] .leading-relaxed p + p {
+  margin-top: 16px !important;
+}
+
+/* Headings: Willow's exact type scale and optical line heights.
+ * Google Sans Flex provides true light weight instances:
+ * h1: 28px/36px wt 350, h2: 24px/28px wt 380, h3-h6: 20px/24px wt 470 */
+[data-testid="planner-response-text"] h1,
+[data-testid="planner-response-text"] h2,
+[data-testid="planner-response-text"] h3,
+[data-testid="planner-response-text"] h4,
+[data-testid="planner-response-text"] h5,
+[data-testid="planner-response-text"] h6,
+[role="article"][aria-label="Agent response"] .leading-relaxed h1,
+[role="article"][aria-label="Agent response"] .leading-relaxed h2,
+[role="article"][aria-label="Agent response"] .leading-relaxed h3,
+[role="article"][aria-label="Agent response"] .leading-relaxed h4,
+[role="article"][aria-label="Agent response"] .leading-relaxed h5,
+[role="article"][aria-label="Agent response"] .leading-relaxed h6 {
+  margin: 24px 0 0 !important;
+  color: var(--gemini-body-text) !important;
+  font-family: var(--gemini-font) !important;
+  white-space: pre-wrap !important;
+}
+
+[data-testid="planner-response-text"] h1,
+[role="article"][aria-label="Agent response"] .leading-relaxed h1 {
+  font-size: 28px !important;
+  font-weight: 350 !important;
+  line-height: 36px !important;
+}
+
+[data-testid="planner-response-text"] h2,
+[role="article"][aria-label="Agent response"] .leading-relaxed h2 {
+  font-size: 24px !important;
+  font-weight: 380 !important;
+  line-height: 28px !important;
+}
+
+[data-testid="planner-response-text"] h3,
+[data-testid="planner-response-text"] h4,
+[data-testid="planner-response-text"] h5,
+[data-testid="planner-response-text"] h6,
+[role="article"][aria-label="Agent response"] .leading-relaxed h3,
+[role="article"][aria-label="Agent response"] .leading-relaxed h4,
+[role="article"][aria-label="Agent response"] .leading-relaxed h5,
+[role="article"][aria-label="Agent response"] .leading-relaxed h6 {
+  font-size: 20px !important;
+  font-weight: 470 !important;
+  line-height: 24px !important;
+  margin-bottom: -8px !important;
+}
+
+/* Heading adjacency rhythm from Willow */
+[data-testid="planner-response-text"] h1 + h2,
+[role="article"][aria-label="Agent response"] .leading-relaxed h1 + h2 {
+  margin-top: 8px !important;
+}
+
+[data-testid="planner-response-text"] h2 + h3,
+[data-testid="planner-response-text"] h3 + h4,
+[data-testid="planner-response-text"] h4 + h5,
+[data-testid="planner-response-text"] h5 + h6,
+[role="article"][aria-label="Agent response"] .leading-relaxed h2 + h3,
+[role="article"][aria-label="Agent response"] .leading-relaxed h3 + h4,
+[role="article"][aria-label="Agent response"] .leading-relaxed h4 + h5,
+[role="article"][aria-label="Agent response"] .leading-relaxed h5 + h6 {
+  margin-top: 0 !important;
+}
+
+[data-testid="planner-response-text"] > div > :first-child,
+[role="article"][aria-label="Agent response"] .leading-relaxed > :first-child {
+  margin-top: 0 !important;
+}
+
+/* Google Sans Flex tops out at 540; anything bolder is synthesised. */
+[data-testid="planner-response-text"] strong,
+[data-testid="planner-response-text"] b,
+[role="article"][aria-label="Agent response"] .leading-relaxed strong,
+[role="article"][aria-label="Agent response"] .leading-relaxed b {
+  font-weight: 540 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
+}
+
+/* Links: Willow's 1.36px dotted underline with 3.91px offset, brightening to white on hover */
+[data-testid="planner-response-text"] a,
+[role="article"][aria-label="Agent response"] .leading-relaxed a {
+  color: var(--gemini-link) !important;
+  text-decoration-line: underline !important;
+  text-decoration-style: dotted !important;
+  text-decoration-thickness: 1.36px !important;
+  text-decoration-color: var(--gemini-link) !important;
+  text-underline-offset: 3.91px !important;
+}
+
+[data-testid="planner-response-text"] a:hover,
+[role="article"][aria-label="Agent response"] .leading-relaxed a:hover {
+  color: #ffffff !important;
+  text-decoration-color: #ffffff !important;
+}
+
+/* Inline code: a #171717 circular pill in 15px Google Sans Code at 55% white */
+[data-testid="planner-response-text"] code:not(pre code),
+[role="article"][aria-label="Agent response"] .leading-relaxed code:not(pre code) {
+  display: inline !important;
+  padding: 4px 6px !important;
+  border-radius: 9999px !important;
+  background: var(--gemini-inline-code-bg) !important;
+  color: var(--gemini-inline-code-text) !important;
+  font-family: var(--gemini-code-font) !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  white-space: break-spaces !important;
+  border: none !important;
+}
+
+/* Lists: 36px indent, 12px between items, Willow's ring bullet SVG and plain decimal counters */
+[data-testid="planner-response-text"] ul,
+[data-testid="planner-response-text"] ol,
+[role="article"][aria-label="Agent response"] .leading-relaxed ul,
+[role="article"][aria-label="Agent response"] .leading-relaxed ol {
+  margin: 0 !important;
+  padding-left: 36px !important;
+  list-style: none !important;
+}
+
+[data-testid="planner-response-text"] ol,
+[role="article"][aria-label="Agent response"] .leading-relaxed ol {
+  counter-reset: gemini-item;
+}
+
+[data-testid="planner-response-text"] li,
+[role="article"][aria-label="Agent response"] .leading-relaxed li {
+  position: relative !important;
+  margin: 0 !important;
+  font-size: 17px !important;
+  line-height: 24px !important;
+  color: var(--gemini-body-text) !important;
+}
+
+[data-testid="planner-response-text"] li + li,
+[role="article"][aria-label="Agent response"] .leading-relaxed li + li {
+  margin-top: 12px !important;
+}
+
+[data-testid="planner-response-text"] ul > li:not(.task-list-item)::before,
+[role="article"][aria-label="Agent response"] .leading-relaxed ul > li:not(.task-list-item)::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 7.5px !important;
+  left: -32px !important;
+  width: 9px !important;
+  height: 9px !important;
+  background: currentColor !important;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg width='9' height='9' viewBox='0 0 9 9' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='4.2998' cy='4.30005' r='3.65' stroke='%23000' stroke-width='1.3'/%3E%3C/svg%3E") center / contain no-repeat !important;
+  mask: url("data:image/svg+xml,%3Csvg width='9' height='9' viewBox='0 0 9 9' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='4.2998' cy='4.30005' r='3.65' stroke='%23000' stroke-width='1.3'/%3E%3C/svg%3E") center / contain no-repeat !important;
+}
+
+[data-testid="planner-response-text"] ol > li:not(.task-list-item),
+[role="article"][aria-label="Agent response"] .leading-relaxed ol > li:not(.task-list-item) {
+  counter-increment: gemini-item;
+}
+
+[data-testid="planner-response-text"] ol > li:not(.task-list-item)::before,
+[role="article"][aria-label="Agent response"] .leading-relaxed ol > li:not(.task-list-item)::before {
+  content: counter(gemini-item) "." !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -36px !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+[data-testid="planner-response-text"] ol ol > li:not(.task-list-item)::before,
+[role="article"][aria-label="Agent response"] .leading-relaxed ol ol > li:not(.task-list-item)::before {
+  content: counter(gemini-item, lower-alpha) "." !important;
+}
+
+/* Nested lists sit 12px under the item text */
+[data-testid="planner-response-text"] li > ul,
+[data-testid="planner-response-text"] li > ol,
+[role="article"][aria-label="Agent response"] .leading-relaxed li > ul,
+[role="article"][aria-label="Agent response"] .leading-relaxed li > ol {
+  margin-top: 12px !important;
+}
+
+/* Blockquote: Willow's italic Google Sans Code with 1.3px radial-gradient dotted vertical rail */
+[data-testid="planner-response-text"] blockquote,
+[role="article"][aria-label="Agent response"] .leading-relaxed blockquote {
+  position: relative !important;
+  display: block !important;
+  margin: 16px 40px 16px 7.5px !important;
+  padding: 0 0 0 32.5px !important;
+  border: 0 !important;
+  border-left: none !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-family: var(--gemini-code-font) !important;
+  font-size: 17px !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-variation-settings: "MONO" 0, "wght" 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 24px !important;
+}
+
+[data-testid="planner-response-text"] blockquote::before,
+[role="article"][aria-label="Agent response"] .leading-relaxed blockquote::before {
+  position: absolute !important;
+  top: 6px !important;
+  bottom: 6px !important;
+  left: 3px !important;
+  width: 1.3px !important;
+  background-image: radial-gradient(circle closest-side, rgb(230, 230, 230) 100%, transparent 100%) !important;
+  background-position: 0 0 !important;
+  background-repeat: repeat-y !important;
+  background-size: 1.3px 4px !important;
+  content: "" !important;
+  border: none !important;
+}
+
+[data-testid="planner-response-text"] blockquote :is(b, strong),
+[role="article"][aria-label="Agent response"] .leading-relaxed blockquote :is(b, strong) {
+  font-family: var(--gemini-font) !important;
+  font-size: 17px !important;
+  font-style: normal !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
+  line-height: 24px !important;
+}
+
+[data-testid="planner-response-text"] blockquote :is(ul, ol),
+[role="article"][aria-label="Agent response"] .leading-relaxed blockquote :is(ul, ol) {
+  margin: 8px 0 !important;
+  padding-left: 27px !important;
+}
+
+[data-testid="planner-response-text"] blockquote ul > li,
+[role="article"][aria-label="Agent response"] .leading-relaxed blockquote ul > li {
+  list-style-type: disc !important;
+  padding-left: 4px !important;
+}
+
+[data-testid="planner-response-text"] blockquote ol > li,
+[role="article"][aria-label="Agent response"] .leading-relaxed blockquote ol > li {
+  list-style-type: decimal !important;
+  padding-left: 4px !important;
+}
+
+[data-testid="planner-response-text"] blockquote li::before,
+[role="article"][aria-label="Agent response"] .leading-relaxed blockquote li::before {
+  content: none !important;
+}
+
+/* Code blocks: Willow's 40px radius card, #171717 background, borderless, 14px/21px typography */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(> .min-h-7):has(.code-block),
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div.relative.rounded-xl:has(> .min-h-7),
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div.relative.whitespace-pre-wrap:has(.code-block),
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(> .p-3 > div > pre),
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .relative.whitespace-pre-wrap:has(pre) {
+  border-radius: 40px !important;
+  background: rgb(23, 23, 23) !important;
+  border: none !important;
+  margin: 16px 0 !important;
+  overflow: clip !important;
+  padding: 26px 0 32px 32px !important;
+  box-shadow: none !important;
+}
+
+/* Header inside code block */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3),
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+  display: flex !important;
+  width: 100% !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: transparent !important;
+  border-bottom: none !important;
+  padding: 0 16px 0 0 !important;
+  margin: 0 !important;
+  color: #ffffff !important;
+}
+
+/* Language label: Willow's 15px/20px weight 540 Google Sans Flex, white */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3) > .font-sans,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 > .font-sans {
+  font-family: var(--gemini-font) !important;
+  font-size: 15px !important;
+  font-weight: 540 !important;
+  line-height: 20px !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
+  color: #ffffff !important;
+  letter-spacing: normal !important;
+}
+
+/* Code block header action buttons container */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3) > .flex,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 > .flex {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  height: 36px !important;
+}
+
+/* Willow circular pill button for code block header */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3) button,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 button {
+  display: inline-flex !important;
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  color: rgb(255, 255, 255) !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3) button:hover,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 button:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+/* Icon size inside code block buttons */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3) button svg,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 button svg {
+  width: 20px !important;
+  height: 20px !important;
+  opacity: 0.9 !important;
+}
+
+/* Code container padding & scroll (.p-3) */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(> .min-h-7) > .p-3 {
+  padding: 16px 32px 0 0 !important;
+  margin: 0 !important;
+  overflow-x: auto !important;
+  background: transparent !important;
+}
+
+/* Code block, pre, code-line, line-content: Willow typography (14px, line-height 21px, Google Sans Code) */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .code-block,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .code-line,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .line-content,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) pre,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) pre code {
+  font-family: var(--gemini-code-font) !important;
+  font-size: 14px !important;
+  line-height: 21px !important;
+  font-weight: 400 !important;
+  color: rgb(255, 255, 255) !important;
+  background: transparent !important;
+  tab-size: 4 !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .code-line {
+  min-height: 21px !important;
+}
+
+/* Line numbers if present */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .code-line .line-number {
+  font-family: inherit !important;
+  font-size: 14px !important;
+  line-height: 21px !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+  margin-right: 24px !important;
+}
+
+/* Willow code syntax highlighting palette */
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.comment,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.prolog,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.doctype,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.cdata {
+  color: rgb(128, 128, 128) !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.keyword,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.selector,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.important {
+  color: rgb(150, 157, 255) !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.string,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.char,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.attr-value,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.inserted {
+  color: rgb(96, 214, 115) !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.number,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.boolean,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.constant,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.attr-name,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.variable {
+  color: rgb(255, 150, 218) !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.function,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.class-name,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.title {
+  color: rgb(255, 219, 15) !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.property,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.builtin,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.deleted {
+  color: rgb(255, 90, 89) !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.tag {
+  color: rgb(79, 160, 255) !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.operator,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .token.punctuation {
+  color: rgb(255, 255, 255) !important;
+}
+
+/* Tables: Willow's border collapse, 17px typography, 1px horizontal dividers */
+[data-testid="planner-response-text"] table,
+[role="article"][aria-label="Agent response"] .leading-relaxed table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  font-size: 17px !important;
+  line-height: 24px !important;
+  margin: 16px 0 !important;
+  font-family: var(--gemini-font) !important;
+}
+
+[data-testid="planner-response-text"] th,
+[role="article"][aria-label="Agent response"] .leading-relaxed th {
+  padding: 12px 12px 16px !important;
+  font-weight: 400 !important;
+  color: rgb(227, 227, 227) !important;
+  text-align: left !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+}
+
+[data-testid="planner-response-text"] td,
+[role="article"][aria-label="Agent response"] .leading-relaxed td {
+  padding: 16px 12px !important;
+  font-weight: 400 !important;
+  color: rgb(227, 227, 227) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+}
+
+[data-testid="planner-response-text"] th:first-child,
+[data-testid="planner-response-text"] td:first-child,
+[role="article"][aria-label="Agent response"] .leading-relaxed th:first-child,
+[role="article"][aria-label="Agent response"] .leading-relaxed td:first-child {
+  padding-left: 0 !important;
+}
+
+[data-testid="planner-response-text"] th:last-child,
+[data-testid="planner-response-text"] td:last-child,
+[role="article"][aria-label="Agent response"] .leading-relaxed th:last-child,
+[role="article"][aria-label="Agent response"] .leading-relaxed td:last-child {
+  padding-right: 0 !important;
+}
+
+/* A rule is a 1px line at 12% white. */
+[data-testid="planner-response-text"] hr,
+[role="article"][aria-label="Agent response"] .leading-relaxed hr {
+  height: 1px !important;
+  margin: 8px 0 !important;
+  border: 0 !important;
+  background: var(--gemini-rule) !important;
+}
+
+/* Math: Willow's KaTeX size */
+[data-testid="planner-response-text"] .katex,
+[role="article"][aria-label="Agent response"] .leading-relaxed .katex {
+  font-size: 24px !important;
+  line-height: 1.2 !important;
+}
+
+/* --- 3d. The conversation scrollbar ------------------------------------------ */
+/* Willow's measured custom scrollbar (apps/studio/index.html:543-589 &
+ * features/chat/src/ChatView.tsx:3588):
+ * - 12px wide, transparent track and corner, 0px buttons (no arrows).
+ * - Resting thumb: invisible (content-box transparent).
+ * - Container hover: surface-container-highest rgb(51, 53, 55) (#333537).
+ * - Thumb direct hover / active: outline-variant rgb(68, 71, 70) (#444746).
+ * - 2px transparent border with content-box creates an 8px pill centered in the 12px track.
+ * - 9999px border-radius, min-height 48px.
+ * - Outer conversation-view holds o1 (which contains the message thread scroller)
+ *   and the prompt box. The outer container must NOT scroll or hold a gutter;
+ *   only the inner message scroller scrolls, flush against the right edge.
+ */
+
+/* Disable scrollbar and gutter on the outer container so it doesn't push the
+ * inner message scroller away from the window edge or create a double scrollbar. */
+[data-testid="conversation-view"] {
+  scrollbar-gutter: auto !important;
+}
+
+[data-testid="conversation-view"]:has(.overflow-y-auto) {
+  overflow-y: hidden !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-width: none !important;
+}
+
+[data-testid="conversation-view"]:has(.overflow-y-auto)::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Inner message scroller: reset scrollbar-width/color so Chromium does not
+ * fall back to native Windows scrollbars with arrow buttons. */
+[data-testid="conversation-view"] .overflow-y-auto,
+[data-testid="conversation-view"] [class*="overflow-y-auto"],
+.gemini-chat-scrollbar {
+  scrollbar-width: auto !important;
+  scrollbar-color: auto !important;
+  scrollbar-gutter: stable !important;
+}
+
+@media (pointer: fine) {
+  .gemini-chat-scrollbar::-webkit-scrollbar,
+  .gemini-chat-scrollbar::-webkit-scrollbar-corner,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar-corner,
+  [data-testid="conversation-view"]::-webkit-scrollbar,
+  [data-testid="conversation-view"]::-webkit-scrollbar-corner {
+    background: transparent !important;
+    height: 12px !important;
+    width: 12px !important;
+  }
+
+  .gemini-chat-scrollbar::-webkit-scrollbar-track,
+  .gemini-chat-scrollbar::-webkit-scrollbar-track-piece,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar-track,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar-track-piece,
+  [data-testid="conversation-view"]::-webkit-scrollbar-track,
+  [data-testid="conversation-view"]::-webkit-scrollbar-track-piece {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .gemini-chat-scrollbar::-webkit-scrollbar-thumb,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar-thumb,
+  [data-testid="conversation-view"]::-webkit-scrollbar-thumb {
+    background: content-box transparent !important;
+    border: 2px solid transparent !important;
+    border-radius: 9999px !important;
+    min-height: 48px !important;
+    min-width: 48px !important;
+  }
+
+  /* Show scrollbar when hovering over the container or conversation view */
+  .gemini-chat-scrollbar:hover::-webkit-scrollbar-thumb,
+  [data-testid="conversation-view"]:hover .overflow-y-auto::-webkit-scrollbar-thumb,
+  [data-testid="conversation-view"] .overflow-y-auto:hover::-webkit-scrollbar-thumb,
+  [data-testid="conversation-view"]:hover::-webkit-scrollbar-thumb {
+    background: content-box rgb(51, 53, 55) !important;
+  }
+
+  /* Brighten scrollbar when interacting directly with it */
+  .gemini-chat-scrollbar::-webkit-scrollbar-thumb:active,
+  .gemini-chat-scrollbar::-webkit-scrollbar-thumb:hover,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar-thumb:active,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+  [data-testid="conversation-view"]::-webkit-scrollbar-thumb:active,
+  [data-testid="conversation-view"]::-webkit-scrollbar-thumb:hover {
+    background: content-box rgb(68, 71, 70) !important;
+  }
+
+  /* Completely remove arrow buttons */
+  .gemini-chat-scrollbar::-webkit-scrollbar-button,
+  [data-testid="conversation-view"] .overflow-y-auto::-webkit-scrollbar-button,
+  [data-testid="conversation-view"]::-webkit-scrollbar-button {
+    height: 0px !important;
+    width: 0px !important;
+    display: none !important;
+    background: transparent !important;
+    border: none !important;
+  }
+}
+
+/* --- 3e. Changed files review card (Willow Spark style) ----------------------- */
+/*
+ * Willow Spark's generated file card (features/spark/src/SparkTaskDetail.tsx:380
+ * and SparkTaskDetail.css:2631):
+ * - 80px tall card, #171717 background, 24px radius, padding 16px 20px.
+ * - Hover wash: #282a2c.
+ * - Icon: Google Docs blue document icon on the left (24x24).
+ * - Title line: "{n} files changed  +{add} -{del}" in 17px Google Sans Flex #e6e6e6.
+ * - Subtitle line: comma-separated list of modified files in 15px 55% white.
+ * - Action button: Willow's blue pill button (#1f3b9b, 48px high, 9999px radius) labeled "Review".
+ * - Accordion list: hidden, replaced by the clean inline subtitle.
+ */
+
+.files-changed-header {
+  display: flex !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 80px !important;
+  min-height: 80px !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 16px 20px !important;
+  border-radius: 24px !important;
+  background: #171717 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #e6e6e6 !important;
+  cursor: pointer !important;
+  transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1) !important;
+  margin-top: 16px !important;
+}
+
+.files-changed-header:hover,
+.files-changed-header:active {
+  background: #282a2c !important;
+}
+
+/* Document icon on the far left */
+.files-changed-header::before {
+  content: "" !important;
+  display: block !important;
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  margin: 4px !important;
+  background-image: var(--gemini-docs-logo, url("https://www.gstatic.com/images/branding/productlogos/docs_2026/v2/web-96dp/logo_docs_2026_color_2x_web_96dp.png")) !important;
+  background-size: contain !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Middle text column: CSS Grid with 2 rows (Title + Subtitle) */
+.files-changed-header > .overflow-hidden {
+  display: grid !important;
+  grid-template-columns: auto 1fr !important;
+  grid-template-rows: auto auto !important;
+  align-items: center !important;
+  column-gap: 8px !important;
+  row-gap: 4px !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Title text: "3 files changed" */
+.files-changed-header > .overflow-hidden > span.text-secondary-foreground,
+.files-changed-header > .overflow-hidden > span.truncate {
+  grid-row: 1 !important;
+  grid-column: 1 !important;
+  color: #e6e6e6 !important;
+  font-family: var(--gemini-font) !important;
+  font-size: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: var(--gemini-font-axes) !important;
+  line-height: 24px !important;
+  white-space: nowrap !important;
+}
+
+/* Stat numbers (+108 -75) */
+.files-changed-header > .overflow-hidden > div.flex {
+  grid-row: 1 !important;
+  grid-column: 2 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: var(--gemini-font) !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  line-height: 24px !important;
+}
+
+.files-changed-header > .overflow-hidden > div.flex > .text-green-500 {
+  color: #34a853 !important;
+  font-weight: 400 !important;
+}
+
+.files-changed-header > .overflow-hidden > div.flex > .text-red-500 {
+  color: #ea4335 !important;
+  font-weight: 400 !important;
+}
+
+/* Hide the legacy chevron icon */
+.files-changed-header > .overflow-hidden > svg {
+  display: none !important;
+}
+
+/* Subtitle: comma-separated file names */
+.spark-file-card-subtitle {
+  grid-row: 2 !important;
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-family: var(--gemini-font) !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  font-variation-settings: var(--gemini-font-axes) !important;
+  line-height: 20px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.spark-file-card-subtitle:empty {
+  display: none !important;
+}
+
+/* Review button: Willow's blue pill button */
+.files-changed-header .review-button {
+  box-sizing: border-box !important;
+  min-width: 72px !important;
+  height: 48px !important;
+  flex: 0 0 auto !important;
+  padding: 0 20px !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: #1f3b9b !important;
+  color: #e6e6e6 !important;
+  font-family: var(--gemini-font) !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  font-variation-settings: var(--gemini-font-axes) !important;
+  line-height: 20px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.files-changed-header .review-button:hover,
+.files-changed-header .review-button:focus-visible {
+  background: #2649be !important;
+  color: #ffffff !important;
+}
+
+.files-changed-header .review-button > span {
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+}
+
+/* Hide difference icon inside the review button */
+.files-changed-header .review-button svg {
+  display: none !important;
+}
+
+/* Hide the legacy expand accordion dropdown list */
+.files-changed-header + div.relative.w-full {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * 3f. Top bar: the workspace and mode chips, and what they replace
+ *
+ * Willow keeps the name of what you are in at the top left of the pane and hangs
+ * one small control off it (apps/studio/src/shell/TopDropdown.tsx:39-64): a
+ * container at `top-4 left-4`, a text-and-caret dropdown trigger, then a square
+ * icon button `ml-1` beside it. Antigravity has neither. Its own top left holds a
+ * breadcrumb that only exists inside a conversation (hidden below since the
+ * sidebar already says which conversation you are in), and the two things Willow
+ * would put there — the workspace name and the local/git mode — live in the
+ * composer instead, in two rows that made the home screen's card 96px tall and
+ * left it with a strip along the bottom that a conversation's card does not have.
+ *
+ * So the chips are drawn here and the rows are taken out of the composer's flow
+ * (home-composer.css, last two sections). What sits in the top bar is a stand-in
+ * built by index.js from the original trigger's own markup — its icon, its label,
+ * its caret — and a click on it parks the original beneath itself and clicks
+ * that, so both menus still belong to the elements base-ui anchored them to.
+ * ------------------------------------------------------------------------- */
+
+/* Willow's container: `flex items-center` with the pair 16px from the pane's left
+ * edge (`left-4`). The bar is `items-center` and has no padding of its own, so
+ * the height comes out of the chips and `left-4` is the only offset needed.
+ *
+ * `order` rather than DOM order: the stand-ins are appended as their originals
+ * are found, and which of the two Antigravity mounts first is not this file's
+ * business. `no-drag` twice over — the attribute Antigravity's own triggers carry
+ * and the property behind it — because the bar is a window drag region, and a
+ * chip inside one swallows the click that should open its menu. */
+[data-gemini-top-chips] {
+  display: flex;
+  align-items: center;
+  gap: 4px; /* Willow's `ml-1` between the trigger and the button beside it. */
+  min-width: 0;
+  padding-left: 16px;
+  -webkit-app-region: no-drag;
+}
+
+/* Every trigger this plugin restyles hovers the same way (model-selector.css:
+ * 12-31), so the chips do too: transparent at rest, the trigger tokens on hover.
+ * That is a deliberate departure from Willow's `text-white/80` and
+ * `hover:bg-white/10`, which are that file's own literals rather than Gemini's. */
+[data-gemini-top-chip] {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gemini-text-trigger);
+  font-family: var(--gemini-font);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms ease, color 150ms ease;
+  -webkit-app-region: no-drag;
+}
+
+/* --- the workspace name (TopDropdown.tsx:43-55) ------------------------------
+ * Willow's own trigger, value for value: `gap-2 px-3 py-1.5 text-[18px]
+ * font-medium tracking-tight rounded-xl`, brightening to full white on hover and
+ * while its menu is open. The weight is written as an axis string because
+ * `font-variation-settings` wins over `font-weight` wherever it is set, and the
+ * plugin's `--gemini-font-axes` carries `wght 400`. */
+[data-gemini-top-chip="workspace"] {
+  order: 1;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 18px;
+  line-height: 24px;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 500;
+  letter-spacing: -0.025em;
+}
+
+[data-gemini-top-chip="workspace"]:hover,
+[data-gemini-top-chip="workspace"][data-gemini-open] {
+  color: var(--gemini-text-trigger-hover);
+}
+
+/* Willow's trigger is a name and a caret, nothing else, so Antigravity's folder
+ * glyph — first of the two SVGs the stand-in copied — is dropped. Positional
+ * rather than by class: the classes are Tailwind and Antigravity's to change. */
+[data-gemini-top-chip="workspace"] > svg:nth-of-type(1) {
+  display: none;
+}
+
+[data-gemini-top-chip="workspace"] > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: inherit;
+  letter-spacing: inherit;
+  font-variation-settings: inherit;
+  color: inherit;
+}
+
+/* `ChevronDown size={16} className="text-white/50 … mt-0.5"`, turning over 200ms
+ * when the menu opens. Antigravity's glyph is Material Symbols `expand_more`, so
+ * it already points the way Willow's does at rest and the half-turn reads. */
+[data-gemini-top-chip="workspace"] > svg:nth-of-type(2) {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 200ms ease;
+}
+
+[data-gemini-top-chip="workspace"][data-gemini-open] > svg:nth-of-type(2) {
+  transform: rotate(180deg);
+}
+
+/* --- local or git (TopDropdown.tsx:57-64) -------------------------------------
+ * The control Willow hangs off the name is `ml-1 p-1.5 rounded-lg`, an icon and
+ * nothing more. This one keeps its word — "Local" or "Git" is the whole point of
+ * the user asking for it up here — so the padding grows horizontally to make room
+ * beside the icon and keeps Willow's 6px on the other axis. The type is the 13px
+ * the plugin uses for every small label it has taken from Gemini. */
+[data-gemini-top-chip="environment"] {
+  order: 2;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 17px;
+  font-variation-settings: var(--gemini-font-axes);
+}
+
+[data-gemini-top-chip="environment"]:hover,
+[data-gemini-top-chip="environment"][data-gemini-open] {
+  background: var(--gemini-trigger-hover);
+  color: var(--gemini-text-trigger-hover);
+}
+
+[data-gemini-top-chip="environment"] > svg:nth-of-type(1) {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+[data-gemini-top-chip="environment"] > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: inherit;
+  font-variation-settings: inherit;
+  color: inherit;
+}
+
+/* No caret, because Willow's button beside the name has none. The menu it opens
+ * is a dialog rather than a listbox, so there is nothing being promised here that
+ * the chip then fails to deliver. */
+[data-gemini-top-chip="environment"] > svg:nth-of-type(2) {
+  display: none;
+}
+
+/* "Install IDE" / "Open IDE" button in the top right */
+[data-testid="install-editor"],
+[data-testid="open-editor-empty"],
+[data-testid="open-editor-single"],
+[data-testid="open-editor-multi"],
+[data-testid="editor-loading"] {
+  display: none !important;
+}
+
+/* The breadcrumb Antigravity puts where Willow puts the workspace name. Hiding
+ * the wrapper as well as the element collapses the gap it would leave behind —
+ * except when the wrapper is the slot the chips above were appended to, which is
+ * the same element on a conversation screen and must keep its box. */
+div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has([data-gemini-top-chips])),
+.flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0 {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * 3g. Response actions: Willow Like, Dislike, Copy buttons and timestamp
+ * ------------------------------------------------------------------------- */
+/*
+ * Willow (features/chat/src/ChatResponseChrome.tsx & ChatView.tsx:4350-4406):
+ * - Buttons sit on the far left: flex h-8 items-center, marginInlineStart -6px.
+ * - Circular pill buttons: 32px x 32px, rounded-full, transparent bg, #e6e6e6 text.
+ * - Hover background: rgba(255, 255, 255, 0.08).
+ * - Pressed background: rgba(255, 255, 255, 0.09).
+ * - Icons: Luminous Symbols (20px, weight 320, opsz 20):
+ *   - thumb_up (Good response) [order: 1]
+ *   - thumb_down (Bad response) [order: 2]
+ *   - copy (Copy) [order: 3]
+ * - Completion timestamp sits directly next to the buttons on the left (order: 2).
+ * - Typography: 13px Google Sans Flex, weight 400, color rgba(255, 255, 255, 0.55).
+ * - Appearance rule:
+ *   - Latest completed response: opacity: 1 (fully visible).
+ *   - Earlier responses: opacity: 0 (hidden by default), smoothly reveals on
+ *     hover / focus-within (opacity: 1, duration 240ms cubic-bezier(0.2, 0, 0, 1)).
+ */
+
+/* The response footer row */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  margin-top: 6px !important;
+  transition: opacity 240ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+/* Visibility rule: earlier turns hide by default */
+[data-testid="conversation-view"] .group .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Show on hover / focus-within */
+[data-testid="conversation-view"] .group:hover .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]),
+[data-testid="conversation-view"] .group:focus-within .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Show on latest completed turn */
+[data-testid="conversation-view"] [data-gemini-latest-turn="true"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]),
+[data-testid="conversation-view"] .flex.items-start:last-child .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Reorder buttons wrapper to the LEFT (order: 1) */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > .flex.min-w-0 {
+  order: 1 !important;
+  justify-content: flex-start !important;
+  margin-inline-start: -6px !important;
+  margin-left: -6px !important;
+  flex-grow: 0 !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) .flex.shrink-0.items-end {
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+}
+
+/* Willow button styling: 32x32 circular pill */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 4px !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #e6e6e6 !important;
+  cursor: pointer !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1), color 150ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e6e6e6 !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25) !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.09) !important;
+  color: #e3e3e3 !important;
+}
+
+/* Willow button order: Like (1), Dislike (2), Copy (3), Fork/More (4) */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Good response"]) {
+  order: 1 !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Bad response"]) {
+  order: 2 !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Copy"], [aria-label="Copied"]) {
+  order: 3 !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Fork Conversation"]) {
+  order: 4 !important;
+}
+
+/* Hide native Antigravity SVG icons inside buttons */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button svg {
+  display: none !important;
+}
+
+/* Render Willow's Luminous Symbols glyphs via ::before */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button::before {
+  font-family: var(--gemini-icon-font) !important;
+  font-size: 20px !important;
+  line-height: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: inline-block !important;
+  text-align: center !important;
+  color: inherit !important;
+  font-variation-settings: "FILL" 0, "wght" 320, "GRAD" 0, "ROND" 100, "opsz" 20 !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button[aria-pressed="true"]::before {
+  font-variation-settings: "FILL" 1, "wght" 320, "GRAD" 0, "ROND" 100, "opsz" 20 !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Good response"])::before {
+  content: "thumb_up" !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Bad response"])::before {
+  content: "thumb_down" !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Copy"])::before {
+  content: "copy" !important;
+}
+
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Copied"])::before {
+  content: "check" !important;
+}
+
+/* Position completion timestamp immediately NEXT TO buttons on the left (order: 2) */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > .grow.shrink-0.text-xs,
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > div:not(.flex) {
+  order: 2 !important;
+  flex-grow: 0 !important;
+  margin-left: 8px !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 20px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  opacity: 1 !important;
+}
+
+/* Empty filler div shouldn't take up space */
+[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > div:empty {
+  display: none !important;
+}
+
+
+
+
+

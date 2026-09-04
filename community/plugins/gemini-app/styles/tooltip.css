@@ -1,0 +1,248 @@
+/*
+ * Tooltip — Willow's native Gemini tooltip, reproduced from measurement.
+ *
+ * Every number here was read off gemini.google.com with getComputedStyle.
+ * Defines both the Willow standalone tooltip overlay classes and overrides
+ * for Antigravity's host tooltips ([role="tooltip"], Base UI, react-tooltip).
+ */
+
+.willow-tooltip-container {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.willow-tooltip-pane {
+  position: absolute;
+  z-index: 99999;
+  display: flex;
+  box-sizing: border-box;
+  max-width: 100%;
+  max-height: 100%;
+  pointer-events: auto;
+}
+
+.willow-tooltip-pane--left {
+  transform: translateX(-8px);
+}
+
+.willow-tooltip-pane--right {
+  transform: translateX(8px);
+}
+
+.willow-tooltip-pane--below {
+  transform: translateY(8px);
+}
+
+.willow-tooltip-pane--above {
+  transform: translateY(-8px);
+}
+
+.willow-tooltip {
+  display: inline-flex;
+  position: relative;
+  box-sizing: content-box;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  pointer-events: auto;
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 0;
+  box-shadow: none;
+  color: rgb(227, 227, 227);
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif);
+  font-size: 13px;
+  line-height: 17px;
+  font-variation-settings: var(--gemini-font-axes, "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400);
+  word-break: auto-phrase;
+  -webkit-font-smoothing: antialiased;
+  opacity: 0;
+}
+
+.willow-tooltip--show {
+  animation: 150ms cubic-bezier(0, 0, 0.2, 1) forwards willow-tooltip-show;
+}
+
+.willow-tooltip--hide {
+  animation: 75ms cubic-bezier(0.4, 0, 1, 1) forwards willow-tooltip-hide;
+}
+
+@keyframes willow-tooltip-show {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes willow-tooltip-hide {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* The painted tooltip surface box */
+.willow-tooltip-surface,
+[role="tooltip"]:not(.willow-tooltip-description),
+[data-base-ui-tooltip-popup],
+.react-tooltip,
+[data-radix-tooltip-content],
+div[class*="tooltip-content"],
+div[class*="TooltipContent"] {
+  display: block !important;
+  position: static;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 8px 16px !important;
+  border: 0 none !important;
+  border-radius: 12px !important;
+  background-color: rgb(230, 230, 230) !important;
+  color: rgb(23, 23, 23) !important;
+  box-shadow: none !important;
+
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans Text", "Google Sans", sans-serif) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  font-variation-settings: var(--gemini-font-axes, "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400) !important;
+  font-optical-sizing: auto !important;
+  line-height: 16px !important;
+  letter-spacing: 0.096px !important;
+  word-spacing: 0 !important;
+  text-align: center !important;
+  text-transform: none !important;
+  text-rendering: auto !important;
+  -webkit-font-smoothing: antialiased !important;
+
+  min-width: 40px !important;
+  max-width: 200px !important;
+  min-height: 24px !important;
+  max-height: 40vh !important;
+  overflow: hidden !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+
+  will-change: transform, opacity !important;
+}
+
+/* Ensure inner elements inherit text styling */
+[role="tooltip"]:not(.willow-tooltip-description) *,
+[data-base-ui-tooltip-popup] *,
+.react-tooltip *,
+[data-radix-tooltip-content] * {
+  color: rgb(23, 23, 23) !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Shortcut badge in tooltips */
+[role="tooltip"] kbd,
+[data-base-ui-tooltip-popup] kbd,
+.willow-tooltip-surface kbd {
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-size: 11px !important;
+  opacity: 0.65 !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin-left: 4px !important;
+}
+
+/* Long tooltips are left-aligned, short ones centred (Material mdc-tooltip--multiline) */
+.willow-tooltip-surface--multiline,
+[role="tooltip"].willow-tooltip-surface--multiline,
+[data-base-ui-tooltip-popup].willow-tooltip-surface--multiline {
+  text-align: left !important;
+}
+
+[dir="rtl"] .willow-tooltip-surface--multiline,
+[dir="rtl"] [role="tooltip"].willow-tooltip-surface--multiline,
+[dir="rtl"] [data-base-ui-tooltip-popup].willow-tooltip-surface--multiline {
+  text-align: right !important;
+}
+
+/* Hide all arrows and pseudo-elements */
+[data-base-ui-tooltip-arrow],
+.react-tooltip-arrow,
+[role="tooltip"] svg,
+[role="tooltip"] [class*="arrow"],
+[role="tooltip"] [class*="Arrow"],
+[role="tooltip"]::before,
+[role="tooltip"]::after {
+  display: none !important;
+}
+
+/* Positioner wrapper cleanup */
+[data-base-ui-tooltip-positioner],
+[data-radix-popper-content-wrapper]:has([role="tooltip"]) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  z-index: 99999 !important;
+}
+
+/* Transform origins matching placement side */
+[role="tooltip"][data-side="bottom"],
+[data-base-ui-tooltip-positioner][data-side="bottom"] [role="tooltip"],
+[data-side="bottom"] > [role="tooltip"],
+[data-side="bottom"] [role="tooltip"] {
+  transform-origin: center top !important;
+}
+
+[role="tooltip"][data-side="top"],
+[data-base-ui-tooltip-positioner][data-side="top"] [role="tooltip"],
+[data-side="top"] > [role="tooltip"],
+[data-side="top"] [role="tooltip"] {
+  transform-origin: center bottom !important;
+}
+
+[role="tooltip"][data-side="right"],
+[data-base-ui-tooltip-positioner][data-side="right"] [role="tooltip"],
+[data-side="right"] > [role="tooltip"],
+[data-side="right"] [role="tooltip"] {
+  transform-origin: left center !important;
+}
+
+[role="tooltip"][data-side="left"],
+[data-base-ui-tooltip-positioner][data-side="left"] [role="tooltip"],
+[data-side="left"] > [role="tooltip"],
+[data-side="left"] [role="tooltip"] {
+  transform-origin: right center !important;
+}
+
+/* Accessible description node for screen readers */
+.willow-tooltip-description {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .willow-tooltip--show,
+  .willow-tooltip--hide {
+    animation-duration: 1ms !important;
+  }
+}

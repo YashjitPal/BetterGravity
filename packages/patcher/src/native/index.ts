@@ -154,8 +154,12 @@ export async function runOperation(
   // When the live bundle is stock it becomes the new original, which is exactly
   // what happens after Antigravity updates itself over a previous patch.
   if (!isBootstrapArchive(paths.currentAsar)) {
-    readHostManifest(paths.currentAsar);
-    fs.copyFileSync(paths.currentAsar, paths.originalAsar);
+    const currentHost = readHostManifest(paths.currentAsar);
+    const hasOriginal = fs.existsSync(paths.originalAsar);
+    const originalHost = hasOriginal ? readHostManifest(paths.originalAsar) : undefined;
+    if (!hasOriginal || (originalHost && currentHost.version !== originalHost.version)) {
+      fs.copyFileSync(paths.currentAsar, paths.originalAsar);
+    }
   }
 
   const host = readHostManifest(paths.originalAsar);

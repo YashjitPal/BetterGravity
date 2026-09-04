@@ -1,7 +1,141 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-03T14:47:45.629Z",
+  "generatedAt": "2026-09-04T20:49:51.993Z",
   "entries": [
+    {
+      "id": "discord-rich-presence",
+      "kind": "plugin",
+      "name": "Discord Rich Presence",
+      "description": "Shows on your Discord profile whether the Antigravity agent is working or idle, and for how long.",
+      "version": "1.0.0",
+      "author": "Yashjit Pal",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/discord-rich-presence",
+      "bytes": 4876,
+      "files": [
+        {
+          "name": "index.js",
+          "bytes": 4590,
+          "sha256": "f723578d303b38ee3b73b2dff6fd93760648c368e990b47d8c1e86b7aa4c3143"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 286,
+          "sha256": "1e854c6cfc78478c68dfd4b7f66160bb675722e6cfb5e6b81fcf871d71a1b729"
+        }
+      ]
+    },
+    {
+      "id": "gemini-api-key",
+      "kind": "plugin",
+      "name": "Custom Gemini API Key",
+      "description": "Sends Antigravity's chat through a Gemini API key of your own instead of its bundled subscription, translating between the two protocols on your machine.",
+      "version": "1.0.0",
+      "author": "Yashjit Pal",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/gemini-api-key",
+      "bytes": 5111,
+      "files": [
+        {
+          "name": "index.js",
+          "bytes": 4751,
+          "sha256": "da25ade5329ef99b9fafc9a65b61ebcfa186f9fb0cf4ebe707a5bc49eb92cb8c"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 360,
+          "sha256": "91e3c81dc15f1f8565bbb937bdb71d4b57339de8e4f82392cca6a3bd1e8b731a"
+        }
+      ]
+    },
+    {
+      "id": "gemini-app",
+      "kind": "plugin",
+      "name": "Gemini App",
+      "description": "Antigravity restyled after the Gemini app: the left sidebar, the model selector, the prompt box, and the conversation, with short model names on the prompt box pill and the agent's tools in the plus menu.",
+      "version": "0.5.0",
+      "author": "Yashjit Pal",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/gemini-app",
+      "bytes": 472957,
+      "files": [
+        {
+          "name": "assets/antigravity-mark.png",
+          "bytes": 11845,
+          "sha256": "542abd7837b05cc71400375f6fc5dac060c35fda05a3b7fa505713e3b7dd962a"
+        },
+        {
+          "name": "assets/docs-logo.png",
+          "bytes": 5950,
+          "sha256": "3544779ba1a03e393486f6a67ea91153023a40dffbbe66e496791e65b87dc2ea"
+        },
+        {
+          "name": "assets/google-symbols.woff2",
+          "bytes": 101476,
+          "sha256": "cd49d17a464b9904838aa0f8ced56cc5059e165f1dae0f02dd452e6013e49d43"
+        },
+        {
+          "name": "index.js",
+          "bytes": 138024,
+          "sha256": "cd2a103d16a20657d39ae152c4103077caa7dba563533e2a02aee8bc3ecee31b"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 419,
+          "sha256": "84015e747907cf8a3dda7397405fb673a4eb85434ec0ede54128ce0629591f60"
+        },
+        {
+          "name": "styles/conversation.css",
+          "bytes": 53130,
+          "sha256": "187501cc7dc6a2f2c0154fd5fa3c01148ad879bf7acc9c09f628da6ea09c8111"
+        },
+        {
+          "name": "styles/gemini-app.css",
+          "bytes": 2453,
+          "sha256": "18362e15df9a4fc316bfa580038e074f5158f76489555919437c0c328170ce66"
+        },
+        {
+          "name": "styles/home-composer.css",
+          "bytes": 9617,
+          "sha256": "82ab8467636c0754ffffdc39705f0e0c8780277371368558f1741f58b12c9ef5"
+        },
+        {
+          "name": "styles/home-glow.css",
+          "bytes": 3780,
+          "sha256": "7948352b12582f66c08db8e7f0228ff97e304c0f56701ba79b567bc3c0d2a237"
+        },
+        {
+          "name": "styles/model-selector.css",
+          "bytes": 11499,
+          "sha256": "bd6ee9e03aef8458e3259c7dee92be4763be2f2636be63a0633a817232ce3f5b"
+        },
+        {
+          "name": "styles/plus-menu.css",
+          "bytes": 11038,
+          "sha256": "de7084763308cc9777b27647e3e5d338de78bccea4441b746d5c94398aa55b09"
+        },
+        {
+          "name": "styles/prompt-box.css",
+          "bytes": 22345,
+          "sha256": "e82302dd2a4c5684b0f6527dcac8b08a7d6b0574a60015c744480295ca04db8a"
+        },
+        {
+          "name": "styles/sidebar.css",
+          "bytes": 86319,
+          "sha256": "ba1253dfb7473d77845186063046522461b41126d6cc2c4db7f518eb34eee1f8"
+        },
+        {
+          "name": "styles/tokens.css",
+          "bytes": 8335,
+          "sha256": "44fba740f62319f5d463dd8dde6a138faff6fe2d35c636429e41a19fdc11eaf9"
+        },
+        {
+          "name": "styles/tooltip.css",
+          "bytes": 6727,
+          "sha256": "de930a2e37493ba4d2c84fddde9f9a3d9267c5e4024cec912dee7dbb500e5f20"
+        }
+      ]
+    },
     {
       "id": "midnight.css",
       "kind": "theme",

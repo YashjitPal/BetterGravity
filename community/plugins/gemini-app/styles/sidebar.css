@@ -1,0 +1,1890 @@
+/* ===========================================================================
+ * 5. Left sidebar — Full Willow Google Gemini styling
+ * ===========================================================================
+ * Willow's left sidebar (apps/studio/src/shell/sidebar/Sidebar.tsx &
+ * SidebarPrimitives.tsx) implements:
+ * - Background: #1f1f1f (--gemini-surface)
+ * - Borderless right edge (no 1px dividing border)
+ * - Typography: Google Sans Flex with "ROND" 0, "slnt" 0, "wdth" 92
+ * - Custom invisible-until-hover scrollbar (gemini-chat-scrollbar)
+ * - Top navigation (New conversation, History, Scheduled tasks) as 32px pills
+ *   with Luminous Symbols (gemini_chat, history, schedule)
+ * - Pill-shaped conversation rows (border-radius: 9999px) with hover wash
+ * - Settings button positioned at the bottom right as a 32x32 circular icon
+ * - Sidebar collapse/expand animated with Willow's 300ms cubic-bezier(0.2, 0, 0, 1)
+ */
+
+/* ---------------------------------------------------------------------------
+ * Sidebar root container, tokens, and surface
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"],
+[role="navigation"][aria-label="Sidebar"] * {
+  --color-sidebar: #1f1f1f !important;
+  --sidebar: #1f1f1f !important;
+  --sidebar-background: #1f1f1f !important;
+  --sidebar-muted: #282a2c !important;
+  --sidebar-secondary: #333537 !important;
+  --sidebar-border: transparent !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] {
+  background: #1f1f1f !important;
+  border-right: none !important;
+  width: 288px !important;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+}
+
+/* Eliminate dark rectangular patch backgrounds on sticky/project header elements */
+[role="navigation"][aria-label="Sidebar"] .bg-sidebar,
+[role="navigation"][aria-label="Sidebar"] div[class*="bg-sidebar"],
+[role="navigation"][aria-label="Sidebar"] button[class*="bg-sidebar"] {
+  background-color: #1f1f1f !important;
+}
+
+/* Remove right border / vertical divider on sidebar and parent containers */
+[role="navigation"][aria-label="Sidebar"],
+[role="navigation"][aria-label="Sidebar"]?.parentElement {
+  border-right: none !important;
+}
+
+div.bg-border.w-\[1px\],
+div.bg-border.flex-shrink-0.w-\[1px\] {
+  display: none !important;
+  width: 0 !important;
+  background: transparent !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Collapsing / Expanding motion (Willow's GEMINI_SIDEBAR_POSITION_MOTION)
+ * ------------------------------------------------------------------------- */
+div[style*="transition: width"],
+div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
+[role="navigation"][aria-label="Sidebar"],
+[role="navigation"][aria-label="Sidebar"] > div {
+  transition: width 300ms cubic-bezier(0.2, 0, 0, 1),
+              height 300ms cubic-bezier(0.2, 0, 0, 1),
+              transform 300ms cubic-bezier(0.2, 0, 0, 1),
+              opacity 300ms cubic-bezier(0.2, 0, 0, 1),
+              background-color 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  will-change: width, background-color;
+}
+
+/* ---------------------------------------------------------------------------
+ * The header band: Antigravity's mark and name top-left, the sidebar toggle
+ * top-right, and the history arrows moved out to the title bar
+ * ------------------------------------------------------------------------- */
+/* Willow's header (apps/studio/src/shell/sidebar/Sidebar.tsx:1455-1584) is
+ * `relative flex h-[52px] min-w-[52px] shrink-0 items-start` holding two
+ * things: a 32px logo button at `ml-[10px] mt-3` whose 22px image therefore
+ * lands at (15, 17), and — only while the sidebar is open — a collapse button
+ * wrapped in `absolute right-[14px] top-1.5`, 40px across, round, drawing the
+ * `side_nav` ligature at 24px on the usual axes.
+ *
+ * Both transfer without arithmetic. Antigravity's header is an empty 40px strip
+ * carrying `mb-3`, so the band above the first nav row is already 52px and the
+ * mark can be drawn on the strip without displacing anything below it. The
+ * toggle is the odd one: it is not inside the sidebar at all but in the
+ * floating `absolute top-0 left-0 … z-50` toolbar, which is both a positioned
+ * ancestor and flush with the sidebar's top-left corner — so Willow's own
+ * offsets apply as written, `right-[14px]` on a 288px rail with a 40px button
+ * being left: 234px. */
+[role="navigation"][aria-label="Sidebar"] > div.shrink-0.flex.items-center:first-child {
+  position: relative !important;
+}
+
+/* 22px at Willow's `.sparkle-image` box (15, 17), lifted 2px to (15, 15) — the
+ * one deliberate divergence in this header, so that the mark's centre meets the
+ * toggle's rather than sitting just under it.
+ *
+ * Willow's own numbers put the mark 2px low: its collapse button is 40px at
+ * `top-1.5`, so the 24px `side_nav` glyph centred inside it lands 26px down the
+ * strip, while a 22px mark at top 17 centres at 28. Measured live here before
+ * touching anything, in viewport terms: mark ink 53.55..72.45, centre 63.00,
+ * against glyph ink 51.00..71.00, centre 61.00. Willow carries the same 2px,
+ * because (15, 17) is measured from Gemini's rail (Sidebar.tsx:1460-1479) while
+ * `right-[14px] top-1.5` on the collapse button is Willow's own placement and
+ * was never checked against it. Willow's strip is 52px where Antigravity's is
+ * 40px, so its offsets do not sit the same way in the band either; the toggle,
+ * 26px down the strip in both, is the only reference the two apps share.
+ *
+ * x is untouched, and 15 is also the nav rail's axis: the 28px icon boxes in
+ * the rows below sit at x=12, centre x=26, and a 22px mark at x=15 centres at
+ * 26 as well, so the mark lines up with the icons under it the way Willow's
+ * logo lines up with its own. */
+[role="navigation"][aria-label="Sidebar"] > div.shrink-0.flex.items-center:first-child::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 15px;
+  width: 22px;
+  height: 22px;
+  background-image: var(--gemini-antigravity-mark);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain; /* object-contain, on a mark cropped to its own ink */
+  pointer-events: none;
+}
+
+/* The wordmark beside it — Willow's `Willow`, here the name of the app whose
+ * window this is (Sidebar.tsx:1544-1554). Willow's span is `ml-1 mt-4 text-[17px]
+ * leading-6 text-[#e6e6e6]` after the 32px logo button, which its own header
+ * comment records as landing the box at (46, 16) against Gemini's measured
+ * `.gemini-sidenav-text` — the same two numbers used here, carrying the mark's
+ * 2px lift so the pair keeps Gemini's own 1px stagger: box top 14 against the
+ * mark's 15. That puts the 24px box's centre on 61 in viewport terms, the line
+ * the mark's ink and the toggle's glyph both centre on, with the cap band
+ * (53.5..66.5) a pixel above it and the full ink a pixel below — Gemini ships
+ * the same pixel, and at 17px with descenders in `g` and `y` it is what makes
+ * the word read as level rather than low.
+ *
+ * Absolute like the mark: the strip is a flex row, so a pseudo-element left in
+ * flow would become a flex item and push its contents along.
+ *
+ * The axes are the one place the wordmark departs from the sidebar's own
+ * (Sidebar.css:69-73): `"ROND" 20, "slnt" 0, "wdth" 94, "wght" 470` rather than
+ * the inherited ROND 0 / wdth 92. Willow pairs them with a 100ms fade; that is
+ * not reproduced, because it exists to mark the moment the text appears on
+ * expansion and this sidebar is never unmounted — the drawer slides a mounted
+ * rail to x=-288 — so there is no such moment to mark. */
+[role="navigation"][aria-label="Sidebar"] > div.shrink-0.flex.items-center:first-child::after {
+  content: "Antigravity";
+  position: absolute;
+  left: 46px;
+  top: 14px;
+  /* 46 → 222, stopping 12px short of the toggle at 234. The name is ~95px wide
+   * at these axes, so the ellipsis is a guard, not a working part. */
+  max-width: 176px;
+  height: 24px;
+  font-family: var(--gemini-font);
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 94, "wght" 470;
+  font-size: 17px;
+  font-weight: 470;
+  line-height: 24px;
+  color: var(--gemini-text, #e6e6e6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* The toggle's stock icon is a traced Material path in an 18px svg; Willow asks
+ * the font for the same shape. Hide whatever the button nests inside its span
+ * rather than the svg alone — the svg sits under an `absolute inset-0` wrapper,
+ * so hiding the wrapper is what actually removes it. */
+[data-testid="sidebar-toggle"] > span:first-child > * {
+  display: none !important;
+}
+
+[data-testid="sidebar-toggle"] > span:first-child {
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+[data-testid="sidebar-toggle"] > span:first-child::before {
+  content: "side_nav";
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-variation-settings: var(--gemini-icon-axes, "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24);
+  font-size: 24px;
+  line-height: 24px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Closed, Willow's rail offers the mirrored glyph instead — its collapsed logo
+ * button swaps to `side_nav_expand` on hover. */
+[data-testid="sidebar-toggle"][aria-expanded="false"] > span:first-child::before {
+  content: "side_nav_expand";
+}
+
+/* Open, the button crosses the rail to Willow's corner: 288 − 14 − 40 = 234,
+ * `top-1.5` = 6, `h-10 w-10 rounded-full text-[#e3e3e3] hover:bg-white/[0.08]
+ * transition-colors`. It stays in the floating toolbar, which is what keeps it
+ * clickable over the sidebar and keeps this to one repositioned element. If the
+ * host ever stops flipping aria-expanded the button simply keeps Antigravity's
+ * own place, still drawing the Willow glyph. */
+[data-testid="sidebar-toggle"][aria-expanded="true"] {
+  position: absolute !important;
+  left: 234px !important;
+  top: 6px !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 9999px !important;
+  color: var(--gemini-body-text, #e3e3e3) !important;
+  background-color: transparent !important;
+  transition: background-color 150ms ease !important;
+}
+
+[data-testid="sidebar-toggle"][aria-expanded="true"]:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--gemini-body-text, #e3e3e3) !important;
+}
+
+/* Antigravity keeps Go Back / Go Forward in this same floating toolbar, which is
+ * the corner the wordmark now occupies, so the pair moves to the title bar
+ * instead of being hidden — the history is still one click away, just no longer
+ * inside Willow's header.
+ *
+ * `position: fixed` lifts them out of the toolbar's flow into viewport
+ * coordinates, which is only sound because nothing on their ancestry is a
+ * containing block for fixed positioning: no transform, filter, perspective,
+ * contain or will-change anywhere up to the document, checked on the running
+ * window. The last ancestor's `overflow: hidden` does not clip them for the
+ * same reason.
+ *
+ * The bar is `flex items-center gap-1 px-2 h-full`, 35px tall, and its four
+ * menus (Antigravity / File / View / Window) end at x=276. 284 leaves the bar's
+ * own 4px gap doubled after the last of them. Height 35 rather than a nudged
+ * `top` lets the pair's own `items-center` centre its 24px buttons exactly as
+ * the bar centres those menus.
+ *
+ * The bar is the window's drag region, so the pair has to opt out of it or a
+ * click would move the window instead of going back; each menu wrapper carries
+ * the same `no-drag`. z-index clears the toolbar's own 50. */
+[data-testid="sidebar-toggle"] + div:has([aria-label="Go Back"]) {
+  position: fixed !important;
+  left: 284px !important;
+  top: 0 !important;
+  height: 35px !important;
+  margin: 0 !important;
+  z-index: 60 !important;
+  -webkit-app-region: no-drag !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * The Chat / Work switch, directly under the header band
+ * ------------------------------------------------------------------------- */
+/* Willow's pill (apps/studio/src/shell/sidebar/Sidebar.tsx:1581-1704), whose
+ * numbers are Gemini's own `.app-tabs` and `.app-tabs-slider`:
+ *
+ *   container  mt-1 mb-[12px] h-8 w-full shrink-0 px-1.5
+ *   track      flex h-8 w-full items-center rounded-full p-[2px] bg-[#171717]
+ *   slider     absolute top-[2px] bottom-[2px] w-[calc(50%-2px)] rounded-full
+ *              bg-[#1f1f1f], left 2px or 50%
+ *   tab        flex-1 h-full rounded-full text-[13px] font-normal, #e3e3e3
+ *              selected and white/55 otherwise, transition-colors 150ms
+ *
+ * The 4px above it puts the pill at y=56 in Willow's rail (52 + 4) and does the
+ * same here, since Antigravity's 40px strip plus its `mb-3` already measures the
+ * 52px band. `px-1.5` is the rail inset the rows below carry too, so the pill's
+ * edges sit over theirs at x=6 and x=282, and the two tabs (136px each inside
+ * the 2px padding) sit exactly under the slider's two positions.
+ *
+ * The markup is the plugin's own — index.js builds it, since Antigravity has no
+ * such control to restyle. Willow's rail keeps a compact 32px version of this
+ * when collapsed; Antigravity's sidebar closes to nothing rather than to a rail,
+ * so that half of the control has nowhere to live and is not drawn. */
+#gemini-experience-switch {
+  position: relative;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  margin: 4px 0 12px;
+  padding: 0 6px;
+}
+
+#gemini-experience-switch [data-gemini-experience-track] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 2px;
+  border-radius: 9999px;
+  background-color: var(--gemini-switch-track, #171717);
+}
+
+/* Gemini animates the slider's INSET, not a transform, and over 400ms on an
+ * ease-out-quart — a curve that overshoots late in its travel and settles,
+ * where the 200ms translate this reads as at a glance decelerates flat. */
+#gemini-experience-switch [data-gemini-experience-slider] {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 9999px;
+  background-color: var(--gemini-switch-slider, #1f1f1f);
+  transition: left 400ms cubic-bezier(0.25, 1, 0.5, 1), width 400ms cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+}
+
+#gemini-experience-switch[data-gemini-experience="work"] [data-gemini-experience-slider] {
+  left: 50%;
+}
+
+/* Willow's measured `.agent-tab-content` is a three-column grid, `1fr auto 1fr`
+ * with a 16px gap, the label in the middle column and the badge in the third at
+ * `justify-self: start`. The empty first column is the whole point: it keeps the
+ * label dead centre of the tab whether or not a badge sits beside it, where a
+ * centred flex row would centre label and badge together and push the label
+ * off-axis from the other tab's. */
+#gemini-experience-switch [data-gemini-experience-tab] {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  column-gap: 16px;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  font-family: var(--gemini-font);
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55));
+  cursor: pointer;
+  transition: color 150ms ease;
+  appearance: none;
+}
+
+#gemini-experience-switch [data-gemini-experience-tab][aria-pressed="true"] {
+  color: var(--gemini-body-text, #e3e3e3);
+}
+
+/* Hover recolours the inactive tab's text and nothing else: Gemini's tabs carry
+ * no hover layer at all, and the active one does not respond to hover. */
+#gemini-experience-switch [data-gemini-experience-tab][aria-pressed="false"]:hover {
+  color: var(--gemini-body-text, #e3e3e3);
+}
+
+/* Willow's tabs show no focus ring, but they are reachable by keyboard here as
+ * there, so one is drawn inside the tab's own box where nothing clips it. */
+#gemini-experience-switch [data-gemini-experience-tab]:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.25);
+  outline-offset: -2px;
+}
+
+#gemini-experience-switch [data-gemini-experience-label] {
+  grid-column: 2;
+}
+
+/* 7px/20px at weight 500 in Google Sans Code, uppercased here rather than in the
+ * markup as Gemini does it, and inheriting the tab's colour so it dims with the
+ * tab instead of staying bright. Willow resets the variation settings on this
+ * one leaf (Sidebar.css:54-60): at 7px the width axis is not applied. */
+#gemini-experience-switch [data-gemini-experience-badge] {
+  grid-column: 3;
+  justify-self: start;
+  font-family: var(--gemini-code-font);
+  font-variation-settings: normal;
+  font-size: 7px;
+  font-weight: 500;
+  line-height: 20px;
+  text-transform: uppercase;
+  color: inherit;
+}
+
+/* ---------------------------------------------------------------------------
+ * Willow Custom Scrollbar (gemini-chat-scrollbar)
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] *,
+[role="navigation"][aria-label="Sidebar"] .overflow-y-auto {
+  scrollbar-width: auto !important;
+  scrollbar-color: auto !important;
+}
+
+@media (pointer: fine) {
+  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar,
+  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-corner {
+    background: transparent !important;
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-thumb {
+    background: content-box transparent !important;
+    border: 2px solid transparent !important;
+    border-radius: 9999px !important;
+    min-height: 48px !important;
+    min-width: 48px !important;
+  }
+
+  [role="navigation"][aria-label="Sidebar"] *:hover::-webkit-scrollbar-thumb {
+    background: content-box rgb(51, 53, 55) !important;
+  }
+
+  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-thumb:active,
+  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-thumb:hover {
+    background: content-box rgb(68, 71, 70) !important;
+  }
+
+  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-button {
+    height: 0px !important;
+    width: 0px !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Willow Horizontal Rail Inset & Item Spreading (px-1.5 = 6px rail inset)
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] > .px-2,
+[role="navigation"][aria-label="Sidebar"] > div.px-2 {
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"] {
+  padding-left: 6px !important;
+  padding-right: 0px !important;
+}
+
+/* Top navigation buttons container: space-y-0 (0px gap between items matching Willow) */
+[role="navigation"][aria-label="Sidebar"] > .px-2 > div.flex-col,
+[role="navigation"][aria-label="Sidebar"] > div.px-2 > div.flex-col {
+  gap: 0px !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Willow Vertical Rhythm (Sidebar.tsx:1882, 1923, 1925, 2079;
+ * SidebarPrimitives.tsx:29, 51, 162)
+ *
+ * Willow holds every container at `space-y-0` — the nav block (1882), the
+ * scroller (1923, also `pt-0 pb-0`), the list (1925) and each project group
+ * (2079) — and lets one number do all the spacing: the `mt-3` above every
+ * SectionHeader (SidebarPrimitives.tsx:162), which is otherwise a bare `h-8`.
+ * Rows are `h-8` in a wrapper that only pads sideways (29). Top to bottom,
+ * then: nav row -> nav row 0, last nav row -> heading 12, heading -> first
+ * row 0, row -> row 0, last row -> next heading 12.
+ *
+ * Antigravity spends 29px before the first heading where Willow spends 12,
+ * and stacks it out of three places: an invisible 1px divider with `mt-3`
+ * above it, then `py-3` on the scroller, then `pt-1` inside the heading's own
+ * virtual slot. The first two go, leaving the heading to carry Willow's 12
+ * itself — the same 12 that then separates every project from the chat above
+ * it, since it is the one number in play.
+ *
+ * The chat list is a dynamic virtualiser: it places each slot at a measured
+ * `translateY` rather than in flow. It does re-measure when these heights
+ * change, so the pitch follows the rules below instead of fighting them —
+ * verified live, heading slots 44px (12 + 32) and chat slots 32px, which is
+ * Willow's `mt-3` + `h-8` and `h-8` exactly.
+ * ------------------------------------------------------------------------- */
+
+/* The rule between the nav block and the list paints nothing
+ * (background-color: rgba(0, 0, 0, 0)) and still costs 13px; Willow has no
+ * divider there at all. */
+[role="navigation"][aria-label="Sidebar"] > div.mt-3.mx-2.h-px {
+  display: none !important;
+}
+
+/* Willow's scroller is `pt-0 pb-0`, and `space-y-0` rather than a row gap
+ * (Sidebar.tsx:1923-1925). */
+[role="navigation"][aria-label="Sidebar"] > div.overflow-y-auto.flex-col.gap-6 {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  row-gap: 0 !important;
+}
+
+/* Heading slot: Willow's `mt-3` + `h-8` (SidebarPrimitives.tsx:162), against
+ * Antigravity's 4 + 32 + 1. */
+[role="navigation"][aria-label="Sidebar"] div[class*="pt-1"][class*="pb-[1px]"] {
+  padding-top: 12px !important;
+  padding-bottom: 0 !important;
+}
+
+/* Chat slot: the row's `h-8` and nothing else, the way Willow's wrapper pads
+ * sideways only (SidebarPrimitives.tsx:29). The row's own 32px is set with the
+ * rest of its box, further down. */
+[role="navigation"][aria-label="Sidebar"] div[class*="pb-[1px]"]:not([class*="pt-1"]) {
+  padding-bottom: 0 !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * What is pinned and what scrolls (Sidebar.tsx:1881-1925)
+ *
+ * Willow pins two rows and no more. Its fixed block is labelled "Fixed
+ * top-level navigation: Home & Search" and holds New chat and Search chats
+ * (1882-1910); Code, Media, every section heading and every chat sit in the
+ * scroller below it (1919-1925) and scroll away. Antigravity pins its whole nav
+ * block, so Scheduled Tasks, New project and Display options hold the top of the
+ * rail while the list moves underneath them.
+ *
+ * index.js builds those three inside the list instead. Antigravity's own
+ * Scheduled Tasks row cannot go with them — React may insert a sibling before it
+ * or remove it outright, and both throw once it is not where React left it — so
+ * it stays in the nav block, hidden here, and a stand-in in the list carries its
+ * glyph, its label and its clicks. Scoped to the block, so a Scheduled Tasks row
+ * rendered anywhere else would still be visible.
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] > div.px-2 [data-testid="automations-button"] {
+  display: none !important;
+}
+
+/* No inset of its own. The list already carries the rail's 6px on the left and
+ * nothing on the right, because its 12px scrollbar takes layout space and stands
+ * in for the right-hand inset (the rule at the top of this file). So these three
+ * end where every conversation row and heading below them ends, 6px short of the
+ * two pinned rows above — which is the same step Willow has between its fixed
+ * block and its scroller, and for the same reason. */
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * The soft top edge (Sidebar.tsx:2122-2135, 1440-1443)
+ *
+ * Willow's "Fancy top glow overlay matching sidebar background under Search
+ * tab": `absolute top-0 left-0 right-0 h-3 pointer-events-none z-10
+ * transition-opacity duration-200`, carried from 0 to 1 once the list is
+ * scrolled past 5px (Sidebar.tsx:883). h-3 is 12px, duration-200 is 200ms, and
+ * Tailwind's transition easing is cubic-bezier(0.4, 0, 0.2, 1).
+ *
+ * The gradient is `expandedGlowGradient` verbatim (Sidebar.tsx:1441). It works
+ * because it is not a scrim: it is the rail's own #1f1f1f held solid for the
+ * first 15% and then taken to zero alpha, so the row passing under it dissolves
+ * into the rail. This plugin already paints Antigravity's rail #1f1f1f (the
+ * first rule in this file), which is the same value, so it transfers unchanged.
+ *
+ * Willow stacks a second copy on `--studio-surface` and cross-fades the two on
+ * `isCollapsed` (2129-2134). Not mirrored: Antigravity's collapsed rail drops
+ * the list altogether, so there is nothing under a collapsed fade to fade.
+ * ------------------------------------------------------------------------- */
+
+/* The overlay hangs off the box the list fills, which Antigravity already marks
+ * relative — same as Willow's `flex-1 relative min-h-0` (Sidebar.tsx:1919). Said
+ * again here so the fade cannot escape to the rail's top edge if that class goes. */
+[role="navigation"][aria-label="Sidebar"] div:has(> [data-testid="conversation-list-sidebar"]) {
+  position: relative !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] #gemini-top-fade {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 12px !important;
+  z-index: 10 !important;
+  pointer-events: none !important;
+  opacity: 0;
+  background: linear-gradient(to bottom, #1f1f1f 15%, rgba(31, 31, 31, 0)) !important;
+  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] #gemini-top-fade[data-scrolled="true"] {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------
+ * Primary navigation pill items (New conversation, History, Scheduled tasks, New project, Display options)
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"],
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"],
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"],
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item {
+  height: 32px !important;
+  min-height: 32px !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  background-color: transparent !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  padding: 0 6px !important;
+  gap: 6px !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-variation-settings: var(--gemini-font-axes, "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400) !important;
+  overflow: hidden !important;
+  position: relative !important;
+  text-align: start !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * The current destination (Willow's `active`, SidebarPrimitives.tsx:51-85)
+ *
+ * Willow marks whichever sidebar row is the view you are looking at with a
+ * `bg-[#171717]` pill — a shade DARKER than the #1f1f1f rail — plus
+ * `font-medium text-white` on the label and `fill={active}` on the glyph.
+ * Nothing moves, nothing gains a border: it is one flat rectangle behind a
+ * row that is already `rounded-full`.
+ *
+ * Antigravity tracks the same thing and has all along. Every one of these rows
+ * is one `SideBarButton` (`J3`, main.js) taking a `selected` prop —
+ * `selected: uM()` on New Conversation, `V_a()` on Conversation History,
+ * `AU().isOpen` on Scheduled Tasks — and it spends that prop on a class:
+ * ghost rows get `bg-sidebar-secondary text-foreground` selected against
+ * `bg-transparent text-secondary-foreground` idle, and the one `secondary`
+ * row (New Conversation) gets `bg-sidebar-secondary` against
+ * `bg-sidebar-muted`. So the state is already in the DOM and CSS can read it;
+ * `.bg-sidebar-secondary` is written as a class selector, not `[class*=]`,
+ * precisely because the idle secondary row carries `hover:bg-sidebar-secondary`
+ * — a different class that a substring match would swallow, lighting up the
+ * row that is NOT current.
+ *
+ * This replaces a `data-active` attribute index.js used to set from
+ * `location.pathname`. The router navigates by pushState, so no `popstate`
+ * fired and the attribute went stale: measured live at `/c/<id>` with the
+ * conversation row correctly lit, "New Conversation" still carried
+ * `data-active="true"` from the last visit to `/` and drew a second pill.
+ *
+ * Placed BEFORE the `:hover` rule on purpose. Tailwind emits `hover:` variants
+ * after the plain utility, so in Willow the hover wash wins over the active
+ * pill and the current row LIGHTENS under the pointer rather than staying
+ * dark. Same specificity here, so source order has to carry it.
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item.bg-sidebar-secondary,
+[role="navigation"][aria-label="Sidebar"] div.flex-col > a.bg-sidebar-secondary,
+[role="navigation"][aria-label="Sidebar"] div.flex-col > button.bg-sidebar-secondary {
+  background-color: #171717 !important;
+  color: #ffffff !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]:hover,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"]:hover,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"]:hover,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]:active,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"]:active,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"]:active,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item:active {
+  background-color: var(--gemini-row-pressed, rgba(230, 230, 230, 0.12)) !important;
+}
+
+/* Icon containers matching Willow's 28x28 (h-7 w-7) */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item .icon-box {
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item .icon-box svg {
+  width: 18px !important;
+  height: 18px !important;
+  display: block !important;
+  color: inherit !important;
+  transition: transform 200ms ease !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item:active .icon-box svg {
+  transform: scale(0.9) !important;
+}
+
+/* Hide host icon SVGs */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child > svg,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child > svg,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child > svg {
+  display: none !important;
+}
+
+/* Luminous Symbols ligatures. The Scheduled Tasks stand-in draws its glyph the
+ * same way the row it replaces does, rather than carrying an <svg> of its own
+ * like this plugin's other two rows, so the two cannot drift apart. */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child::before {
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-variation-settings: var(--gemini-icon-axes-menu, "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
+  font-size: 20px;
+  line-height: 20px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: inherit;
+  transition: transform 200ms ease;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child::before {
+  content: "gemini_chat";
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child::before {
+  content: "history";
+}
+
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child::before {
+  content: "schedule";
+}
+
+/* Active press animation (group-active/item:scale-90) */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]:active > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"]:active > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button:active > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"]:active > span:first-child::before {
+  transform: scale(0.9);
+}
+
+/* Labels: 13px / 17px with wdth 92 */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item > span:last-child {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  letter-spacing: normal !important;
+  text-align: start !important;
+  transition: opacity 200ms linear, color 150ms ease !important;
+}
+
+/* The current row's label and glyph. Willow's active label is `font-medium
+ * text-white` (SidebarPrimitives.tsx:83) — a deliberate divergence from Gemini
+ * recorded there, which keeps its own label at 400/#e6e6e6 — and its symbol is
+ * drawn `fill={active}`, i.e. the same glyph on the FILL 1 axis. */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary > span:last-child,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item.bg-sidebar-secondary > span:last-child,
+[role="navigation"][aria-label="Sidebar"] div.flex-col > a.bg-sidebar-secondary > span:last-child,
+[role="navigation"][aria-label="Sidebar"] div.flex-col > button.bg-sidebar-secondary > span:last-child {
+  font-weight: 500 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
+  color: #ffffff !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary > span:first-child::before {
+  font-variation-settings: var(--gemini-icon-axes-menu-fill, "FILL" 1, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
+}
+
+/* Trailing keyboard shortcut hint for New conversation */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]::after {
+  content: attr(data-shortcut);
+  margin-left: auto;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  white-space: nowrap;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 17px;
+  color: #c4c7c5;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding-left: 0;
+  margin-right: 2px;
+  pointer-events: none;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400;
+  transition: opacity 150ms cubic-bezier(0, 0, 0, 0) 100ms, max-width 0s 100ms, padding-left 0s 100ms;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]:hover::after {
+  max-width: 120px;
+  padding-left: 8px;
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------
+ * Section headers (Pinned Conversations, Projects, Recents)
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"],
+[role="navigation"][aria-label="Sidebar"] .group\/section-header,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"],
+[role="navigation"][aria-label="Sidebar"] h2,
+[role="navigation"][aria-label="Sidebar"] h3 {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  letter-spacing: normal !important;
+  padding-left: 8px !important;
+  padding-right: 6px !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Subheadings (Project group headers) — Willow Styling
+ * - Remove folder icon
+ * - Align horizontal text start to Willow (14px from sidebar rail: 6px + 8px)
+ * - Reveal lower arrow (keyboard_arrow_down) on hover next to title
+ * - Keep hover plus icon intact
+ * ------------------------------------------------------------------------- */
+
+/* 1. Eliminate folder icon, icon wrappers, or leading spacers before title */
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn > :not(.flex-1):not([class*="absolute"]):not(:has(.truncate)):has(~ .flex-1),
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] > :not(.flex-1):not([class*="absolute"]):not(:has(.truncate)):has(~ .flex-1),
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn .flex-1 > :not(:has(.truncate)),
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] .flex-1 > :not(:has(.truncate)),
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn div[class*="gap-0.5"] > :not(:has(.truncate)),
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] div[class*="gap-0.5"] > :not(:has(.truncate)),
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn div[class*="overflow-hidden"] > :not(.truncate):not(span[class*="truncate"]),
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] div[class*="overflow-hidden"] > :not(.truncate):not(span[class*="truncate"]),
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn svg.lucide-folder,
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn svg[class*="lucide-folder"],
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn .flex-1 svg {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+/* 2. Zero out internal leading paddings, margins, and gaps so title starts flush with button padding (8px) */
+[role="navigation"][aria-label="Sidebar"] .group\/header,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"],
+[role="navigation"][aria-label="Sidebar"] [data-testid="lifted-context-menu-trigger"],
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn .flex-1,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] .flex-1,
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn .flex-1 > div,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] .flex-1 > div,
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn div[class*="overflow-hidden"],
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] div[class*="overflow-hidden"] {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  gap: 0 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] {
+  padding-left: 8px !important;
+  padding-right: 6px !important;
+  background-color: transparent !important;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn:hover,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"]:hover,
+[role="navigation"][aria-label="Sidebar"] .group\/header:hover .group\/headerbtn,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:hover button[class*="group/headerbtn"] {
+  background-color: transparent !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn span.truncate,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] span.truncate {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  transition: color 150ms ease !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn:hover span.truncate,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"]:hover span.truncate,
+[role="navigation"][aria-label="Sidebar"] .group\/header:hover .group\/headerbtn span.truncate,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:hover button[class*="group/headerbtn"] span.truncate {
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+}
+
+/* 3. Lower arrow like thing (keyboard_arrow_down) appearing on hover like Willow */
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"] div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn .flex-1 > div::after {
+  content: "keyboard_arrow_down" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", sans-serif !important;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 14, "ROND" 100 !important;
+  font-size: 14px !important;
+  line-height: 14px !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin-left: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  opacity: 0 !important;
+  transition: opacity 200ms ease, transform 200ms cubic-bezier(0.2, 0, 0, 1) !important;
+  pointer-events: none !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn:hover div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"]:hover div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn:hover .flex-1 > div::after,
+[role="navigation"][aria-label="Sidebar"] div.group\/header:hover .group\/headerbtn div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:hover button[class*="group/headerbtn"] div[class*="gap-0.5"]::after {
+  opacity: 1 !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+}
+
+/* Arrow points right ONLY when the project itself is explicitly collapsed */
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn[data-project-expanded="false"] div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"][data-project-expanded="false"] div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] .group\/headerbtn[aria-expanded="false"] div[class*="gap-0.5"]::after,
+[role="navigation"][aria-label="Sidebar"] button[class*="group/headerbtn"][aria-expanded="false"] div[class*="gap-0.5"]::after {
+  content: "keyboard_arrow_right" !important;
+}
+
+/* 4. Hide three-dot menu on project header, keeping '+' new conversation intact */
+[role="navigation"][aria-label="Sidebar"] .group\/header button:has(circle),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"] button:has(circle),
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar button:has(circle),
+[role="navigation"][aria-label="Sidebar"] .group\/header button:has(svg[class*="ellipsis"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header button:has(svg[class*="more"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"] button:has(svg[class*="ellipsis"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"] button:has(svg[class*="more"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header button[aria-haspopup="menu"],
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"] button[aria-haspopup="menu"],
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar button[aria-haspopup="menu"],
+[role="navigation"][aria-label="Sidebar"] .group\/header button[data-state]:not([class*="group/headerbtn"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"] button[data-state]:not([class*="group/headerbtn"]),
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar button[data-state]:not([class*="group/headerbtn"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header div:has(> button) > div:has(button[aria-haspopup="menu"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"] div:has(> button) > div:has(button[aria-haspopup="menu"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header div:has(> button) > div:has(button:has(circle)),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"] div:has(> button) > div:has(button:has(circle)) {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* 5. Plus action button on project header: reveal ONLY on hover, never retain on click / focus-within */
+[role="navigation"][aria-label="Sidebar"] .group\/header:not(:hover) button:has(path[d*="M12 5"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header:not(:hover) button:has(path[d*="m12 5"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header:not(:hover) button:has(path[d*="M5 12"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header:not(:hover) button:has(path[d*="m5 12"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header:not(:hover) button:has(svg.lucide-plus),
+[role="navigation"][aria-label="Sidebar"] .group\/header:not(:hover) button:has(svg[class*="plus"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:not(:hover) button:has(path[d*="M12 5"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:not(:hover) button:has(path[d*="m12 5"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:not(:hover) button:has(path[d*="M5 12"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:not(:hover) button:has(path[d*="m5 12"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:not(:hover) button:has(svg.lucide-plus),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:not(:hover) button:has(svg[class*="plus"]),
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar:not(:hover) button:has(path[d*="M12 5"]),
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar:not(:hover) button:has(path[d*="m12 5"]),
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar:not(:hover) button:has(svg[class*="plus"]),
+[role="navigation"][aria-label="Sidebar"] .group\/header:not(:hover) div[class*="group-hover"],
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:not(:hover) div[class*="group-hover"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/header:hover div[class*="group-hover"],
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:hover div[class*="group-hover"],
+[role="navigation"][aria-label="Sidebar"] .group\/header:hover button:has(svg[class*="plus"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/header"]:hover button:has(svg[class*="plus"]),
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar:hover button:has(svg[class*="plus"]) {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Hide original Projects section header and sticky/virtual wrapper */
+[role="navigation"][aria-label="Sidebar"] div.group\/section-header:has([data-testid="sidebar-add-project-button"]),
+[role="navigation"][aria-label="Sidebar"] div.group\/section-header:has([aria-label="Display Options"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"]:has([data-testid="sidebar-add-project-button"]),
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"]:has([aria-label="Display Options"]) {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] div[style*="transform"]:has(> div.group\/section-header:has([data-testid="sidebar-add-project-button"])),
+[role="navigation"][aria-label="Sidebar"] div[style*="position: absolute"]:has(> div.group\/section-header:has([data-testid="sidebar-add-project-button"])),
+[role="navigation"][aria-label="Sidebar"] div.bg-sidebar:has(> div.group\/section-header:has([data-testid="sidebar-add-project-button"])) {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Conversation List and Rows
+ * ------------------------------------------------------------------------- */
+[data-testid="conversation-list-sidebar"] {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+}
+
+[data-testid="conversation-row-sidebar"] {
+  border-radius: 9999px !important;
+  padding-left: 8px !important;
+  padding-right: 6px !important;
+  /* Willow's row is `h-8 items-center` (SidebarPrimitives.tsx:51) around the
+   * same 24px action line that Antigravity wraps in `py-1.5` for 36px. */
+  height: 32px !important;
+  min-height: 32px !important;
+  /* Antigravity gives PINNED rows `items-start` and unpinned rows
+   * `items-center` (measured: `... px-2 py-1.5 items-start` against
+   * `... pl-[30px] pr-2 py-1.5 items-center`). Its own 36px row hid that,
+   * but against a 32px pill the 17px label rides 7.5px above the centre
+   * line, which reads as a stray gap under the first chat of every project
+   * — pinned rows sort to the top of their group. Willow has one row and it
+   * is always `items-center` (SidebarPrimitives.tsx:51). */
+  align-items: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  transition: background-color 150ms ease !important;
+}
+
+/* The conversation you are actually in. Willow's `RecentChatRow` is a plain
+ * SidebarItem with `active={isActive}` (RecentChatRow.tsx:52), so the current
+ * chat gets the same `bg-[#171717]` pill and `font-medium text-white` label as
+ * a nav row.
+ *
+ * Antigravity publishes this state itself: the row's `data-selected` and its
+ * own `bg-sidebar-secondary` class come from ONE variable in one expression
+ * (`"data-selected":(c==="sidebar"?ba:Y)?"true":"false"`, then
+ * `c==="sidebar"?ba?"bg-sidebar-secondary":…`, main.js), so keying on the
+ * attribute is keying on the app's own answer. Every row reads `false` while
+ * the view is the landing page or a project section, which is correct — no
+ * conversation is open.
+ *
+ * Before `:hover` for the same reason as the nav rows: Willow lets the hover
+ * wash lighten the current row rather than leaving it dark under the pointer.
+ *
+ * Both rules are scoped through the rail and spelled `div[data-testid=…]` to
+ * outrank the header-patch rule near the top of this file, which flattens
+ * `div[class*="bg-sidebar"]` to #1f1f1f — and the selected row's own class is
+ * `bg-sidebar-secondary`, so it was caught by that and stayed rail-coloured
+ * (measured: bg rgb(31,31,31) where the pill wants rgb(23,23,23)). They carry
+ * equal specificity so that source order still decides between them. */
+[role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] {
+  background-color: #171717 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"]:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+}
+
+[data-testid="conversation-row-sidebar"] span.truncate {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+}
+
+[data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate {
+  font-weight: 500 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
+  color: #ffffff !important;
+}
+
+/* Hide redundant project name subtitle on conversation rows */
+[data-testid="conversation-row-sidebar"] span.text-xs:has(svg),
+[data-testid="conversation-row-sidebar"] .flex-col > span:nth-child(2),
+[data-testid="conversation-row-sidebar"] .flex-col > span.text-xs {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * "See all (n)" -> Willow's "All notebooks" row
+ * (NotebooksSection.tsx:181-189; SidebarPrimitives.tsx:29-76)
+ *
+ * Willow closes a truncated section with an ordinary SidebarItem: `flushRight`,
+ * `symbol="more_horiz"`, and a plain label with no count, since the row is a
+ * way in rather than a report. Antigravity ships a bare <button> holding the
+ * text node "See all (104)" at 14px in muted grey, inset 36px by a `pl-[22px]`
+ * wrapper and its own `pl-2`.
+ *
+ * A text node cannot be selected, so the button collapses it with
+ * `font-size: 0` and the row is redrawn as the two flex items Willow builds:
+ * `::before` is the 28px icon box (`h-7 w-7`, SidebarPrimitives.tsx:57) around
+ * `more_horiz` at 20px, `::after` is the label. That puts the icon centre at
+ * x=26 and the label at x=46 from the rail, level with every chat row above
+ * it: 6px list inset + 6px row padding + 28px box + 6px gap. `gap` stays at 0
+ * and the label carries the 6px itself, because the collapsed text node is
+ * still an anonymous flex item and would otherwise take a gap of its own.
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"]:has(> button) {
+  padding-left: 0 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button {
+  height: 32px !important;
+  min-height: 32px !important;
+  width: 100% !important;
+  padding: 0 6px !important;
+  gap: 0 !important;
+  border-radius: 9999px !important;
+  background-color: transparent !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  opacity: 1 !important;
+  font-size: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+  transition: background-color 150ms ease !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+  opacity: 1 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button:active {
+  background-color: var(--gemini-row-pressed, rgba(230, 230, 230, 0.12)) !important;
+}
+
+/* The 28px icon box, holding `more_horiz` at the Luminous axes every other
+ * 20px sidebar glyph uses. */
+[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button::before {
+  content: "more_horiz";
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-variation-settings: var(--gemini-icon-axes-menu, "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
+  font-size: 20px;
+  line-height: 20px;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The label, at the chat rows' own 13px/17px. */
+[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button::after {
+  content: "All conversations";
+  margin-left: 6px;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 400;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400;
+  color: var(--gemini-text, #e6e6e6);
+  letter-spacing: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Conversation Row Action Buttons & Hover Overlay
+ * ------------------------------------------------------------------------- */
+[data-testid="conversation-row-sidebar"] {
+  overflow: hidden !important;
+}
+
+/* Hide session timestamps (e.g. "2m", "7d", "3mo") next to conversation rows */
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:not(:has([data-testid="status-unread-dot"])):not(:has(svg)):not(:has([class*="animate-spin"])) {
+  display: none !important;
+}
+
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > span,
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > time,
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > :not([data-testid="status-unread-dot"]):not(svg):not([class*="animate-spin"]):not(:has([data-testid="status-unread-dot"])):not(:has(svg)) {
+  display: none !important;
+}
+
+/* Only show the three-dot kebab menu button on row hover; hide pin and archive buttons */
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-pin-button"],
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-archive-button"] {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+/* Completely eliminate the gradient shadow overlay: keep the action container transparent like Willow */
+[data-testid="conversation-row-sidebar"] div[style*="background: linear-gradient"],
+[data-testid="conversation-row-sidebar"] div[style*="linear-gradient"],
+[data-testid="conversation-row-sidebar"] *[style*="linear-gradient"],
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-100"],
+[data-testid="conversation-row-sidebar"] div:has(> [data-testid="conversation-kebab"]) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  right: 0 !important;
+}
+
+/* Trailing action slot: Willow 24px slot */
+[data-testid="conversation-row-sidebar"] .pointer-events-auto.h-5,
+[data-testid="conversation-row-sidebar"] div[class*="pointer-events-auto"] {
+  width: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Trailing slot 24x24 centering for both resting pin icon and hover kebab button */
+[data-testid="conversation-row-sidebar"] .pointer-events-auto > div {
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+}
+
+[data-testid="conversation-row-sidebar"] .pointer-events-auto > div > div {
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+/* Running conversation row: expand trailing action slot to fit kebab and stop button */
+[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto,
+[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div {
+  width: auto !important;
+  min-width: 52px !important;
+  max-width: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+}
+
+/* Running row hover actions container: right-aligned with 4px gap between kebab and stop button */
+[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div > div.absolute {
+  left: auto !important;
+  right: 0 !important;
+  width: auto !important;
+  min-width: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 4px !important;
+  padding: 0 !important;
+}
+
+/* Running row resting container: align loading spinner to the exact rightmost 24px slot */
+[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div > div:not(.absolute) {
+  width: 24px !important;
+  height: 24px !important;
+  margin-left: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Hide session timestamps (e.g. "2m", "7d", "3mo") next to conversation rows */
+[data-testid="conversation-row-sidebar"] span[data-screenshot-volatile="true"],
+[data-testid="conversation-row-sidebar"] time,
+[data-testid="conversation-row-sidebar"] .pointer-events-auto > div > div:last-child > span,
+[data-testid="conversation-row-sidebar"] .pointer-events-auto > div > div:last-child > time,
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > span,
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > time,
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > :not([data-testid="status-unread-dot"]):not(svg):not([class*="animate-spin"]):not(:has([data-testid="status-unread-dot"])):not(:has(svg)) {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * The pinned marker
+ * ---------------------------------------------------------------------------
+ * Willow's own, measured off Gemini's Recents row and quoted there
+ * (apps/studio/src/shell/sidebar/RecentChatRow.tsx): `push_pin` in Luminous
+ * Symbols, a 16px glyph at "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 16,
+ * "wght" 330, in rgb(230,230,230) — the row's own text colour, not an accent.
+ *
+ * It is drawn on the wrapper the kebab button sits in, which the rules above
+ * hold at 24x24. Willow gives the pin and the three-dot menu one slot between
+ * them: the pin is the resting state, hover replaces it with the menu, and the
+ * row never shows both, so nothing moves between the two states. Drawing it on
+ * the wrapper rather than in the slot beside it also keeps it independent of
+ * whether Antigravity put a timestamp there — that timestamp is hidden above,
+ * and a hidden element cannot host anything.
+ *
+ * An unread dot, a status icon or a running spinner claims the same box — the
+ * three the timestamp rule above keeps. Willow settles that collision in its own
+ * row: a chat that is pinned *and* was started in Code shows the Code badge and
+ * not the pin (`isMenuOpen || startedInCode` hides it outright), so the state
+ * badge outranks the pin there and does here too. The guard below runs the same
+ * test as that rule, so the pin appears exactly when the slot beside it was
+ * empty enough to be hidden. Opening the conversation clears the dot and the
+ * pin comes back.
+ * ------------------------------------------------------------------------- */
+[data-testid="conversation-row-sidebar"][data-pinned="true"]:not(:has(div[class*="group-hover:opacity-0"] [data-testid="status-unread-dot"])):not(:has(div[class*="group-hover:opacity-0"] svg)):not(:has(div[class*="group-hover:opacity-0"] [class*="animate-spin"])) .pointer-events-auto > div::before {
+  content: "push_pin" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", sans-serif !important;
+  font-variation-settings: "FILL" 0, "wght" 330, "GRAD" 0, "ROND" 100, "opsz" 16 !important;
+  font-size: 16px !important;
+  line-height: 16px !important;
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  /* Both icon faces are subsets, and a glyph a subset does not carry renders as
+   * its own name in words. This box is what keeps that from spilling. */
+  overflow: hidden !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  pointer-events: none !important;
+  transition: opacity 150ms ease !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* Hover hands the slot to the kebab, and the kebab keeps it for as long as its
+ * menu is open — by then the pointer is on the menu and the row is not hovered. */
+[data-testid="conversation-row-sidebar"][data-pinned="true"]:hover .pointer-events-auto > div::before,
+[data-testid="conversation-row-sidebar"][data-pinned="true"]:focus-within .pointer-events-auto > div::before,
+[data-testid="conversation-row-sidebar"][data-pinned="true"]:has([data-testid="conversation-kebab"][aria-expanded="true"]) .pointer-events-auto > div::before {
+  opacity: 0 !important;
+}
+
+/* Row action buttons: Willow 24x24 rounded pill with subtle hover wash */
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-kebab"] {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  min-height: 24px !important;
+  border-radius: 9999px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  background-color: transparent !important;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease !important;
+}
+
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-kebab"]:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+  color: #e6e6e6 !important;
+}
+
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-kebab"]:active {
+  background-color: var(--gemini-row-pressed, rgba(230, 230, 230, 0.12)) !important;
+  transform: scale(0.92) !important;
+}
+
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-kebab"][aria-expanded="true"] {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+  color: #ffffff !important;
+}
+
+[data-testid="conversation-row-sidebar"]:has([data-testid="conversation-kebab"][aria-expanded="true"]) [class*="opacity-0"] {
+  opacity: 1 !important;
+}
+
+/* Running row stop execution button: Willow 24x24 circular pill with subtle hover wash */
+[data-testid="conversation-row-sidebar"] button[aria-label="Stop execution"] {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  min-height: 24px !important;
+  border-radius: 9999px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  background-color: transparent !important;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease !important;
+}
+
+[data-testid="conversation-row-sidebar"] button[aria-label="Stop execution"]:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+  color: #e6e6e6 !important;
+}
+
+[data-testid="conversation-row-sidebar"] button[aria-label="Stop execution"]:active {
+  background-color: var(--gemini-row-pressed, rgba(230, 230, 230, 0.12)) !important;
+  transform: scale(0.92) !important;
+}
+
+/* Willow Kebab Icon: Luminous Symbols more_vert (20px, wght 320, ROND 100) */
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-kebab"] svg {
+  display: none !important;
+}
+
+[data-testid="conversation-row-sidebar"] [data-testid="conversation-kebab"]::before {
+  content: "more_vert" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", sans-serif !important;
+  font-variation-settings: "FILL" 0, "wght" 320, "GRAD" 0, "opsz" 20, "ROND" 100 !important;
+  font-size: 20px !important;
+  line-height: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  color: inherit !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Willow Three-Dot Menu (Conversation Actions Menu)
+ * ------------------------------------------------------------------------- */
+@keyframes willow-mat-menu-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes willow-mat-menu-exit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Reset portal wrappers so only the menu card itself has background/radius/padding */
+[data-floating-ui-portal] > div:has(> [role="menu"]:has([data-testid*="conversation-"])),
+[data-floating-ui-portal] > div:has(> [role="menu"][data-gemini-conversation-menu]),
+div:has(> [role="menu"]:has([data-testid*="conversation-"])),
+div:has(> [role="menu"][data-gemini-conversation-menu]) {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Willow menu card */
+[role="menu"]:has([data-testid*="conversation-"]),
+[role="menu"][data-gemini-conversation-menu] {
+  background-color: #1f1f1f !important;
+  background: #1f1f1f !important;
+  border-radius: 20px !important;
+  padding: 8px !important;
+  border: none !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.28) !important;
+  min-width: 170px !important;
+  max-width: 280px !important;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  outline: none !important;
+  transform-origin: var(--transform-origin, top right) !important;
+  animation: willow-mat-menu-enter 120ms cubic-bezier(0, 0, 0.2, 1) !important;
+  transition: opacity 120ms cubic-bezier(0, 0, 0.2, 1), transform 120ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+
+/* Enter state via Base UI */
+[role="menu"]:has([data-testid*="conversation-"])[data-starting-style],
+[role="menu"][data-gemini-conversation-menu][data-starting-style] {
+  opacity: 0 !important;
+  transform: scale(0.8) !important;
+}
+
+/* Exit state via Base UI */
+[role="menu"]:has([data-testid*="conversation-"])[data-ending-style],
+[role="menu"][data-gemini-conversation-menu][data-ending-style],
+[role="menu"]:has([data-testid*="conversation-"])[data-state="closed"],
+[role="menu"][data-gemini-conversation-menu][data-state="closed"] {
+  opacity: 0 !important;
+  transform: scale(0.8) !important;
+  transition: opacity 100ms linear, transform 100ms linear !important;
+  animation: willow-mat-menu-exit 100ms linear forwards !important;
+}
+
+/* Hide separators inside conversation menu */
+[role="menu"]:has([data-testid*="conversation-"]) [role="separator"],
+[role="menu"][data-gemini-conversation-menu] [role="separator"] {
+  display: none !important;
+}
+
+/* All menu items inside the conversation menu (both native and injected) */
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"],
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"],
+[role="menu"]:has([data-testid*="conversation-"]) button[role="menuitem"],
+[role="menu"][data-gemini-conversation-menu] button[role="menuitem"],
+[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item,
+[role="menu"][data-gemini-conversation-menu] .gemini-menu-item {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 8px !important;
+  gap: 8px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  cursor: pointer !important;
+  color: #e6e6e6 !important;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  letter-spacing: normal !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
+}
+
+/* Hover, focus, and highlighted states on menu items */
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:hover,
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:focus,
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:focus-visible,
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"][data-highlighted],
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"]:hover,
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"]:focus,
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"]:focus-visible,
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"][data-highlighted],
+[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item:hover,
+[role="menu"][data-gemini-conversation-menu] .gemini-menu-item:hover {
+  background-color: rgba(230, 230, 230, 0.08) !important;
+  color: #ffffff !important;
+  outline: none !important;
+}
+
+/* Menu Item SVGs (both native and injected) */
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"] svg,
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"] svg,
+[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item svg,
+[role="menu"][data-gemini-conversation-menu] .gemini-menu-item svg,
+.gemini-menu-item-slot svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  color: rgb(227, 227, 227) !important;
+  fill: currentColor !important;
+  flex-shrink: 0 !important;
+}
+
+/* Menu Item Labels */
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"] span,
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"] span,
+[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item span,
+[role="menu"][data-gemini-conversation-menu] .gemini-menu-item span,
+.gemini-menu-item-label {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: #e6e6e6 !important;
+  letter-spacing: normal !important;
+}
+
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:hover span,
+[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:focus span,
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"]:hover span,
+[role="menu"][data-gemini-conversation-menu] [role="menuitem"]:focus span,
+[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item:hover span,
+[role="menu"][data-gemini-conversation-menu] .gemini-menu-item:hover span {
+  color: #ffffff !important;
+}
+
+.gemini-menu-item-slot {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.gemini-menu-item-trailing {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+}
+
+.gemini-menu-item-label {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Settings button at the footer (Willow's .mavatar-settings-button)
+ * ------------------------------------------------------------------------- */
+[role="navigation"][aria-label="Sidebar"] > div:has(> [data-testid="settings-button"]),
+[role="navigation"][aria-label="Sidebar"] > div:last-child {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 4px 8px 6px 8px !important;
+  margin-top: auto !important;
+  border-top: none !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* User Account Card in sidebar footer */
+#gemini-sidebar-user-pill {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 4px 8px 4px 6px !important;
+  height: 40px !important;
+  max-height: 40px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  outline: none !important;
+  transition: background-color 150ms ease !important;
+  text-align: left !important;
+  overflow: hidden !important;
+}
+
+#gemini-sidebar-user-pill:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+}
+
+#gemini-sidebar-user-pill:active {
+  background-color: var(--gemini-row-pressed, rgba(230, 230, 230, 0.12)) !important;
+}
+
+#gemini-sidebar-user-pill .gemini-user-avatar-wrap {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: #333537 !important;
+}
+
+#gemini-sidebar-user-pill .gemini-user-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+#gemini-sidebar-user-pill .gemini-user-avatar-fallback {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  background: #1a73e8 !important;
+  color: #ffffff !important;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+  text-transform: uppercase !important;
+}
+
+#gemini-sidebar-user-pill .gemini-user-text {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+}
+
+#gemini-sidebar-user-pill .gemini-user-name {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 13px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  letter-spacing: 0.1px !important;
+}
+
+#gemini-sidebar-user-pill .gemini-user-email {
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-size: 11px !important;
+  line-height: 14px !important;
+  font-weight: 400 !important;
+  color: var(--gemini-text-muted, rgba(255, 255, 255, 0.55)) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-state="collapsed"] #gemini-sidebar-user-pill,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill {
+  display: none !important;
+}
+
+
+[data-testid="settings-button"] {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
+}
+
+[data-testid="settings-button"]:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+}
+
+[data-testid="settings-button"]:active {
+  background-color: var(--gemini-row-pressed, rgba(230, 230, 230, 0.12)) !important;
+}
+
+/* Hide text label "Settings" */
+[data-testid="settings-button"] > span:last-child {
+  display: none !important;
+}
+
+/* Hide host SVG */
+[data-testid="settings-button"] > span:first-child > svg {
+  display: none !important;
+}
+
+[data-testid="settings-button"] > span:first-child {
+  width: 20px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Replace icon with Luminous Symbols "settings" gear */
+[data-testid="settings-button"] > span:first-child::before {
+  content: "settings";
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-variation-settings: var(--gemini-icon-axes-menu, "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
+  font-size: 20px;
+  line-height: 20px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+

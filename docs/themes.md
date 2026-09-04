@@ -129,9 +129,9 @@ Its keyframes are `fade-in`, `unread-ping`, `blobEntrance`, `parentFade`,
 
 A theme is styling. It can change how something looks, never what it does.
 Reordering a list, adding a button, changing what a click does, or reacting to
-what the application is doing all need a [plugin](plugins.md). Plugins can
-inject their own CSS too, so a change needing both is one plugin rather than a
-plugin plus a theme.
+what the application is doing all need a [plugin](plugins.md). A plugin can
+carry its own stylesheets — `"styles": "look.css"` in its manifest — so a
+change needing both is one plugin rather than a plugin plus a theme.
 
 ## Two quirks
 

@@ -50,8 +50,9 @@ export class PluginHost {
     for (const [id, registered] of [...this.running]) {
       const wanted = desired.get(id);
       // Editing a plugin's file restarts it, which is what makes iterating on a
-      // plugin feel like editing a theme.
-      const changed = wanted !== undefined && wanted.source !== registered.record.source;
+      // plugin feel like editing a theme. Its stylesheets count as its files.
+      const changed =
+        wanted !== undefined && (wanted.source !== registered.record.source || wanted.styles !== registered.record.styles);
       if (wanted && !changed) continue;
       this.stop(id, registered);
       stopped.push(id);
@@ -86,6 +87,11 @@ export class PluginHost {
     const registered = createPluginContext(plugin, dependencies);
 
     try {
+      // Declared stylesheets go in first, so the script finds its look already
+      // in place. They are tracked like any `plugin.styles.add` call and leave
+      // with the plugin.
+      if (plugin.styles) registered.context.styles.add(plugin.styles);
+
       // Compiled rather than injected as a script tag so the plugin's context
       // can be passed by reference instead of serialised into source text.
       const factory = new Function("BetterGravity", "plugin", "module", "exports", plugin.source);

@@ -208,6 +208,29 @@ export function nativeTextInput(value: string, placeholder: string | undefined, 
 }
 
 /**
+ * A value the user would rather not have on screen, like an API key. There is no
+ * reveal control on purpose: the point is that a key already saved is never
+ * displayed, only replaced.
+ */
+export function nativeSecretInput(value: string, placeholder: string | undefined, onChange: (value: string) => void): HTMLInputElement {
+  const input = el("input", {
+    type: "password",
+    class: NATIVE.input,
+    value,
+    placeholder,
+    autocomplete: "off",
+    spellcheck: "false"
+  });
+  input.addEventListener("change", () => onChange(input.value));
+  return input;
+}
+
+/** A row that reports rather than asks: live state a plugin wants to show. */
+export function nativeNote(text: string): HTMLElement {
+  return el("span", { class: `${NATIVE.emptyNote} block max-w-xs text-right`, text });
+}
+
+/**
  * A plugin's own options, revealed under its row. Indented and tinted so it
  * reads as belonging to the plugin above it rather than as a sibling setting.
  */

@@ -206,6 +206,63 @@ describe("validatePlugin", () => {
     expect(errors(result)).toEqual(["plugin.json is missing."]);
   });
 
+  describe("declared stylesheets", () => {
+    const withStyles = (styles: unknown, fileNames = ["plugin.json", "index.js", "styles", "styles/look.css"]) =>
+      pluginFiles({
+        manifest: JSON.stringify({ name: "Look", description: "A look.", version: "1.0.0", author: "someone", styles }),
+        fileNames
+      });
+
+    it("accepts a stylesheet inside the folder", () => {
+      expect(errors(validatePlugin("look", withStyles("styles/look.css")))).toEqual([]);
+    });
+
+    it("accepts a list of stylesheets", () => {
+      const files = withStyles(["styles/look.css", "extra.css"], ["plugin.json", "index.js", "styles", "styles/look.css", "extra.css"]);
+      expect(errors(validatePlugin("look", files))).toEqual([]);
+    });
+
+    it("rejects a stylesheet that is not in the folder", () => {
+      expect(errors(validatePlugin("look", withStyles("styles/other.css")))).toEqual(['styles "styles/other.css" does not exist in the folder.']);
+    });
+
+    it("rejects a stylesheet path that climbs out of the folder", () => {
+      expect(errors(validatePlugin("look", withStyles("../shared.css")))).toEqual(['styles "../shared.css" must stay inside the plugin folder.']);
+    });
+
+    it("rejects a stylesheet that is not a .css file", () => {
+      expect(errors(validatePlugin("look", withStyles("index.js")))).toEqual(['styles "index.js" must be a .css file.']);
+    });
+
+    it("rejects a styles field that is not a path", () => {
+      expect(errors(validatePlugin("look", withStyles(42)))).toEqual(["styles must be a path or a list of paths."]);
+    });
+
+    it("lets a plugin that is only a look omit the script", () => {
+      const files = withStyles("styles/look.css", ["plugin.json", "styles", "styles/look.css"]);
+      expect(errors(validatePlugin("look", { ...files, entrySource: undefined }))).toEqual([]);
+    });
+
+    it("still requires the script when main is declared", () => {
+      const files = pluginFiles({
+        manifest: JSON.stringify({ name: "Look", description: "A look.", version: "1.0.0", author: "someone", main: "run.js", styles: "look.css" }),
+        fileNames: ["plugin.json", "look.css"],
+        entrySource: undefined
+      });
+      expect(errors(validatePlugin("look", files))).toEqual(['main "run.js" does not exist in the folder.']);
+    });
+
+    it("reviews the stylesheets for remote references as it does a theme's", () => {
+      const result = validatePlugin("look", {
+        ...withStyles("styles/look.css"),
+        stylesheets: [{ name: "styles/look.css", css: '@import url("https://fonts.googleapis.com/css2?family=X");' }]
+      });
+
+      expect(errors(result)).toEqual([]);
+      expect(notes(result).some((note) => /styles\/look.css: Imports a hosted stylesheet/.test(note))).toBe(true);
+    });
+  });
+
   it("reports unparseable JSON rather than throwing", () => {
     const result = validatePlugin("word-count", pluginFiles({ manifest: "{ not json" }));
     expect(errors(result)).toEqual(["plugin.json is not valid JSON."]);

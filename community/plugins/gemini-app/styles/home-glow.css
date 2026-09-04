@@ -1,0 +1,84 @@
+/* ---------------------------------------------------------------------------
+ * The glow behind the prompt box on the home screen.
+ *
+ * Willow authors it as one pseudo-element on the zero state's own container
+ * (apps/studio/index.html:625-724, class `willow-gemini-home-glow`, put on the
+ * host at MediaHome.tsx:639-677): an ellipse of the workspace colour fading
+ * into the page, drawn under everything and blurred by 100px, growing from
+ * nothing over 1s the moment the class lands. Every declaration below is that
+ * rule verbatim; only the two colours are read from this plugin's tokens, and
+ * both resolve to what Willow hard-codes — `--gemini-page-bg` is #0f0f0f, the
+ * `rgb(15, 15, 15)` inner stop, which is also what Antigravity's own root
+ * paints, so the ellipse fades into the real page rather than onto it.
+ *
+ * Willow gates the glow on `initialMode === 'chat' && isGreetingReady`, i.e.
+ * the home screen and not a conversation, by withholding the class. There is no
+ * class to withhold here, so the gate is a selector: Antigravity's home screen
+ * is the one place `pt-[30vh]` appears, and it is gone the moment a
+ * conversation opens (measured live — the composer drops from y=393 to y=832
+ * and the count of `pt-[30vh]` elements goes to 0).
+ *
+ * That `pt-[30vh]` element is where the glow belongs by Willow's construction —
+ * it is the container the greeting and composer sit in — but it is also the
+ * scroller (`overflow-y-auto`), which would slice 100px of blur off the
+ * ellipse's edges. So the glow hangs on its parent instead, which is the same
+ * element minus the scrolling: both measure [288,76 1248x836] exactly, and the
+ * parent's overflow is visible. `:has(> …)` keeps the two tied together, so the
+ * glow appears and disappears with the home screen either way.
+ * ------------------------------------------------------------------------- */
+
+@keyframes gemini-home-glow-grow {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -45%) scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -45%) scale(1);
+  }
+}
+
+/* The pseudo-element is positioned against this box, so the box has to be a
+ * positioned one; Antigravity leaves it static. */
+div.animate-fade-in:has(> div[class*="pt-[30vh]"]) {
+  position: relative !important;
+}
+
+/* `z-index: -1` is Willow's, and it does the same thing here: the host is not
+ * a stacking context, so the glow joins the negative layer of the nearest one
+ * that is — Antigravity's `div.relative.z-0` pane, which is transparent. The
+ * glow therefore paints above the window's #0f0f0f and below everything in the
+ * pane, including the composer (`z-[1]`) and its inner box (`z-10`). */
+div.animate-fade-in:has(> div[class*="pt-[30vh]"])::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -45%);
+  z-index: -1;
+  margin: 0 auto;
+  /* Half the host, capped: 792x300 on any window wider than 792 and taller
+   * than 600, which is every window this runs in. On Antigravity's home screen
+   * that puts the ellipse's centre 64px under the composer's — Willow's own
+   * arithmetic lands on 53px, and 11px is nothing under a 100px blur. */
+  width: 100%;
+  max-width: 792px;
+  height: 50%;
+  max-height: 300px;
+  background: radial-gradient(
+    ellipse 100% 100% at center 8%,
+    var(--gemini-page-bg, #0f0f0f) 0,
+    var(--gemini-home-glow-accent, rgb(6, 78, 59)) 50%
+  );
+  border-radius: 9999px;
+  filter: blur(100px);
+  pointer-events: none;
+  animation: gemini-home-glow-grow 1s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* Willow's own carve-out: the glow stays, the growth does not. */
+@media (prefers-reduced-motion: reduce) {
+  div.animate-fade-in:has(> div[class*="pt-[30vh]"])::before {
+    animation: none;
+  }
+}

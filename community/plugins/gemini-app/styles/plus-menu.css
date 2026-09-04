@@ -1,0 +1,278 @@
+/* ===========================================================================
+ * 3. Plus menu
+ * ===========================================================================
+ * Willow's plus menu (features/chat/src/composer/PlusDropdownMenu.tsx) is a
+ * 249px #1f1f1f card on a 20px radius: two upload rows, a "More uploads"
+ * submenu, a divider, then four tool rows and a "More tools" submenu. Every row
+ * is 36px with a 24px glyph box 8px in from its left edge, and the label starts
+ * at 40px on an upload row but 44px on a tool row.
+ *
+ * Antigravity's is the same idea at a quarter of the size: a bordered bg-card
+ * popup with 4px of padding and rows barely taller than their 14px stroke
+ * icons, holding the context sources — Media, Mentions, Actions, Screen
+ * Recording — under an "Add Context" heading. Almost everything else the app
+ * can do is reached by typing a slash instead, which is why index.js fills the
+ * space below the divider with the tools Willow has there and it does not.
+ *
+ * Nothing in this menu carries a data-testid, and the one thing that names it —
+ * the trigger's aria-controls — is not something CSS can follow. So index.js
+ * marks the popup `data-gemini-plus-menu`, and each row with the kind of row it
+ * is and the ligature it draws; the look is all here.
+ */
+
+/* --- 3a. The card ------------------------------------------------------------
+ * `position: relative` and `overflow: visible` are for the submenu, which
+ * index.js appends inside this card. Willow keeps its own submenus outside,
+ * because Gemini's card scrolls and clipped them into growing a pair of
+ * scrollbars; this is the same guarantee made the other way round.
+ */
+[role="menu"][data-gemini-plus-menu] {
+  position: relative;
+  width: 249px !important;
+  min-width: 249px !important;
+  max-width: 249px !important;
+  padding: 8px !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  overflow: visible !important;
+  background: var(--gemini-surface) !important;
+  box-shadow: var(--gemini-plus-menu-shadow) !important;
+  color: var(--gemini-text) !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  gap: 0 !important;
+}
+
+/* Antigravity groups its rows and titles the first group "Add Context". Willow
+ * has no heading over its, and no groups either, so the groups are flattened to
+ * let one gap and one row rhythm run down the whole card. */
+[data-gemini-plus-menu] [role="group"] {
+  display: contents;
+}
+
+/* Base UI draws a group's label as a `role="presentation"` div holding the id
+ * the group's `aria-labelledby` points at, so it is reachable from here without
+ * index.js having to mark it. */
+[data-gemini-plus-menu] [role="group"] > [role="presentation"] {
+  display: none !important;
+}
+
+/* --- 3b. The rows ------------------------------------------------------------
+ * 36px tall, 8px of inline padding, 12px corners. Willow paints hover as a
+ * layer of its own measured at `transition: all 0s` — Gemini snaps it in, so no
+ * transition is declared here either. A fade would be a different menu.
+ */
+[data-gemini-plus-menu] [role="menuitem"] {
+  position: relative;
+  display: flex !important;
+  width: 100%;
+  min-width: 0 !important;
+  min-height: 36px;
+  align-items: center !important;
+  padding: 0 8px !important;
+  gap: 0 !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: var(--gemini-text) !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 400 !important;
+  text-align: left;
+  white-space: nowrap;
+  transition: none !important;
+}
+
+[data-gemini-plus-menu] [role="menuitem"]:hover,
+[data-gemini-plus-menu] [role="menuitem"]:focus,
+[data-gemini-plus-menu] [role="menuitem"][data-highlighted] {
+  background: var(--gemini-row-hover) !important;
+  color: var(--gemini-text) !important;
+}
+
+[data-gemini-plus-menu] [role="menuitem"]:active {
+  background: var(--gemini-row-pressed) !important;
+}
+
+/* Willow's selected surface. In its menu that marks the tool already chosen; the
+ * only row here that can be in a lasting state is the one holding a submenu
+ * open, so that is the row it is given to. */
+[data-gemini-plus-menu] [role="menuitem"][aria-expanded="true"],
+[data-gemini-plus-menu] [role="menuitem"][data-selected="true"] {
+  background: var(--gemini-row-selected) !important;
+}
+
+/* The label. Willow's two row templates put it 40px from the row's left edge on
+ * a context row and 44px on a tool row — a real 4px difference, measured on
+ * every row of each. The glyph is placed absolutely, so the label carries the
+ * inset itself: 8px of row padding plus this margin.
+ *
+ * index.js marks the label rather than this matching `> span`, because a host
+ * row's icon is sometimes a span too — Antigravity draws Media, Mentions, and
+ * Screen Recording as ligatures and Actions and Browser as SVG. */
+[data-gemini-plus-menu] [role="menuitem"] > [data-gemini-label] {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gemini-text) !important;
+  font-size: 13px !important;
+  line-height: 17px !important;
+  text-overflow: ellipsis;
+}
+
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-row="context"] > [data-gemini-label] {
+  margin-left: 32px;
+}
+
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-row="tool"] > [data-gemini-label] {
+  margin-left: 36px;
+}
+
+/* --- 3c. The icon column -----------------------------------------------------
+ * Antigravity draws 14px stroke icons. Willow draws 20px ligatures from the
+ * Gemini app's own two icon faces, in a 24px box 8px from the row's left edge.
+ * So each host icon is hidden and the ligature index.js named for the row put in
+ * its place, which is what prompt-box.css does to the composer's own buttons.
+ *
+ * Everything in a marked row that is not the label goes: a host icon is a span
+ * as often as it is an `svg`, and hiding by what it is not covers both. A row
+ * index.js did not recognise keeps its own icon rather than losing it.
+ */
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-row] > *:not([data-gemini-label]) {
+  display: none !important;
+}
+
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-glyph]::before,
+[data-gemini-plus-menu] [role="menuitem"][aria-haspopup="menu"]::after {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  /* Clipped to the glyph's box. Both faces are subsets addressed by ligature
+   * name, so this is what keeps a name from painting itself out in words where
+   * an icon belongs — before the face arrives, or if it never does. */
+  overflow: hidden;
+  transform: translateY(-50%);
+  color: var(--gemini-text);
+  font-family: var(--gemini-icon-font);
+  font-variation-settings: var(--gemini-icon-axes-menu);
+  font-size: 20px;
+  line-height: 20px;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-glyph]::before {
+  left: 8px;
+  content: attr(data-gemini-glyph);
+}
+
+/* The handful of glyphs Willow takes from Google Symbols rather than Luminous.
+ * The two faces are not interchangeable and neither is a superset of the other,
+ * so a row says which one it means. */
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-glyph-family="google-symbols"]::before {
+  font-family: var(--gemini-symbols-font);
+  font-variation-settings: var(--gemini-symbols-axes-menu);
+}
+
+/* more_horiz is the one glyph Willow asks for with no variation settings at all. */
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-glyph="more_horiz"]::before {
+  font-variation-settings: normal;
+}
+
+/* The chevron on the row that opens the submenu. */
+[data-gemini-plus-menu] [role="menuitem"][aria-haspopup="menu"]::after {
+  right: 8px;
+  content: "chevron_right";
+}
+
+/* --- 3d. The divider ---------------------------------------------------------
+ * Willow's is 0.8px of white/12 inset 8px with 8px above and below, drawn as a
+ * border on a rule of no height. Antigravity's is a 1px bg-border with 4px.
+ */
+[data-gemini-plus-menu] [role="separator"] {
+  height: 0 !important;
+  margin: 8px !important;
+  border: 0 !important;
+  border-top: 0.8px solid var(--gemini-menu-divider) !important;
+  background: none !important;
+}
+
+/* --- 3e. The submenu ---------------------------------------------------------
+ * Willow's More tools card: the same surface at 253px, placed so its content
+ * edge lands on the parent's content edge. That is 8px inside the parent's right
+ * edge rather than flush against it, and 8px above the row that opened it —
+ * measured, and the reason both offsets are negative. index.js sets the top,
+ * since only it knows which row that was.
+ */
+[data-gemini-plus-menu] [data-gemini-submenu] {
+  position: absolute;
+  left: calc(100% - 8px);
+  z-index: 1;
+  display: flex;
+  width: 253px;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 20px;
+  background: var(--gemini-surface);
+  box-shadow: var(--gemini-plus-menu-shadow);
+  color: var(--gemini-text);
+  font-family: var(--gemini-font);
+  font-variation-settings: var(--gemini-font-axes);
+}
+
+/* --- 3f. Motion --------------------------------------------------------------
+ * Willow's expand-in: 100ms ease-in-out out of quarter opacity at half scale.
+ * Note it does not start from zero, which is why it reads as a quick pop rather
+ * than a fade. It grows from the corner it opens away from — bottom-left going
+ * up, top-left going down. There is no leave animation: Gemini removes the card
+ * outright, as it does everything else in the composer.
+ */
+@keyframes gemini-expand-in {
+  from {
+    opacity: 0.25;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+[role="menu"][data-gemini-plus-menu] {
+  transform-origin: 0 0;
+  transition: none !important;
+}
+
+[role="menu"][data-gemini-plus-menu][data-side="top"] {
+  transform-origin: 0 100%;
+}
+
+/* Antigravity opens and closes the popup through Base UI's starting and ending
+ * styles, and this animation stands in for both. It is held off for the one
+ * frame the starting style is on the card — otherwise the two would each pull
+ * the first frame a different way — and dropped again on the ending style, which
+ * leaves nothing for Base UI to wait on and so removes the card at once. */
+[role="menu"][data-gemini-plus-menu]:not([data-starting-style]):not([data-ending-style]) {
+  animation: gemini-expand-in 100ms ease-in-out;
+}
+
+[data-gemini-plus-menu] [data-gemini-submenu] {
+  transform-origin: 0 0;
+  animation: gemini-expand-in 100ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [role="menu"][data-gemini-plus-menu]:not([data-starting-style]):not([data-ending-style]),
+  [data-gemini-plus-menu] [data-gemini-submenu] {
+    animation: none;
+  }
+}

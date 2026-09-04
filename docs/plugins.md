@@ -60,10 +60,12 @@ theme. Switching it off runs your cleanups.
 | `version` | Shown beside the author. |
 | `author` | Shown beside the version. |
 | `main` | Entry script. Defaults to `index.js`. |
+| `styles` | Optional. A `.css` file, or a list of them, injected while the plugin is on — see [styling from a plugin](#styling-from-a-plugin). |
 | `patches` | Optional. Rewrites Antigravity's own bundle before it runs — see [reaching into Antigravity](advanced.md#rewriting-the-bundle-before-it-runs). |
+| `gemini` | Optional. Arms the Gemini translator at launch, for a plugin that drives [`plugin.gemini`](plugin-api.md#plugingemini) — see [a Gemini key of your own](gemini-key.md). |
 
-The folder name is the plugin's id, so it must be unique. `main` is resolved
-relative to the folder and cannot point outside it.
+The folder name is the plugin's id, so it must be unique. `main` and `styles`
+are resolved relative to the folder and cannot point outside it.
 
 ## Type checking, without TypeScript
 
@@ -141,7 +143,33 @@ settings.showSeconds;            // reads the current value
 settings.corner = "bottom-left"; // saves it
 ```
 
-Supported types are `boolean`, `string`, `number`, and `select`.
+Supported types are `boolean`, `string`, `number`, and `select`. A `string` can
+declare `secret: true` to render as a password field, for something like an API
+key; that hides it on screen and nothing more, since it is still stored in plain
+text with the plugin's other settings.
+
+Two more row types hold no value at all, and so do not appear on the accessor:
+
+```js
+plugin.settings.define({
+  check: {
+    type: "action",
+    label: "Check the connection",
+    action: "Check",                        // the text on the button
+    onSelect: async () => "Everything is fine."   // a returned string is shown as a notice
+  },
+  state: {
+    type: "note",
+    label: "Status",
+    read: () => `Connected as ${account}.`  // called every time the panel renders
+  }
+});
+```
+
+An `action` is a button, and a `note` is read-only text that re-reads itself
+whenever the panel is drawn, which is how a plugin reports live state without
+building a screen of its own. A button's label is fixed when it is declared, so
+something that reads two ways is two buttons.
 
 ## Saving data
 
@@ -155,14 +183,45 @@ synchronous, and written through to disk in the background.
 
 ## Styling from a plugin
 
+For a few rules, add them from the script:
+
 ```js
 const remove = plugin.styles.add(`
   .my-plugin-badge { color: var(--primary); }
 `);
 ```
 
-Styles added this way are removed automatically when the plugin stops, so a
-plugin that needs both look and behaviour does not also need a theme.
+For a real stylesheet, keep it in `.css` files and name them in the manifest:
+
+```json
+{
+  "name": "Gemini App",
+  "main": "index.js",
+  "styles": "styles/gemini-app.css"
+}
+```
+
+```text
+gemini-app/
+├── plugin.json
+├── index.js
+└── styles/
+    ├── gemini-app.css      @import "tokens.css"; @import "prompt-box.css"; …
+    ├── tokens.css
+    └── prompt-box.css
+```
+
+Declared stylesheets are folded the same way a [folder theme](themes.md#themes-with-more-than-one-file)
+is — local `@import`s are inlined, local `url()`s are embedded, remote
+`@import`s are kept — and injected before your script runs, so the script finds
+the look already in place. Editing any of them restarts the plugin, like editing
+the script does. `styles` can also be a list.
+
+Either way, styles leave with the plugin when it stops, so a plugin that needs
+both look and behaviour does not also need a theme. A plugin that is *only* a
+look can leave `main` out altogether, though at that point a theme is the
+simpler thing to write; a plugin earns its keep when CSS is not enough — when
+text has to change or something has to happen.
 
 ## Cleaning up
 
@@ -199,14 +258,18 @@ sidebar button, a dialog, and a settings screen of its own.
 
 ## Going further
 
-This page covers what a plugin does on its own. Two more pages cover what it can
-do to Antigravity:
+This page covers what a plugin does on its own. Four more pages cover what it
+can do beyond that:
 
 - **[Adding to Antigravity's interface](interface.md)** — toasts, menu entries,
   toolbar buttons, dialogs, and a screen in the app's settings.
 - **[Reaching into Antigravity](advanced.md)** — intercepting its functions,
   reading its React tree, watching its language server, and rewriting its bundle
   before it runs.
+- **[Discord Rich Presence](presence.md)** — `plugin.presence`, the one
+  capability that reaches outside the page, and why it has to.
+- **[A Gemini key of your own](gemini-key.md)** — `plugin.gemini`, which sends
+  Antigravity's chat through your own API key instead of its subscription.
 
 ## Sharing a plugin
 

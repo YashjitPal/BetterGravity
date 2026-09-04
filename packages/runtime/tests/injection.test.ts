@@ -132,6 +132,31 @@ describe("PluginHost lifecycle", () => {
     expect(styles[0]?.textContent).toBe("body { color: blue; }");
   });
 
+  it("injects declared stylesheets before the script runs and removes them with it", () => {
+    const host = createHost();
+    host.sync([{ ...plugin("look", true, "globalThis.__styled = document.querySelector('style[data-bettergravity-plugin-style]') !== null;"), styles: "body { color: red; }" }]);
+
+    expect(probe("__styled")).toBe(true);
+    const styles = [...document.querySelectorAll("style[data-bettergravity-plugin-style]")];
+    expect(styles).toHaveLength(1);
+    expect(styles[0]?.textContent).toBe("body { color: red; }");
+
+    host.sync([{ ...plugin("look", false), styles: "body { color: red; }" }]);
+    expect(document.querySelectorAll("style[data-bettergravity-plugin-style]")).toHaveLength(0);
+  });
+
+  it("restarts a plugin when a declared stylesheet changes on disk", () => {
+    const host = createHost();
+    host.sync([{ ...plugin("look", true), styles: "body { color: red; }" }]);
+
+    const outcome = host.sync([{ ...plugin("look", true), styles: "body { color: blue; }" }]);
+
+    expect(outcome).toEqual({ started: ["look"], stopped: ["look"] });
+    const styles = [...document.querySelectorAll("style[data-bettergravity-plugin-style]")];
+    expect(styles).toHaveLength(1);
+    expect(styles[0]?.textContent).toBe("body { color: blue; }");
+  });
+
   it("hands the plugin its context and the shared api", () => {
     const host = createHost();
     host.sync([plugin("probe", true, "globalThis.__seen = { api: BetterGravity.marker, id: plugin.manifest.id };")]);

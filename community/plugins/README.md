@@ -19,7 +19,10 @@ word-count/
 ```
 
 `name`, `description`, `version`, and `author` are required. `main` defaults to
-`index.js` and must point at a file inside the folder.
+`index.js` and must point at a file inside the folder. A plugin with a look as
+well as behaviour names its stylesheets under `styles`; they must be `.css`
+files inside the folder, and a `https://` `@import` in them is allowed and noted
+for review, as it is for a theme.
 
 Do not commit `node_modules`, and avoid minified or generated code — a plugin
 has to be readable exactly as submitted, because that is what review depends on.

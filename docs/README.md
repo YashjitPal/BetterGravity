@@ -16,6 +16,10 @@
   toolbar buttons, dialogs, and a settings screen of your own.
 - **[Reaching into Antigravity](advanced.md)** — patching its functions, reading
   its React tree, watching its language server, and rewriting its bundle.
+- **[Discord Rich Presence](presence.md)** — showing what the agent is doing on
+  your Discord profile, and setting up the application it needs.
+- **[A Gemini key of your own](gemini-key.md)** — sending Antigravity's chat
+  through your own API key, what that involves, and where the key lives.
 - **[Plugin API reference](plugin-api.md)** — every call, in one place.
 
 ## Understanding it

@@ -72,14 +72,26 @@ Setting shapes:
 
 ```ts
 { type: "boolean", label, description?, default: boolean }
-{ type: "string",  label, description?, default: string, placeholder? }
+{ type: "string",  label, description?, default: string, placeholder?, secret? }
 { type: "number",  label, description?, default: number, min?, max? }
 { type: "select",  label, description?, default: string,
   options: readonly { value: string; label: string }[] }
+{ type: "action",  label, description?, action: string,
+  onSelect(): void | string | Promise<void | string> }
+{ type: "note",    label, description?, read(): string }
 ```
 
 A `select` declared with `as const` narrows to the literal union of its option
 values.
+
+`secret` renders a string as a password field, for something like an API key. It
+is still stored in plain text with the plugin's other settings — this hides it
+from someone looking at the screen, nothing more.
+
+`action` and `note` rows hold no value, so they are absent from the accessor
+`define` returns. An `action` is a button; whatever `onSelect` returns as a
+string is shown in the panel as a notice. A `note` is read-only text, and `read`
+is called every time the panel renders, so it can report live state.
 
 ### `plugin.styles`
 
@@ -218,6 +230,169 @@ Identify a menu with `menu.has(testid)`; component names are mangled but
 `data-testid` values survive. `ButtonHandle.element` changes whenever the host
 rebuilds its toolbar, so read it rather than holding on to it. Every
 registration is undone when the plugin stops.
+
+### `plugin.presence`
+
+Drives Discord Rich Presence. See [Discord Rich Presence](presence.md) for the
+setup a working presence needs.
+
+```ts
+plugin.presence.open(clientId: string): Promise<PresenceStatus>;
+plugin.presence.update(activity?: PresenceActivity): Promise<PresenceStatus>;
+plugin.presence.close(): Promise<PresenceStatus>;
+plugin.presence.status(): PresenceStatus;
+plugin.presence.onStatusChanged(listener: (status: PresenceStatus) => void): Unpatch;
+```
+
+```ts
+type PresenceActivity = {
+  details?: string;              // the first line under the application name
+  state?: string;                // the second line
+  startedAt?: number;            // epoch ms; Discord counts up from it itself
+  endsAt?: number;
+  largeImage?: string;           // an art asset key, or an image URL
+  largeText?: string;
+  smallImage?: string;
+  smallText?: string;
+};
+
+type PresenceStatus = {
+  phase: "off" | "connecting" | "connected" | "unavailable";
+  user?: string;                 // the signed-in account, once connected
+  message?: string;
+};
+```
+
+Unlike the rest of the API this is not the page doing the work. Discord's
+transports are a local socket, which needs Node, and a WebSocket that checks the
+`Origin` header against a list registered on the application — and Antigravity's
+origin carries a port that changes every launch, so no registered origin would
+keep matching. The main process therefore owns the socket, and it dials
+Discord's own socket names and nothing else, so this is not a general outbound
+socket for plugins.
+
+`unavailable` is the ordinary state when Discord is closed rather than an error.
+The runtime reconnects on its own and reports `connected` when Discord returns,
+so a plugin can set an activity once and leave it. Do re-send on `connected`
+though: Discord drops whatever it was showing when the socket went away.
+
+Updates are spaced out to stay inside Discord's rate limit, and a change made
+inside that window is delayed rather than dropped, so the last activity a plugin
+asks for is always the one that ends up displayed. `startedAt` means an elapsed
+timer needs one update rather than one per second.
+
+### `plugin.gemini`
+
+Routes Antigravity's chat through the user's own Gemini API key. See
+[a Gemini key of your own](gemini-key.md) for what the feature does and the setup
+it needs.
+
+```ts
+plugin.gemini.configure(config: GeminiConfig): Promise<GeminiStatus>;
+plugin.gemini.status(): GeminiStatus;
+plugin.gemini.test(): Promise<GeminiKeyTest>;
+plugin.gemini.onStatusChanged(listener: (status: GeminiStatus) => void): Unpatch;
+```
+
+```ts
+type GeminiConfig = {
+  apiKey?: string;               // held in the main process, sent upstream only
+  baseUrl?: string;              // where the key is spent; Google's own API when empty
+  stream?: boolean;              // default true
+  thoughts?: boolean;            // pass the model's thinking through; default true
+  bypass?: boolean;              // stay installed, forward untranslated
+  audit?: boolean;               // one redacted line per request
+};
+
+type GeminiStatus = {
+  phase: "off" | "listening" | "routing" | "blocked";
+  port?: number;                 // the loopback port, once it is up
+  keyed: boolean;                // whether a key is set — never the key
+  trusted: boolean;              // whether the authority is in the trust store
+  thumbprint?: string;           // SHA-1, so it can be found by hand
+  restartRequired: boolean;
+  message?: string;
+  counts: { translated: number; passedThrough: number; failed: number };
+};
+
+type GeminiKeyTest = { ok: boolean; message: string; models?: number };
+```
+
+The manifest must declare `"gemini": true`. The work is all in the main process —
+a loopback HTTPS listener, a translation between Antigravity's internal protocol
+and the public Gemini API, and a rewrite of the language server's endpoint
+argument as it is spawned — and that has to be in place before the language
+server starts, which is before any plugin script exists to ask for it. The
+manifest flag is what arms it at launch, from the settings saved last time; a
+plugin supplies the key and the preferences and reads the status back.
+
+There is one translator, so if several enabled plugins declare the flag, one of
+them supplies the settings that arm it and `runtime.log` says which. The others
+still see the same status and can still configure it.
+
+`baseUrl` is an origin, optionally with a path, and the standard `/v1beta/...` is
+appended to it: `https://relay.example/gemini` is asked for
+`https://relay.example/gemini/v1beta/models/...`. Empty means Google's own API.
+`http://` is accepted for loopback only, since anywhere else it would put the key
+on the wire in clear text. A value that cannot be read is not an error a plugin
+has to handle — requests go to Google and `message` says why, so a typed-in
+address can never cost the user their chat. `test()` uses the same address, which
+makes it the diagnostic for one that does not work.
+
+The key never appears in a status, a log line, or the request log, so anything a
+plugin displays is safe to display.
+
+The certificate is not a plugin's business, and deliberately not part of this
+interface. The language server refuses an untrusted handshake, so the runtime adds
+its own authority to `Cert:\CurrentUser\Root` while an enabled plugin declares the
+flag and removes it at the first launch where none does. Until it is in there the
+endpoint argument is left as Antigravity wrote it, because taking chat away
+entirely is worse than leaving it with Google. `trusted` says where that has got
+to; on anything but Windows it stays false and `message` says why.
+
+Switching a plugin off is followed too: the translator forwards untranslated from
+that moment, so chat is back on the bundled subscription without a restart, and
+`configure()` from a plugin that has been switched on again resumes translating.
+
+`restartRequired` is what a panel would say out loud: the endpoint is an argument
+to a process that is already running, so a plugin switched on mid-session cannot
+redirect the language server that is already talking to Google. Clearing the key
+needs no restart, though — the listener forwards requests untouched when there is
+no key, so being routed costs nothing.
+
+### `plugin.account`
+
+The name on the Google account Antigravity is signed in with, for a plugin that
+wants to greet the user by it.
+
+```ts
+plugin.account.read(): Promise<AccountProfile>;
+```
+
+```ts
+type AccountProfile = {
+  firstName?: string;   // Google's own given name — "Ada" in "Ada Lovelace"
+  fullName?: string;
+};
+```
+
+A name and nothing else. No address, no identifier, no picture: this crosses to
+the page, where every plugin can read it, and a name is what greeting the user
+takes.
+
+Both fields are absent when Google's record cannot be read — an empty object, not
+a name guessed from an address. So treat a missing name as the ordinary case and
+fall back on wording that does not need one, the way Antigravity's own screens do.
+
+Antigravity does not know the name. Its own state has the address the user signed
+in with and no display name anywhere; the name is in the Chromium profile
+Antigravity signs into Google through, which only the main process can read. So
+the answer comes back over IPC and `read()` is asynchronous.
+
+One read serves the whole page, however many plugins ask and however often, since
+Google's record does not change between two calls in the same session. A read that
+fails is not remembered, so a profile being rewritten as the page loads is asked
+again rather than held wrong until the next reload.
 
 ### `plugin.onDispose`
 

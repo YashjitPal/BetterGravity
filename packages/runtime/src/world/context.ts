@@ -1,15 +1,18 @@
 import type { PluginContext, PluginSettingsSchema, PluginStorage } from "@bettergravity/plugin-api";
 import type { PluginRecord } from "../protocol.js";
+import { SETTING_PREFIX } from "../protocol.js";
+import { createAccountTools } from "./account.js";
 import { createDomUtilities } from "./dom.js";
+import { createGeminiTools } from "./gemini.js";
 import { createNetworkTools } from "./hooks/net.js";
 import { createPatcher } from "./hooks/patcher.js";
 import { createReactTools } from "./hooks/react.js";
+import { createPresenceTools } from "./presence.js";
 import { createUiTools } from "./ui/index.js";
 
 export const PLUGIN_STYLE_ATTRIBUTE = "data-bettergravity-plugin-style";
 
-/** Settings live in the plugin's own storage bucket behind a reserved prefix. */
-export const SETTING_PREFIX = "setting:";
+export { SETTING_PREFIX };
 
 export interface ContextDependencies {
   /** Values loaded before the plugin started, so reads can stay synchronous. */
@@ -81,7 +84,11 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
     schema: {},
     readSetting: (key) => {
       const stored = values[`${SETTING_PREFIX}${key}`];
-      return stored === undefined ? registered.schema[key]?.default : stored;
+      if (stored !== undefined) return stored;
+      // Action and note rows store nothing, so they have no default to fall
+      // back on either.
+      const declared = registered.schema[key];
+      return declared !== undefined && "default" in declared ? declared.default : undefined;
     },
     writeSetting,
     context: {
@@ -140,6 +147,9 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
       react: createReactTools(),
       net: createNetworkTools(track),
       ui: createUiTools(record.id, track),
+      presence: createPresenceTools(track),
+      gemini: createGeminiTools(track),
+      account: createAccountTools(),
       onDispose: track
     },
     dispose: () => {

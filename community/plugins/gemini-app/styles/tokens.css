@@ -1,0 +1,152 @@
+/* ---------------------------------------------------------------------------
+ * Shared: the three faces the Gemini app is drawn with — Google Sans Flex for
+ * text, Luminous Symbols and Google Symbols for icons. Every declaration is
+ * Willow's own (apps/studio/index.html): same faces, same axis ranges, same
+ * subsets.
+ * ------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: "Google Sans Flex";
+  font-style: oblique 0deg 10deg;
+  font-weight: 280 540;
+  font-stretch: 92% 100%;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/googlesansflex/v11/t5tQIQcYNIWbFgDgAAzZ34auoVyXkJCOvp3SFWJbN5hF8Ju1x4d-JwN2l9sIKwpINJwakXdYAZzz0jbnDYatsQ.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Every glyph in this face is addressed by ligature name, so `block` is right
+ * where `swap` would be wrong: a fallback render shows no fallback icon, it
+ * shows the ligature's own letters. The block period keeps that invisible until
+ * the glyph arrives. Anywhere the face is used below, the pseudo-element is
+ * clipped to the glyph's box so even a failed fetch cannot spill words across
+ * the interface. */
+@font-face {
+  font-family: "Luminous Symbols";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("https://fonts.gstatic.com/l/font?kit=daaDSSYgOGmYaRLpq55MPuzv2kUK2zvmTflyWwG1oySatCZuAYA-8NIsLW680OBb5BBuQa5Dapuzovt2J0psqvrJKUiguriqj38pHhH1_FWVNba9XW1Z0j1SYPtVC_039jdnbiSlMoNYz-sc0l6o2XJnFRZd3LtfgXCEn5sBwOYz9JY-vfCcEZCekq8BFb41oUHJ21PTFnZb2RMMwYCzB7F1mdUaFrYUswpxtQdEmjoEM8p6oWeeN_ktEB1SdkIa-kcux3UrQOn_dQjRWbZcMVX1_RESDzbwHtbyk5rWjbipp7mDJwP4NckVMay3Le8j78DOKTOoejXKXxhX1w78YI4BFD7bbtw99OVHnoVj&skey=bef131c18897d264&v=v38") format("woff2");
+}
+
+/* Google Symbols, the second icon face. The Gemini app draws a few glyphs from
+ * it rather than from Luminous — `drive` and `more_horiz` in the plus menu — and
+ * the two are not interchangeable, so both are declared.
+ *
+ * This is Willow's subset URL, which carries the ~194 ligatures Willow names.
+ * Both faces are subsets, and a subset has a sharp edge: a ligature the face
+ * does not contain renders as its own name in words, and because the letters
+ * themselves are present the browser never falls through to another face. So
+ * every glyph named in this plugin is one Willow names too, and the boxes they
+ * are drawn in are clipped, which is what bounds the damage if one is not. */
+@font-face {
+  font-family: "Google Symbols";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("../assets/google-symbols.woff2") format("woff2"),
+    url("https://fonts.gstatic.com/l/font?kit=Hhy3U5Ak9u-oMExPeInvcuEmPosC9zS3FYkFU68cPrjdKM1pSPywlmmzc_ohQP9PrWumSDfXZxlcLqnGuwPZJBWrKZK2S-fE6UUzh2RWzVEAcGuQIMHU6OgQWFMwv6w1TNW0QbUB0XTpF8EwYoE4BAqaRWApyCGPE3YKcBsghyt8NVLh4dETuz1qCQpZUlrHmYwelSK7HxjVZM7gJvdXN6P1qwWdwmvsdAKeLJkkXV8Q88WNQ70E_ETQqKkZZebpfaO-iLok9YWXQQFAEd3yGVWEErz4mQT6HwMKUW2MemcalMryuSxZzZmJ2aR3oAY7XYhBQXtZjIqkQSlc-WMHg8kV8HsfXP4-&skey=f8ec4d50247dc1c1&v=v454") format("woff2");
+}
+
+:root {
+  --gemini-font: "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif;
+  /* Willow sets these axes on every Gemini-style element. */
+  --gemini-font-axes: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400;
+  --gemini-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Icons. Willow asks this face for weight 300 at full roundness, drawn at
+   * 24px with the optical size to match. */
+  --gemini-icon-font: "Luminous Symbols";
+  --gemini-icon-axes: "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24;
+
+  /* Willow's sidebar opens with its own logo in the top-left corner
+   * (apps/studio/src/shell/sidebar/Sidebar.tsx); the plugin draws Antigravity's
+   * there instead, since that is whose window this is. The artwork is
+   * Antigravity's own `icon.png` out of `resources/_app.asar`, which ships the
+   * mark composited onto a white plate — the plate is matted back off, so what
+   * is left is the gradient A on transparency, cropped to its own ink and drawn
+   * at 128px for a 22px slot.
+   *
+   * It is a real file in the plugin rather than a pasted data URI: the runtime
+   * folds a local url() into base64 when it bundles this sheet
+   * (packages/runtime/src/main/theme-bundle.ts), which is what lets a relative
+   * path survive into a stylesheet that reaches the page as inline text with no
+   * base URL of its own. */
+  --gemini-antigravity-mark: url("../assets/antigravity-mark.png");
+  --gemini-docs-logo: url("../assets/docs-logo.png");
+
+  /* The Chat/Work switch under the header band (Sidebar.tsx:1581-1704, which is
+   * Gemini's `.app-tabs` track with its `.app-tabs-slider` riding inside it). */
+  --gemini-switch-track: #171717;
+  --gemini-switch-slider: #1f1f1f;
+
+  /* The menus draw smaller and a shade heavier: 20px at weight 320. Google
+   * Symbols is asked for 330, the one weight Willow uses it at. */
+  --gemini-symbols-font: "Google Symbols";
+  --gemini-icon-axes-menu: "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320;
+  --gemini-symbols-axes-menu: "wght" 330;
+
+  /* The same 20px glyph on the current sidebar destination. Willow passes
+   * `fill={active}` to every <MaterialSymbol> it draws in a row
+   * (SidebarPrimitives.tsx:63, Sidebar.tsx:694), and that prop is one axis:
+   * `"FILL" ${fill ? 1 : 0}` (platform/ui/src/MaterialSymbol.tsx:45). Nothing
+   * else about the glyph changes. */
+  --gemini-icon-axes-menu-fill: "FILL" 1, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320;
+
+  /* Surfaces and text, as Willow hard-codes them. */
+  --gemini-surface: #1f1f1f;
+  --gemini-surface-hover: #333537;
+  --gemini-trigger-hover: #303134;
+  --gemini-text: #e6e6e6;
+  --gemini-text-trigger: #c4c7c5;
+  --gemini-text-trigger-hover: #e3e3e3;
+  --gemini-text-dim: rgba(255, 255, 255, 0.55);
+  --gemini-separator: #444746;
+  --gemini-menu-shadow: 0 4px 24px rgba(0, 0, 0, 0.45), 0 0 20px rgba(255, 255, 255, 0.05);
+  --gemini-submenu-shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+
+  /* The plus menu (features/chat/src/composer/PlusDropdownMenu.tsx), whose
+   * every value Willow read off the running gemini.google.com. Its rows carry
+   * their hover as a snapped layer rather than a transition, which is why the
+   * two states are separate tokens and not one colour plus an opacity. */
+  --gemini-plus-menu-shadow: 0 0 20px rgba(0, 0, 0, 0.28);
+  --gemini-row-hover: rgba(230, 230, 230, 0.08);
+  --gemini-row-pressed: rgba(230, 230, 230, 0.12);
+  --gemini-row-selected: #171717;
+  --gemini-menu-divider: rgba(255, 255, 255, 0.12);
+
+  /* The chat composer (features/chat/src/composer/Composer.tsx, chatVariant). */
+  --gemini-composer-bg: #1e1f21;
+  --gemini-composer-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.16);
+  --gemini-composer-placeholder: #bdc1c6;
+  --gemini-control-hover: #333537;
+  --gemini-mic-hover: rgba(255, 255, 255, 0.08);
+  /* Willow's default workspace colour is Willow Green; its send button follows. */
+  --gemini-send-bg: #127352;
+  --gemini-send-bg-hover: #0d5c41;
+  --gemini-stop-bg: #171717;
+  --gemini-stop-bg-hover: #282828;
+  --gemini-control-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
+
+  /* The glow behind the prompt box on the home screen (home-glow.css). Willow
+   * derives one of these per workspace colour and ships the green
+   * (features/media/src/home-glow.ts: `DEFAULT_GLOW_ACCENT`, Tailwind
+   * emerald-900), which is the same Willow Green the send button above is drawn
+   * from — so the glow and the button agree, as they do in Willow. The blue
+   * Gemini itself glows with is that file's `GEMINI_GLOW_ACCENT_HEX`, #14204f,
+   * i.e. `rgb(20, 32, 79)` here. */
+  --gemini-home-glow-accent: rgb(6, 78, 59);
+
+  /* The conversation (features/chat/src/ChatView.tsx, UserMessageBubble.tsx,
+   * platform/ui/src/streaming-markdown-styles.ts). */
+  --gemini-page-bg: #0f0f0f;
+  --gemini-bubble-bg: #171717;
+  --gemini-body-text: #e3e3e3;
+  --gemini-link: #e6e6e6;
+  --gemini-code-font: "Google Sans Code", ui-monospace, SFMono-Regular, Consolas, monospace;
+  --gemini-inline-code-bg: #171717;
+  --gemini-inline-code-text: rgba(255, 255, 255, 0.55);
+  --gemini-rule: rgba(255, 255, 255, 0.12);
+}

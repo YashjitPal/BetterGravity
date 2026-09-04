@@ -3,6 +3,8 @@ import {
   CHANNEL,
   type ContentKind,
   type DirectoryKey,
+  type GeminiConfig,
+  type GeminiStatus,
   type PresenceActivity,
   type PresenceStatus,
   type RuntimeState,
@@ -69,6 +71,7 @@ function injectWorldRuntime(): void {
 
 const stateListeners = new Set<(state: RuntimeState) => void>();
 const presenceListeners = new Set<(status: PresenceStatus) => void>();
+const geminiListeners = new Set<(status: GeminiStatus) => void>();
 
 const bridge: RuntimeBridge = {
   getState: () => ipcRenderer.invoke(CHANNEL.getState),
@@ -90,6 +93,13 @@ const bridge: RuntimeBridge = {
   onPresenceStatus: (listener) => {
     presenceListeners.add(listener);
   },
+  geminiConfigure: (config: GeminiConfig) => ipcRenderer.invoke(CHANNEL.geminiConfigure, config),
+  geminiRead: () => ipcRenderer.invoke(CHANNEL.geminiRead),
+  geminiTest: () => ipcRenderer.invoke(CHANNEL.geminiTest),
+  onGeminiStatus: (listener) => {
+    geminiListeners.add(listener);
+  },
+  readAccount: () => ipcRenderer.invoke(CHANNEL.readAccount),
   log: (message) => report(message),
   onStateChanged: (listener) => {
     stateListeners.add(listener);
@@ -134,6 +144,16 @@ if (isTopFrame) {
         listener(status);
       } catch (error) {
         report(`a presence listener threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  });
+
+  ipcRenderer.on(CHANNEL.geminiStatus, (_event, status: GeminiStatus) => {
+    for (const listener of geminiListeners) {
+      try {
+        listener(status);
+      } catch (error) {
+        report(`a Gemini listener threw: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   });

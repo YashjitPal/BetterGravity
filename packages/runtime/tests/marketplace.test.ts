@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { RuntimePaths } from "../src/main/paths.js";
 import type { CatalogEntry } from "../src/protocol.js";
 
 vi.mock("../src/main/logger.js", () => ({
@@ -16,7 +17,7 @@ const RAW = "https://raw.githubusercontent.com/YashjitPal/BetterGravity/main/";
 const sha256 = (content: string): string => createHash("sha256").update(content).digest("hex");
 
 let root: string;
-let paths: { root: string; themes: string; plugins: string; settings: string; storage: string; log: string };
+let paths: RuntimePaths;
 let served: Map<string, string>;
 let requested: string[];
 
@@ -60,7 +61,8 @@ beforeEach(() => {
     plugins: path.join(root, "plugins"),
     settings: path.join(root, "settings.json"),
     storage: path.join(root, "storage.json"),
-    log: path.join(root, "runtime.log")
+    log: path.join(root, "runtime.log"),
+    gemini: path.join(root, "gemini")
   };
   fs.mkdirSync(paths.themes, { recursive: true });
   fs.mkdirSync(paths.plugins, { recursive: true });

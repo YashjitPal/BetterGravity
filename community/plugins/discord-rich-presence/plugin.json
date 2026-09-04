@@ -1,0 +1,8 @@
+{
+  "name": "Discord Rich Presence",
+  "description": "Shows on your Discord profile whether the Antigravity agent is working or idle, and for how long.",
+  "version": "1.0.0",
+  "author": "Yashjit Pal",
+  "main": "index.js",
+  "source": "https://github.com/YashjitPal/BetterGravity"
+}

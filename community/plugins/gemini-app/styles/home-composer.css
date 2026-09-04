@@ -1,0 +1,203 @@
+/* ---------------------------------------------------------------------------
+ * The home screen composer: centred in the pane, with the greeting above it.
+ *
+ * Willow's zero state puts the composer in the middle of the pane rather than
+ * near the top (features/chat/src/ChatView.tsx:4470-4580 — a wrapper that "owns
+ * POSITION ONLY and never a transform", `absolute inset-0 flex items-center
+ * justify-center px-4 pointer-events-none`), and hangs the greeting off its top
+ * edge (features/media/src/MediaHome.tsx:193-231, `absolute bottom-full` with a
+ * 40px margin below). Antigravity instead pins its composer to a 30vh top
+ * padding, which leaves it high on the screen with the space below it empty.
+ *
+ * Willow's literal `inset-0` cannot be reused. Antigravity's composer group
+ * holds a child with `flex: 1 1 0%`, so a full-height group would let that child
+ * stretch and `justify-content: center` would have nothing left to centre. The
+ * group therefore keeps its automatic height and is centred by the pair below,
+ * which changes nothing about its internal layout.
+ *
+ * What gets centred is the rounded input card, not the group. Willow's measured
+ * box *is* its card — its greeting is `absolute bottom-full` and its disclaimer
+ * `absolute top-full`, so both sit outside it — while Antigravity's group holds
+ * the card 16px below its own top edge: 8px of the group's gap, spent on a
+ * zero-height first child, and the composer's own 8px spacer above the card.
+ * Below the card there is nothing, so the group's centre sits 8px above the
+ * card's. The second `translateY` takes that back out, and because it is half a
+ * *difference* it holds at any card height: the card stays centred as the editor
+ * grows, which is Willow's behaviour too.
+ *
+ * Nothing below the card, and only spacing above it, because the two things that
+ * used to hang off the group have both left the home screen: the workspace row
+ * has been copied into the pane's top bar, and the disclaimer now waits for a
+ * conversation. Those are the two sections at the end of this file.
+ *
+ * Centring the card also lands the glow behind it where Willow draws it. The
+ * ellipse in home-glow.css is centred on this same pane, so its centre sits
+ * 0.05 * 300px = 15px below the card's — Willow's construction exactly, where
+ * before the composer sat 44.5px above where Willow puts it.
+ *
+ * The slide from here down to the docked position is in index.js: the distance
+ * is measured at runtime because Antigravity remounts the composer into a
+ * different tree, so there is no element for a CSS transition to belong to.
+ * ------------------------------------------------------------------------- */
+
+/* The composer is positioned against the pane, so the pane has to be a
+ * positioned box. The scroller and its parent measure identically
+ * ([288,76 1248x836] both), so either would place the composer in the same
+ * spot; the scroller is the one that owns the composer, so the composer scrolls
+ * with its siblings if the pane ever has more in it than it does today. */
+div[class*="pt-[30vh]"] {
+  position: relative !important;
+}
+
+div[class*="pt-[30vh]"] > div[class*="z-[1]"] {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) translateY(-8px) !important;
+  /* Willow's wrapper is `pointer-events-none` and its composer
+   * `pointer-events-auto`, so the empty space beside the composer belongs to
+   * the page. Antigravity's group spans the full 1248px and swallows clicks
+   * across all of it; this hands that band back. */
+  pointer-events: none !important;
+}
+
+div[class*="pt-[30vh]"] > div[class*="z-[1]"] > * {
+  pointer-events: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * "Hello there, <first name>"
+ *
+ * MediaHome.tsx:193-231. `bottom: 100%` puts the block's bottom edge on the
+ * composer's top edge and the margin is the gap — Gemini's own measured
+ * relationship, where the greeting block's bottom lands on 380.8 against a
+ * composer top of 381, and the 40px is the `padding-bottom` that separates the
+ * heading from it.
+ *
+ * The margin is 24px rather than 40px because the two boxes do not start in the
+ * same place. Willow's 40px is clear space above the topmost thing the composer
+ * draws, which for Willow is the wrapper's own top edge. Antigravity's group
+ * begins 16px above the card — its own gap, then the composer's spacer — and
+ * with the workspace row moved to the top bar the card is the first thing it
+ * draws. Subtracting those 16px leaves the same 40px of visible space, which is
+ * the measurement that matters.
+ *
+ * Absolute for Willow's reason: it keeps the greeting out of the box being
+ * centred above, so the centring stays a pure translate of the composer.
+ * ------------------------------------------------------------------------- */
+
+div[class*="pt-[30vh]"] > div[class*="z-[1]"] > [data-gemini-greeting] {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Tailwind's `drop-shadow-sm`, from Willow's own class list. */
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.05));
+  user-select: none;
+  /* Unlike Willow's 660px-wide wrapper this spans the whole pane, so it would
+   * otherwise cover a band of it. */
+  pointer-events: none;
+}
+
+[data-gemini-greeting-fade] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  opacity: 0;
+  animation: gemini-fade-in-up 0.3s cubic-bezier(0.2, 0, 0, 1) 250ms forwards;
+}
+
+[data-gemini-greeting-text] {
+  margin: 0;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif);
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 320;
+  /* Weight 320 is only reachable on a variable font through the `wght` axis, and
+   * `font-variation-settings` wins over `font-weight` wherever it is set. This
+   * plugin sets an axis string with `wght` 400 on the composer's own text, so
+   * the reset keeps that from ever reaching the heading. */
+  font-variation-settings: normal;
+  color: var(--gemini-body-text, #e3e3e3);
+  text-align: center;
+  user-select: none;
+}
+
+/* Willow's entrance for the greeting, verbatim from apps/studio/index.html:
+ * 720-748 (`willow-lm-fade-in-up`), with the 250ms delay `ChatZeroStateGreeting`
+ * passes it. `forwards` matters: the element starts at opacity 0, so without it
+ * the greeting would vanish again the moment the animation ended. */
+@keyframes gemini-fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
+/* Willow's own carve-out: the greeting arrives, it just does not travel. */
+@media (prefers-reduced-motion: reduce) {
+  [data-gemini-greeting-fade] {
+    animation-duration: 0.01ms;
+    animation-delay: 0s;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * The two rows the top bar took over
+ *
+ * The workspace chip and the environment chip are copied into the pane's own top
+ * bar (index.js marks them, conversation.css 3f draws them), so the rows they
+ * arrived in are taken out of the composer's flow here: the row above the card,
+ * and the collapsible row inside it that made this card 96px tall against a
+ * conversation's 64px. That row is the whole of the "weird extension" along the
+ * bottom of the home screen's composer, and this is it gone.
+ *
+ * Out of the flow rather than `display: none`, because the originals are still
+ * the only things that can open those two menus: a copy's click parks the
+ * original underneath itself and clicks that, and an element with no box has
+ * nowhere to be parked and nothing to anchor a menu to. `visibility: hidden`
+ * would keep the box, but a parked original has to be laid out, not merely
+ * measurable.
+ *
+ * Only on the home screen. The mark is written on an element React owns, and a
+ * React element outlives the screen it was written for; the docked composer has
+ * neither row, but if it ever inherited one it would inherit the mark with it.
+ * ------------------------------------------------------------------------- */
+div[class*="pt-[30vh]"] [data-gemini-parked-row] {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * "Antigravity is AI and can make mistakes." waits for the conversation
+ *
+ * Willow's disclaimer is not drawn until there is something to disclaim:
+ * `showDisclaimer={hasStarted || isChatLoading}` (features/chat/src/ChatView.tsx:
+ * 1685 and 4574), which the composer then gates its own paragraph behind
+ * (composer/Composer.tsx:1107). This plugin drew it unconditionally, so it also
+ * appeared under the home screen's composer, where there is no conversation for
+ * it to be a footnote to and it reads as part of the greeting instead.
+ *
+ * Hidden rather than not built: index.js appends the paragraph to whichever
+ * composer is on screen, and the box it appends to can be the same element
+ * before and after a conversation opens. A rule that asks where the composer is
+ * answers that question again on every frame; a condition inside the builder
+ * would be answered once, when the box was new.
+ * ------------------------------------------------------------------------- */
+div[class*="pt-[30vh]"] .gemini-ai-disclaimer {
+  display: none !important;
+}

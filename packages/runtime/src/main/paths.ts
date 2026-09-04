@@ -9,6 +9,8 @@ export interface RuntimePaths {
   readonly settings: string;
   readonly storage: string;
   readonly log: string;
+  /** Certificate material and the audit log for the Gemini translator. */
+  readonly gemini: string;
 }
 
 /**
@@ -24,7 +26,8 @@ export function runtimePaths(userDataDirectory: string): RuntimePaths {
     plugins: path.join(userDataDirectory, "plugins"),
     settings: path.join(userDataDirectory, "settings.json"),
     storage: path.join(userDataDirectory, "storage.json"),
-    log: path.join(userDataDirectory, "runtime.log")
+    log: path.join(userDataDirectory, "runtime.log"),
+    gemini: path.join(userDataDirectory, "gemini")
   };
 }
 

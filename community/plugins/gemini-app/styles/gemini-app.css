@@ -1,0 +1,47 @@
+/*
+ * Gemini App — the look. Antigravity restyled after the Gemini app, one
+ * element at a time.
+ *
+ * Every measurement, colour, and easing here is lifted from Willow's Gemini-
+ * style UI. Antigravity's DOM is different, so each Willow element is mapped
+ * onto the Antigravity element that plays the same role. One file per element,
+ * in the order the plugin grew; BetterGravity folds them into one stylesheet.
+ *
+ *   tokens.css          Google Sans Flex and the shared colour/motion variables.
+ *   model-selector.css  The trigger pill, the model menu, the effort submenu
+ *                       (platform/ui/src/models/ModelsMenu.tsx).
+ *   prompt-box.css      Willow's chat composer (features/chat/src/composer/
+ *                       Composer.tsx, the chatVariant branch).
+ *   plus-menu.css       The composer's plus menu and its tool submenu
+ *                       (features/chat/src/composer/PlusDropdownMenu.tsx).
+ *   conversation.css    Thread width and background, the sent-message bubble
+ *                       (features/chat/src/UserMessageBubble.tsx), reply text
+ *                       (platform/ui/src/streaming-markdown-styles.ts).
+ *   sidebar.css         Left sidebar's "New chat" button and navigation
+ *                       (apps/studio/src/shell/sidebar/SidebarPrimitives.tsx).
+ *   tooltip.css         Gemini's tooltip, over Antigravity's own.
+ *   home-glow.css       The glow behind the prompt box on the home screen
+ *                       (apps/studio/index.html:625-724).
+ *   home-composer.css   The home screen's centred composer and the greeting
+ *                       above it (features/chat/src/ChatView.tsx:4470-4580,
+ *                       features/media/src/MediaHome.tsx:193-231).
+ *
+ * Behaviour that CSS cannot express — the short model names on the prompt box
+ * pill, the "New chat" button behavior in the sidebar, the agent's tools in
+ * the plus menu, the greeting's text, and the composer's slide into a
+ * conversation — is in index.js.
+ */
+
+/* Google Sans Code, for inline code in replies. Willow requests it from Google
+ * Fonts the same way. */
+@import url("https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400..700&display=swap");
+
+@import "tokens.css";
+@import "model-selector.css";
+@import "prompt-box.css";
+@import "plus-menu.css";
+@import "conversation.css";
+@import "sidebar.css";
+@import "tooltip.css";
+@import "home-glow.css";
+@import "home-composer.css";
