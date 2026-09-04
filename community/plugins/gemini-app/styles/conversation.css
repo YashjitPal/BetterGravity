@@ -953,7 +953,12 @@
   align-items: center;
   gap: 4px; /* Willow's `ml-1` between the trigger and the button beside it. */
   min-width: 0;
-  padding-left: 16px;
+  /* Willow's `left-4` is 16px in from the pane's left edge (TopDropdown.tsx:31),
+   * and with the dropdown's own `px-3` that puts its text 28px in. The slot the
+   * host is appended to already begins 8px into the pane, so 8px here is what
+   * lands the chip's edge on 16 and its text on 28 — measured at 304 and 316
+   * against a pane edge of 288. */
+  padding-left: 8px;
   -webkit-app-region: no-drag;
 }
 

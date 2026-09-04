@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-04T20:49:51.993Z",
+  "generatedAt": "2026-09-04T21:00:31.950Z",
   "entries": [
     {
       "id": "discord-rich-presence",
@@ -57,7 +57,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 472957,
+      "bytes": 474841,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -76,8 +76,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 138024,
-          "sha256": "cd2a103d16a20657d39ae152c4103077caa7dba563533e2a02aee8bc3ecee31b"
+          "bytes": 139551,
+          "sha256": "58bb6cf397b62bf5c70949eb03f083bfb7b3733a9464c078d084991fc24f51a8"
         },
         {
           "name": "plugin.json",
@@ -86,8 +86,8 @@
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 53130,
-          "sha256": "187501cc7dc6a2f2c0154fd5fa3c01148ad879bf7acc9c09f628da6ea09c8111"
+          "bytes": 53487,
+          "sha256": "6c8085638baf305edfd6809bad7af56d8ad3da81057d319e0ea4de6129d16b1b"
         },
         {
           "name": "styles/gemini-app.css",

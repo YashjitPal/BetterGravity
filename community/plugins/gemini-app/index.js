@@ -2037,8 +2037,22 @@ function selectTool(tool) {
   selectedToolState = tool;
   const box = document.querySelector(INPUT_BOX);
   if (box) {
+    box.setAttribute("data-expanded", "true");
     mountToolChip(box, tool);
     checkPromptExpansion(box);
+  }
+
+  const root = editorRoot();
+  if (root) {
+    const text = (root.textContent || "").trim();
+    if (text === tool.name || text === `/${tool.name}` || text.toLowerCase() === (tool.label || "").toLowerCase()) {
+      try {
+        root.textContent = "";
+        const sel = window.getSelection();
+        if (sel) sel.removeAllRanges();
+      } catch (_) {}
+    }
+    root.focus();
   }
   requestAnimationFrame(() => {
     const b = document.querySelector(INPUT_BOX);
@@ -2061,8 +2075,6 @@ function selectTool(tool) {
       checkPromptExpansion(b);
     }
   }, 150);
-  const root = editorRoot();
-  if (root) root.focus();
 }
 
 function deselectTool() {
@@ -2083,24 +2095,15 @@ function toolRow(popup, tool) {
     ...(isSelected ? { "data-selected": "true" } : {})
   });
 
-  let lastAction = 0;
   const onSelect = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const now = Date.now();
-    if (now - lastAction < 300) return;
-    lastAction = now;
-
-    if (selectedToolState && (glyphKey(selectedToolState.name || selectedToolState.label) === glyphKey(tool.name || tool.label))) {
-      deselectTool();
-    } else {
-      selectTool(tool);
-    }
+    selectTool(tool);
     closeMenu(popup);
   };
 
-  node.addEventListener("pointerdown", onSelect);
-  node.addEventListener("click", onSelect);
+  node.addEventListener("pointerdown", onSelect, { capture: true });
+  node.addEventListener("click", onSelect, { capture: true });
   return node;
 }
 
@@ -2174,21 +2177,16 @@ function markContextRow(item) {
 
   if (text.toLowerCase() === "browser" && !item.hasAttribute("data-gemini-browser-hooked")) {
     item.setAttribute("data-gemini-browser-hooked", "true");
-    let lastAction = 0;
     const onBrowserSelect = (event) => {
-      const now = Date.now();
-      if (now - lastAction < 300) return;
-      lastAction = now;
-
+      event.preventDefault();
+      event.stopPropagation();
       const browserTool = { name: "browser", label: "Browser", glyph: "web" };
-      if (selectedToolState && glyphKey(selectedToolState.name || selectedToolState.label) === "browser") {
-        deselectTool();
-      } else {
-        selectTool(browserTool);
-      }
+      selectTool(browserTool);
+      const popup = item.closest('[role="menu"]');
+      if (popup) closeMenu(popup);
     };
-    item.addEventListener("pointerdown", onBrowserSelect);
-    item.addEventListener("click", onBrowserSelect);
+    item.addEventListener("pointerdown", onBrowserSelect, { capture: true });
+    item.addEventListener("click", onBrowserSelect, { capture: true });
   }
 }
 
@@ -3305,6 +3303,10 @@ plugin.onDispose(() => {
   document.removeEventListener("keydown", onComposerSubmitKey, true);
   document.removeEventListener("click", onComposerSubmitClick, true);
   if (typeof cancelComposerSlide === "function") cancelComposerSlide();
+  for (const [, obs] of observers) {
+    if (typeof obs?.disconnect === "function") obs.disconnect();
+  }
+  observers.clear();
   for (const added of document.querySelectorAll("[data-gemini-greeting]")) added.remove();
   for (const pill of document.querySelectorAll("#gemini-sidebar-user-pill")) pill.remove();
   for (const chip of document.querySelectorAll("[data-gemini-tool-chip]")) chip.remove();
@@ -3343,11 +3345,28 @@ const TOP_BAR_MORE = '[data-testid="titlebar-more-actions"]';
  * marked rather than described in CSS because neither has a name of its own: one
  * is `.no-focus-agent-input`, which is a focus behaviour and not a row, and the
  * other is a grid whose only distinguishing class is the property it animates.
+ *
+ * Both selectors exclude the chips themselves. A chip carries its original's
+ * `aria-label` so a screen reader hears the same control, which makes the second
+ * of these selectors match the chip too — and the chip comes first in the
+ * document, so every lookup would answer with it. The environment chip would then
+ * park itself and click itself, which is a click handler calling itself.
  */
 const TOP_CHIPS = [
-  { id: "workspace", trigger: '[data-testid="project-selector-trigger"]', row: ".no-focus-agent-input" },
-  { id: "environment", trigger: '[aria-label="Select Environment"]', row: 'div[class*="transition-[grid-template-rows]"]' }
+  { id: "workspace", trigger: '[data-testid="project-selector-trigger"]:not([data-gemini-top-chip])', row: ".no-focus-agent-input" },
+  { id: "environment", trigger: '[aria-label="Select Environment"]:not([data-gemini-top-chip])', row: 'div[class*="transition-[grid-template-rows]"]' }
 ];
+
+/**
+ * The home route, and the box the chips are in while the app is on it.
+ *
+ * Together they are the tick's bail-out below: both originals belong to the home
+ * screen's composer, so anywhere else there is nothing to build, and the only
+ * reason to look at the document at all is to take away what the last screen
+ * left behind.
+ */
+const HOME_ROUTE = "/";
+let topChipHostEl = null;
 
 /** The half of the pane's top bar the ⋮ button is not in. */
 function topBarSlot() {
@@ -3543,41 +3562,46 @@ function reconcileTopChips() {
   if (parkedTrigger && !parkedTrigger.trigger.isConnected) releaseParkedTrigger();
 
   // No host until there is something to put in it: an empty one would still hold
-  // its 16px of leading space in the top bar.
+  // its 8px of leading space in the top bar.
   const wanted = TOP_CHIPS.some((spec) => document.querySelector(spec.trigger));
   const host = wanted ? topChipHost() : null;
   for (const stray of document.querySelectorAll("[data-gemini-top-chips]")) {
     if (stray !== host) stray.remove();
   }
+  topChipHostEl = host;
   if (!host) return;
   for (const spec of TOP_CHIPS) ensureTopChip(spec, host);
 }
 
-let topChipsTimer = 0;
-
-function scheduleTopChips() {
-  if (topChipsTimer) return;
-  topChipsTimer = window.setTimeout(() => {
-    topChipsTimer = 0;
-    reconcileTopChips();
-  }, 100);
-}
-
-// Arrivals are caught as they happen. The document-wide watcher is for the one
-// thing no element-scoped observer can report — an element going away — and it is
-// coalesced on a timer rather than a frame callback, both because a streaming
-// response mutates the document hundreds of times a second and because a
-// minimised window never runs a frame.
+/* Arrivals are caught as they happen, by the observer the runtime already runs
+ * for every plugin selector. Departures are the ones nothing reports: no
+ * element-scoped observer fires for its own element being taken away, and the
+ * obvious answer — a `childList, subtree` observer on the document — is the
+ * expensive one, because it then allocates a record for every mutation of a
+ * streaming response for the rest of the session.
+ *
+ * So departures are noticed by a tick instead, and the tick is free on the
+ * screens that have no chips: `location.pathname` is a string, `topChipHostEl`
+ * is a variable, and a conversation is neither the home route nor holding a
+ * host, so the whole check is two reads. It only walks the document on the one
+ * screen the chips live on, or on the first tick after leaving it, which is the
+ * tick that takes them away.
+ *
+ * A timer rather than a frame callback because a minimised window never runs a
+ * frame, and a plugin that stops reconciling while the window is hidden comes
+ * back to a page it no longer agrees with.
+ */
 plugin.dom.observe(TOP_BAR_MORE, () => reconcileTopChips());
 for (const spec of TOP_CHIPS) plugin.dom.observe(spec.trigger, () => reconcileTopChips());
 
-const topChipWatcher = new MutationObserver(scheduleTopChips);
-topChipWatcher.observe(document.documentElement, { childList: true, subtree: true });
+const topChipsTicker = window.setInterval(() => {
+  if (location.pathname !== HOME_ROUTE && !topChipHostEl) return;
+  reconcileTopChips();
+}, 250);
 reconcileTopChips();
 
 plugin.onDispose(() => {
-  topChipWatcher.disconnect();
-  window.clearTimeout(topChipsTimer);
+  window.clearInterval(topChipsTicker);
   releaseParkedTrigger();
   for (const host of document.querySelectorAll("[data-gemini-top-chips]")) host.remove();
   for (const row of document.querySelectorAll("[data-gemini-parked-row]")) row.removeAttribute("data-gemini-parked-row");
