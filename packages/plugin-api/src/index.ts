@@ -53,6 +53,11 @@ export type PluginSetting =
       readonly options: readonly { readonly value: string; readonly label: string }[];
     })
   | (SettingBase & {
+      readonly type: "palette";
+      readonly default: string;
+      readonly options: readonly { readonly value: string; readonly label: string; readonly hex: string }[];
+    })
+  | (SettingBase & {
       /** A button rather than a value: nothing is stored for this key. */
       readonly type: "action";
       /** Text on the button. */
@@ -81,7 +86,9 @@ export type SettingValue<Setting extends PluginSetting> = Setting extends Valuel
       ? number
       : Setting extends { type: "select"; options: readonly { value: infer Option }[] }
         ? Option
-        : string;
+        : Setting extends { type: "palette"; options: readonly { value: infer Option }[] }
+          ? Option
+          : string;
 
 /**
  * Live view over a plugin's settings. Reading a property returns the current

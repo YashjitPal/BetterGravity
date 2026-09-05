@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-04T21:00:31.950Z",
+  "generatedAt": "2026-09-05T09:01:37.393Z",
   "entries": [
     {
       "id": "discord-rich-presence",
@@ -57,7 +57,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 474841,
+      "bytes": 538594,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -76,8 +76,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 139551,
-          "sha256": "58bb6cf397b62bf5c70949eb03f083bfb7b3733a9464c078d084991fc24f51a8"
+          "bytes": 166118,
+          "sha256": "9f85b42a5b6220da3552993e815adba5007cc97920b23b8adcd76e1aa4f45f62"
         },
         {
           "name": "plugin.json",
@@ -86,8 +86,8 @@
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 53487,
-          "sha256": "6c8085638baf305edfd6809bad7af56d8ad3da81057d319e0ea4de6129d16b1b"
+          "bytes": 59695,
+          "sha256": "b8fe1d2af483f8114144d30eb6cd515e5265aa5454562e5fc97a0cfc18a1d6ab"
         },
         {
           "name": "styles/gemini-app.css",
@@ -111,23 +111,23 @@
         },
         {
           "name": "styles/plus-menu.css",
-          "bytes": 11038,
-          "sha256": "de7084763308cc9777b27647e3e5d338de78bccea4441b746d5c94398aa55b09"
+          "bytes": 13444,
+          "sha256": "333b571b0cde54ea0231042520345160b62cb1a99c460c31589c1de4b3af2895"
         },
         {
           "name": "styles/prompt-box.css",
-          "bytes": 22345,
-          "sha256": "e82302dd2a4c5684b0f6527dcac8b08a7d6b0574a60015c744480295ca04db8a"
+          "bytes": 32187,
+          "sha256": "173e447ce354cf6e00818c04ee72437897e1a8a14cd26af4be9b5c4d99c58c5f"
         },
         {
           "name": "styles/sidebar.css",
-          "bytes": 86319,
-          "sha256": "ba1253dfb7473d77845186063046522461b41126d6cc2c4db7f518eb34eee1f8"
+          "bytes": 105335,
+          "sha256": "cb3db42e05e5c387eb07e3d53b3b9ada425d5847ad861a711f97a8b15059551c"
         },
         {
           "name": "styles/tokens.css",
-          "bytes": 8335,
-          "sha256": "44fba740f62319f5d463dd8dde6a138faff6fe2d35c636429e41a19fdc11eaf9"
+          "bytes": 8049,
+          "sha256": "b91d927c00d90d79811f62d852e9408b72e4c2a6084787e36857335f505e1d61"
         },
         {
           "name": "styles/tooltip.css",

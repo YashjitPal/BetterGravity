@@ -189,6 +189,46 @@ export function nativeSelect(options: readonly SelectOption[], selected: unknown
   return el("span", { class: "relative inline-flex items-center" }, [select, chevron]);
 }
 
+export interface PaletteOption {
+  readonly value: string;
+  readonly label: string;
+  readonly hex: string;
+}
+
+/**
+ * Visual color swatches row for palette settings (e.g. Willow workspace colors).
+ */
+export function nativePalette(
+  options: readonly PaletteOption[],
+  selected: unknown,
+  onChange: (value: string) => void
+): HTMLElement {
+  const container = el("div", { class: "flex items-center gap-2 flex-wrap py-1" });
+  for (const option of options) {
+    const isSelected = option.value === selected;
+    const swatch = el("button", {
+      type: "button",
+      title: option.label,
+      "aria-label": option.label,
+      class: `w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer hover:scale-105 shrink-0 ${
+        isSelected ? "ring-2 ring-white ring-offset-2 ring-offset-[#1f1f1f]" : "opacity-80 hover:opacity-100"
+      }`,
+      style: `background-color: ${option.hex};`
+    });
+    if (isSelected) {
+      swatch.append(
+        el("span", {
+          class: "text-white flex items-center justify-center pointer-events-none drop-shadow-sm",
+          html: '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 -960 960 960" fill="currentColor"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg>'
+        })
+      );
+    }
+    swatch.addEventListener("click", () => onChange(option.value));
+    container.append(swatch);
+  }
+  return container;
+}
+
 export function nativeNumberInput(value: number, min: number | undefined, max: number | undefined, onChange: (value: number) => void): HTMLInputElement {
   const input = el("input", {
     type: "number",

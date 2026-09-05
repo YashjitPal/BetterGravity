@@ -24,6 +24,7 @@
   max-width: 660px;
   margin-left: auto;
   margin-right: auto;
+  transition: none !important;
 }
 
 /* The shell carries the surface, so the running-items panel above the editor
@@ -34,11 +35,27 @@
   border-radius: 32px !important;
   background: var(--gemini-composer-bg) !important;
   box-shadow: var(--gemini-composer-shadow) !important;
+  transition: none !important;
 }
 
 [data-testid="running-items-panel"] .rounded-t-2xl {
   border-top-left-radius: 32px !important;
   border-top-right-radius: 32px !important;
+}
+
+/* Zero-duration snapping on row transition: Willow and Gemini snap composer expansion
+ * and collapse instantly without animation. Eliminating transitions on the editor,
+ * placeholder, and wrappers prevents delayed horizontal text drift/sliding when
+ * switching between 1-row and 2-row layouts. */
+[data-testid="agent-input-box"],
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border,
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card,
+[data-testid="agent-input-box"] .relative.w-full,
+[data-testid="agent-input-box"] .relative.w-full > div,
+[data-testid="agent-input-box"] [role="combobox"][contenteditable],
+[data-testid="agent-input-box"] [role="combobox"][contenteditable] *,
+[data-testid="agent-input-box"] [role="combobox"][contenteditable] ~ * {
+  transition: none !important;
 }
 
 /* --- 2b. The grid -------------------------------------------------------------
@@ -59,12 +76,13 @@
   background: transparent !important;
   font-family: var(--gemini-font);
   font-variation-settings: var(--gemini-font-axes);
+  transition: none !important;
 }
 
 /* Flatten the control row and every wrapper inside it, so the buttons become
  * grid items of the card itself. */
 [data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between,
-[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between div {
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between div:not([role="status"]) {
   display: contents !important;
 }
 
@@ -72,6 +90,7 @@
   grid-area: text;
   align-self: center;
   min-width: 0;
+  transition: none !important;
 }
 
 /* Willow puts the plus 16px from the bottom of the 64px card, centred on the
@@ -97,13 +116,15 @@
 }
 
 /* Two rows when expanded without tool chip: multiline draft, attachments, or text reaching model selector. */
-[data-testid="agent-input-box"][data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+[data-testid="agent-input-box"][data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card,
+[data-testid="agent-input-box"]:has([data-testid="input-attachment"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
   grid-template-columns: 32px minmax(0, 1fr) auto 32px 32px;
   grid-template-areas:
     "text text text text text"
     "plus . pill mic send";
   row-gap: 10px;
   padding: 16px 15px 12px 18px !important;
+  transition: none !important;
 }
 
 /* Two rows when tool chip is present: column 1 is 32px (plus), column 2 is auto (chip) */
@@ -114,13 +135,17 @@
     "plus chip . pill mic send";
   row-gap: 10px;
   padding: 16px 15px 12px 18px !important;
+  transition: none !important;
 }
 
 [data-testid="agent-input-box"][data-expanded="true"] [role="combobox"][contenteditable],
 [data-testid="agent-input-box"]:has([data-gemini-tool-chip]) [role="combobox"][contenteditable],
+[data-testid="agent-input-box"]:has([data-testid="input-attachment"]) [role="combobox"][contenteditable],
 [data-testid="agent-input-box"][data-expanded="true"] [role="combobox"][contenteditable] ~ *,
-[data-testid="agent-input-box"]:has([data-gemini-tool-chip]) [role="combobox"][contenteditable] ~ * {
+[data-testid="agent-input-box"]:has([data-gemini-tool-chip]) [role="combobox"][contenteditable] ~ *,
+[data-testid="agent-input-box"]:has([data-testid="input-attachment"]) [role="combobox"][contenteditable] ~ * {
   padding: 0 9px 0 6px !important;
+  transition: none !important;
 }
 
 /* --- 2c. The text area ---------------------------------------------------------
@@ -137,6 +162,7 @@
   font-size: 17px !important;
   line-height: 24px !important;
   scrollbar-width: none;
+  transition: none !important;
 }
 
 [data-testid="agent-input-box"] [role="combobox"][contenteditable]::-webkit-scrollbar {
@@ -152,6 +178,178 @@
   font-variation-settings: var(--gemini-font-axes);
   font-size: 17px !important;
   line-height: 24px !important;
+  transition: none !important;
+}
+
+/* --- 2c-1. Image and media attachments (Willow style) -------------------------
+ * Willow renders composer attachments in a horizontal overflow strip:
+ * 112px x 112px cards, 20px rounded corners, rgba(255, 255, 255, 0.12) surface,
+ * cover-cropped edge-to-edge images, no dividing border line, and a 20x20 white
+ * circular remove button with a black close icon at top: 8px, right: 8px that
+ * snaps into visibility on tile hover/focus.
+ */
+[data-testid="agent-input-box"] .relative.w-full > div:has(> [data-testid="input-attachment"]),
+[data-testid="agent-input-box"] div:has(> [data-testid="input-attachment"]) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  overflow-x: auto !important;
+  max-height: 168px !important;
+  gap: 8px !important;
+  margin-top: -16px !important;
+  margin-left: -18px !important;
+  margin-right: -15px !important;
+  padding: 12px 12px 24px 12px !important;
+  border: none !important;
+  border-bottom: none !important;
+  scrollbar-width: none !important;
+  mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%) !important;
+}
+
+[data-testid="agent-input-box"] div:has(> [data-testid="input-attachment"])::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Attachment tile */
+[data-testid="agent-input-box"] [data-testid="input-attachment"] {
+  position: relative !important;
+  width: 112px !important;
+  height: 112px !important;
+  min-width: 112px !important;
+  min-height: 112px !important;
+  max-width: 112px !important;
+  max-height: 112px !important;
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: none !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Edge-to-edge cover-cropped thumbnail */
+[data-testid="agent-input-box"] [data-testid="input-attachment"] img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* White 20x20 circular remove button at top: 8px; right: 8px */
+[data-testid="agent-input-box"] [data-testid="input-attachment"] button {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  border-radius: 9999px !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: none !important;
+  z-index: 10 !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Instant reveal on tile hover / focus-within */
+[data-testid="agent-input-box"] [data-testid="input-attachment"]:hover button,
+[data-testid="agent-input-box"] [data-testid="input-attachment"]:focus-within button {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Close icon */
+[data-testid="agent-input-box"] [data-testid="input-attachment"] button svg {
+  width: 14px !important;
+  height: 14px !important;
+  fill: #000000 !important;
+  color: #000000 !important;
+  stroke: none !important;
+  display: block !important;
+}
+
+/* --- 2c-2. Attachment uploading state (Willow / Gemini style) ------------------
+ * When media files are uploading, Antigravity renders a status spinner in the
+ * send slot ([role="status"][data-tooltip-id="setup-tooltip"]). Because the
+ * control row is flattened into a grid, this unassigned status item was
+ * stretching across the entire prompt box into a gigantic circle.
+ *
+ * Willow and Gemini keep the prompt box clean: the loading spinner belongs on
+ * the attachment tile itself, while the prompt box controls remain in place.
+ */
+[data-testid="agent-input-box"] [role="status"],
+[data-testid="agent-input-box"] [data-tooltip-id="setup-tooltip"] {
+  display: none !important;
+}
+
+/* Dimmed backdrop overlay over the attachment tile while uploading */
+[data-testid="agent-input-box"]:has([role="status"]) [data-testid="input-attachment"]::before,
+[data-testid="agent-input-box"]:has([data-tooltip-id="setup-tooltip"]) [data-testid="input-attachment"]::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border-radius: 20px !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+}
+
+/* Centered circular loading spinner matching Gemini / Material progress */
+[data-testid="agent-input-box"]:has([role="status"]) [data-testid="input-attachment"]::after,
+[data-testid="agent-input-box"]:has([data-tooltip-id="setup-tooltip"]) [data-testid="input-attachment"]::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 28px !important;
+  height: 28px !important;
+  margin-top: -14px !important;
+  margin-left: -14px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none'%3E%3Ccircle cx='14' cy='14' r='11' stroke='rgba(255,255,255,0.25)' stroke-width='2.5'/%3E%3Cpath d='M14 3 A11 11 0 0 1 25 14' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  animation: gemini-attachment-spin 0.8s linear infinite !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+}
+
+@keyframes gemini-attachment-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hide remove button while uploading */
+[data-testid="agent-input-box"]:has([role="status"]) [data-testid="input-attachment"] button,
+[data-testid="agent-input-box"]:has([data-tooltip-id="setup-tooltip"]) [data-testid="input-attachment"] button {
+  display: none !important;
 }
 
 /* --- 2d. The controls ----------------------------------------------------------
@@ -278,13 +476,14 @@
  * holds while a reply streams: this slot becomes the stop control then, and it
  * must keep its column whether Antigravity restyles the same button or mounts
  * a different one. The cancel tooltip is what says so in either case. */
-[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):not([data-expanded="true"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):not([data-expanded="true"]):not(:has([data-gemini-tool-chip])):not(:has([data-testid="input-attachment"])) > .rounded-2xl.bg-card-border > .bg-card {
   grid-template-columns: 32px minmax(0, 1fr) auto 32px;
   grid-template-areas: "plus text pill mic";
 }
 
 /* Two rows with nothing to send without tool chip: multiline draft, attachments, or text reaching model selector */
-[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"]))[data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"]))[data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card,
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):has([data-testid="input-attachment"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
   grid-template-columns: 32px minmax(0, 1fr) auto 32px;
   grid-template-areas:
     "text text text text"
@@ -492,13 +691,25 @@
   letter-spacing: normal !important;
   text-transform: none !important;
   white-space: nowrap !important;
-  font-feature-settings: "liga" 1 !important;
+  font-feature-settings: "liga" 1, "rlig" 1, "rclt" 1 !important;
+  -webkit-font-feature-settings: "liga" 1, "rlig" 1, "rclt" 1 !important;
   -webkit-font-smoothing: antialiased !important;
   overflow: hidden !important;
 }
 
 .gemini-tool-chip-icon.gemini-symbols-font {
   font-family: "Google Symbols", var(--gemini-symbols-font) !important;
+}
+
+.gemini-tool-chip-icon[data-gemini-glyph="chrome"] {
+  width: 14px !important;
+  height: 14px !important;
+  margin: 1px !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  background-color: #e6e6e6 !important;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z'/%3E%3C/svg%3E") no-repeat center / contain !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z'/%3E%3C/svg%3E") no-repeat center / contain !important;
 }
 
 .gemini-tool-chip-label {
@@ -528,7 +739,8 @@
   letter-spacing: normal !important;
   text-transform: none !important;
   white-space: nowrap !important;
-  font-feature-settings: "liga" 1 !important;
+  font-feature-settings: "liga" 1, "rlig" 1, "rclt" 1 !important;
+  -webkit-font-feature-settings: "liga" 1, "rlig" 1, "rclt" 1 !important;
   -webkit-font-smoothing: antialiased !important;
   overflow: hidden !important;
   cursor: pointer !important;

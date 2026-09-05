@@ -48,9 +48,12 @@ function whenDocumentReady(): Promise<void> {
  * rather than on DOMContentLoaded is what makes those hooks worth having.
  */
 function injectWorldRuntime(): void {
+  let injected = false;
   const inject = (): boolean => {
+    if (injected) return true;
     const parent = document.documentElement ?? document.head;
     if (!parent) return false;
+    injected = true;
     const script = document.createElement("script");
     script.setAttribute("data-bettergravity", "runtime");
     script.textContent = __WORLD_SOURCE__;
@@ -66,7 +69,9 @@ function injectWorldRuntime(): void {
     if (inject()) observer.disconnect();
   });
   observer.observe(document, { childList: true, subtree: true });
-  document.addEventListener("readystatechange", () => void inject(), { once: true });
+  document.addEventListener("readystatechange", () => {
+    if (inject()) observer.disconnect();
+  }, { once: true });
 }
 
 const stateListeners = new Set<(state: RuntimeState) => void>();

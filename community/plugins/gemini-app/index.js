@@ -13,6 +13,406 @@
 // a rule, not a list, so "Gemini 4 Pro" will read "4 Pro" the day it appears.
 // Other vendors' models are listed by hand below; Antigravity adds those rarely.
 
+// ---------------------------------------------------------------------------
+// Workspace Theme & Colors — Willow OKLCh Perceptual Engine
+// ---------------------------------------------------------------------------
+
+const WORKSPACE_COLOR_DEFINITIONS = [
+  { id: "green", label: "Willow Green", hex: "#4a7c59" },
+  { id: "blue", label: "Blue", hex: "#3b82f6", isDefault: true },
+  { id: "pink", label: "Pink", hex: "#ec4899" },
+  { id: "yellow", label: "Yellow", hex: "#eab308" },
+  { id: "orange", label: "Orange", hex: "#f97316" },
+  { id: "purple", label: "Purple", hex: "#8b5cf6" },
+  { id: "lilac", label: "Lilac", hex: "#c084fc" },
+  { id: "coral", label: "Coral", hex: "#f43f5e" },
+  { id: "teal", label: "Teal", hex: "#14b8a6" }
+];
+
+const pluginSettings = plugin.settings.define({
+  workspaceColor: {
+    type: "palette",
+    label: "Workspace color",
+    description: "Accent color theme for the background glow, send button, and UI highlights.",
+    default: "blue",
+    options: WORKSPACE_COLOR_DEFINITIONS.map((d) => ({ value: d.id, label: d.label, hex: d.hex }))
+  }
+});
+
+// Color Space Maths (sRGB <-> Linear <-> OKLab <-> OKLCh)
+const srgbToLinear = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+const linearToSrgb = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055);
+
+const linearToOklab = ([r, g, b]) => {
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s
+  ];
+};
+
+const oklabToLinear = ([L, a, b]) => {
+  const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);
+  const m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3);
+  const s = Math.pow(L - 0.0894841775 * a - 1.291485548 * b, 3);
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s
+  ];
+};
+
+const oklabToOklch = ([L, a, b]) => [
+  L,
+  Math.hypot(a, b),
+  ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360
+];
+
+const oklchToOklab = ([L, C, h]) => [
+  L,
+  C * Math.cos((h * Math.PI) / 180),
+  C * Math.sin((h * Math.PI) / 180)
+];
+
+const isInGamut = ([r, g, b]) => [r, g, b].every((c) => c >= -1e-5 && c <= 1 + 1e-5);
+
+const hexToRgb = (hex) => [
+  parseInt(hex.slice(1, 3), 16) / 255,
+  parseInt(hex.slice(3, 5), 16) / 255,
+  parseInt(hex.slice(5, 7), 16) / 255
+];
+
+const rgbToHex = ([r, g, b]) => {
+  const clamp = (v) => Math.min(255, Math.max(0, Math.round(v * 255)));
+  return `#${clamp(r).toString(16).padStart(2, "0")}${clamp(g).toString(16).padStart(2, "0")}${clamp(b).toString(16).padStart(2, "0")}`;
+};
+
+const rgbToOklch = (rgb) => oklabToOklch(linearToOklab(rgb.map(srgbToLinear)));
+
+const oklchToRgb = ([L, C, h]) => {
+  let lo = 0;
+  let hi = C;
+  if (isInGamut(oklabToLinear(oklchToOklab([L, C, h])))) {
+    lo = C;
+  } else {
+    for (let i = 0; i < 64; i += 1) {
+      const mid = (lo + hi) / 2;
+      if (isInGamut(oklabToLinear(oklchToOklab([L, mid, h])))) lo = mid;
+      else hi = mid;
+    }
+  }
+  const linear = oklabToLinear(oklchToOklab([L, lo, h]));
+  return linear.map((c) => Math.min(1, Math.max(0, linearToSrgb(c))));
+};
+
+const GLOW_ACCENT_TRANSFORM = {
+  lightnessRatio: 0.424245154339543,
+  chromaRatio: 0.46688940886964236,
+  hueShiftDeg: 9.038231999938716
+};
+
+const GLOW_TO_BUTTON_TRANSFORM = {
+  lightnessRatio: 1.5055348233608743,
+  chromaRatio: 1.6820248383608614,
+  hueShiftDeg: -5.072855244339735
+};
+
+const GLOW_TO_CHIP_TRANSFORM = {
+  lightnessRatio: 1.1694180324862116,
+  chromaRatio: 1.2611264321248365,
+  hueShiftDeg: -0.6335269870383513
+};
+
+// Willow's exact measured glow accents
+const WILLOW_HOME_GLOW_ACCENTS = {
+  green: "rgb(6, 78, 59)",
+  blue: "rgb(20, 32, 79)",
+  pink: "rgb(76, 9, 35)",
+  yellow: "rgb(66, 54, 0)",
+  orange: "rgb(72, 34, 0)",
+  purple: "rgb(45, 17, 75)",
+  lilac: "rgb(62, 32, 76)",
+  coral: "rgb(78, 7, 10)",
+  teal: "rgb(0, 53, 52)"
+};
+
+// Willow's exact measured send button pairs
+const WILLOW_SEND_BUTTONS = {
+  green: { bg: "#127352", hover: "#0d5c41" },
+  blue: { bg: "#1b3f95", hover: "#153277" },
+  pink: { bg: "#8c064b", hover: "#70053c" },
+  yellow: { bg: "#7c6100", hover: "#634e00" },
+  orange: { bg: "#863e00", hover: "#6b3200" },
+  purple: { bg: "#512192", hover: "#450e83" },
+  lilac: { bg: "#6f3c92", hover: "#5f2c81" },
+  coral: { bg: "#900021", hover: "#78001a" },
+  teal: { bg: "#00625c", hover: "#00514c" }
+};
+
+// Willow's exact creamy tints for text selection
+const WILLOW_CREAMY = {
+  green: "rgba(156, 228, 179, 0.35)",
+  blue: "rgba(168, 199, 250, 0.35)",
+  pink: "rgba(250, 178, 205, 0.35)",
+  yellow: "rgba(253, 221, 65, 0.35)",
+  orange: "rgba(255, 202, 138, 0.35)",
+  purple: "rgba(188, 149, 250, 0.35)",
+  lilac: "rgba(215, 175, 252, 0.35)",
+  coral: "rgba(255, 140, 160, 0.35)",
+  teal: "rgba(130, 230, 220, 0.35)"
+};
+
+// Antigravity mark hue rotation filters (calibrated against default blue mark)
+const ANTIGRAVITY_LOGO_FILTERS = {
+  blue: "none",
+  green: "hue-rotate(-95deg) saturate(1.1)",
+  pink: "hue-rotate(75deg) saturate(1.2)",
+  yellow: "hue-rotate(170deg) saturate(1.3)",
+  orange: "hue-rotate(145deg) saturate(1.25)",
+  purple: "hue-rotate(35deg) saturate(1.2)",
+  lilac: "hue-rotate(50deg) saturate(1.15)",
+  coral: "hue-rotate(95deg) saturate(1.2)",
+  teal: "hue-rotate(-45deg) saturate(1.1)"
+};
+
+function computeWorkspaceTheme(def) {
+  let glowAccent = WILLOW_HOME_GLOW_ACCENTS[def.id];
+  let glowRgb;
+  if (!glowAccent) {
+    const [L, C, h] = rgbToOklch(hexToRgb(def.hex));
+    glowRgb = oklchToRgb([
+      L * GLOW_ACCENT_TRANSFORM.lightnessRatio,
+      C * GLOW_ACCENT_TRANSFORM.chromaRatio,
+      (h + GLOW_ACCENT_TRANSFORM.hueShiftDeg + 360) % 360
+    ]);
+    const [r, g, b] = glowRgb.map((c) => Math.round(c * 255));
+    glowAccent = `rgb(${r}, ${g}, ${b})`;
+  } else {
+    const m = glowAccent.match(/\d+/g);
+    glowRgb = m ? [Number(m[0]) / 255, Number(m[1]) / 255, Number(m[2]) / 255] : [6 / 255, 78 / 255, 59 / 255];
+  }
+
+  let sendButton = WILLOW_SEND_BUTTONS[def.id];
+  if (!sendButton) {
+    const [L_glow, C_glow, h_glow] = rgbToOklch(glowRgb);
+    const L_btn = L_glow * GLOW_TO_BUTTON_TRANSFORM.lightnessRatio;
+    const C_btn = C_glow * GLOW_TO_BUTTON_TRANSFORM.chromaRatio;
+    const h_btn = (h_glow + GLOW_TO_BUTTON_TRANSFORM.hueShiftDeg + 360) % 360;
+    sendButton = {
+      bg: rgbToHex(oklchToRgb([L_btn, C_btn, h_btn])),
+      hover: rgbToHex(oklchToRgb([L_btn * 0.82, C_btn, h_btn]))
+    };
+  }
+
+  let chipBg = def.id === "blue" ? "#192967" : def.id === "green" ? "#127352" : null;
+  if (!chipBg) {
+    const [L_glow, C_glow, h_glow] = rgbToOklch(glowRgb);
+    chipBg = rgbToHex(oklchToRgb([
+      L_glow * GLOW_TO_CHIP_TRANSFORM.lightnessRatio,
+      C_glow * GLOW_TO_CHIP_TRANSFORM.chromaRatio,
+      (h_glow + GLOW_TO_CHIP_TRANSFORM.hueShiftDeg + 360) % 360
+    ]));
+  }
+
+  let creamyRgba = WILLOW_CREAMY[def.id];
+  if (!creamyRgba) {
+    const [, C, h] = rgbToOklch(hexToRgb(def.hex));
+    const creamyRgb = oklchToRgb([0.85, Math.min(C * 0.55, 0.11), h]);
+    const [cr, cg, cb] = creamyRgb.map((c) => Math.round(c * 255));
+    creamyRgba = `rgba(${cr}, ${cg}, ${cb}, 0.35)`;
+  }
+
+  let logoFilter = ANTIGRAVITY_LOGO_FILTERS[def.id];
+  if (!logoFilter) {
+    if (def.id === "blue") {
+      logoFilter = "none";
+    } else {
+      const [, , h_swatch] = rgbToOklch(hexToRgb(def.hex));
+      const angle = Math.round((h_swatch - 245 + 360) % 360);
+      logoFilter = `hue-rotate(${angle > 180 ? angle - 360 : angle}deg) saturate(1.15)`;
+    }
+  }
+
+  return {
+    id: def.id,
+    label: def.label,
+    swatchHex: def.hex,
+    glowAccent,
+    sendButton,
+    chipBg,
+    creamyRgba,
+    logoFilter
+  };
+}
+
+function getWorkspaceTheme(colorId) {
+  const match = WORKSPACE_COLOR_DEFINITIONS.find((d) => d.id === colorId);
+  return computeWorkspaceTheme(match || WORKSPACE_COLOR_DEFINITIONS[0]);
+}
+
+function applyWorkspaceTheme(colorId) {
+  const theme = getWorkspaceTheme(colorId);
+  const root = document.documentElement;
+
+  root.style.setProperty("--gemini-home-glow-accent", theme.glowAccent);
+  root.style.setProperty("--gemini-send-bg", theme.sendButton.bg);
+  root.style.setProperty("--gemini-send-bg-hover", theme.sendButton.hover);
+  root.style.setProperty("--gemini-chip-bg", theme.chipBg);
+  root.style.setProperty("--gemini-selection-bg", theme.creamyRgba);
+  root.style.setProperty("--gemini-logo-filter", theme.logoFilter);
+
+  let themeStyle = document.getElementById("gemini-theme-dynamic-styles");
+  if (!themeStyle) {
+    themeStyle = document.createElement("style");
+    themeStyle.id = "gemini-theme-dynamic-styles";
+    document.head.appendChild(themeStyle);
+  }
+  themeStyle.textContent = `
+    :root {
+      --gemini-home-glow-accent: ${theme.glowAccent} !important;
+      --gemini-send-bg: ${theme.sendButton.bg} !important;
+      --gemini-send-bg-hover: ${theme.sendButton.hover} !important;
+      --gemini-chip-bg: ${theme.chipBg} !important;
+      --gemini-selection-bg: ${theme.creamyRgba} !important;
+      --gemini-logo-filter: ${theme.logoFilter} !important;
+    }
+    ::selection {
+      background: ${theme.creamyRgba} !important;
+    }
+  `;
+}
+
+// Initialise theme and listen for settings changes
+applyWorkspaceTheme(pluginSettings.workspaceColor);
+plugin.settings.onChange((key, value) => {
+  if (key === "workspaceColor" && typeof value === "string") {
+    applyWorkspaceTheme(value);
+    enhanceWorkspaceColorSettings();
+  }
+});
+
+function enhanceWorkspaceColorSettings() {
+  const rows = document.querySelectorAll(".py-2.px-3");
+  let targetRow = null;
+  for (const r of rows) {
+    if ((r.textContent || "").includes("Workspace color")) {
+      targetRow = r;
+      break;
+    }
+  }
+  if (!targetRow) return;
+
+  const controlSlot = targetRow.querySelector(".shrink-0");
+  if (!controlSlot) return;
+
+  const input = controlSlot.querySelector("input, select");
+  if (input) {
+    input.style.display = "none";
+  }
+
+  const currentVal =
+    window.BetterGravity && window.BetterGravity.plugins && window.BetterGravity.plugins.getSetting
+      ? window.BetterGravity.plugins.getSetting("gemini-app", "workspaceColor") || pluginSettings.workspaceColor || "blue"
+      : pluginSettings.workspaceColor || "blue";
+
+  let container = controlSlot.querySelector(".gemini-palette-picker");
+  if (container && (container.querySelector(".gemini-palette-badge") || container.querySelector(".gemini-palette-swatches"))) {
+    container.remove();
+    container = null;
+  }
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "gemini-palette-picker";
+    container.style.cssText = "display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end;";
+    controlSlot.appendChild(container);
+  } else {
+    container.style.cssText = "display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end;";
+  }
+
+  if (container.getAttribute("data-active-color") === currentVal && container.children.length === WORKSPACE_COLOR_DEFINITIONS.length) {
+    return;
+  }
+  container.setAttribute("data-active-color", currentVal);
+
+  container.innerHTML = "";
+  for (const col of WORKSPACE_COLOR_DEFINITIONS) {
+    const isSelected = col.id === currentVal;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.title = col.label;
+    btn.setAttribute("aria-label", col.label);
+    btn.style.cssText = [
+      "width: 24px",
+      "height: 24px",
+      "border-radius: 6px",
+      "background-color: " + col.hex,
+      "cursor: pointer",
+      "position: relative",
+      "display: inline-flex",
+      "align-items: center",
+      "justify-content: center",
+      "border: 1px solid rgba(255, 255, 255, 0.18)",
+      "transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, outline 0.15s ease, opacity 0.15s ease",
+      "box-sizing: border-box",
+      "padding: 0",
+      isSelected
+        ? "transform: scale(1.1); outline: 2px solid #ffffff; outline-offset: 2px; box-shadow: 0 0 0 1px #18181b, 0 2px 8px rgba(0,0,0,0.5); z-index: 2;"
+        : "opacity: 0.8;"
+    ].join(";");
+
+    btn.onmouseenter = () => {
+      if (btn.getAttribute("data-selected") !== "true") {
+        btn.style.transform = "scale(1.15)";
+        btn.style.opacity = "1";
+        btn.style.zIndex = "1";
+      }
+    };
+    btn.onmouseleave = () => {
+      if (btn.getAttribute("data-selected") !== "true") {
+        btn.style.transform = "scale(1)";
+        btn.style.opacity = "0.8";
+        btn.style.zIndex = "0";
+      }
+    };
+
+    if (isSelected) {
+      btn.setAttribute("data-selected", "true");
+      const check = document.createElement("span");
+      check.style.cssText = "color: #ffffff; display: flex; align-items: center; justify-content: center; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));";
+      check.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 -960 960 960" fill="currentColor"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg>';
+      btn.appendChild(check);
+    }
+
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      applyWorkspaceTheme(col.id);
+      if (input) {
+        input.value = col.id;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      if (window.BetterGravity && window.BetterGravity.plugins && window.BetterGravity.plugins.setSetting) {
+        window.BetterGravity.plugins.setSetting("gemini-app", "workspaceColor", col.id);
+      }
+      enhanceWorkspaceColorSettings();
+    };
+
+    container.appendChild(btn);
+  }
+}
+
+if (typeof document !== "undefined" && document.body) {
+  enhanceWorkspaceColorSettings();
+  const settingsObserver = new MutationObserver(() => {
+    enhanceWorkspaceColorSettings();
+  });
+  settingsObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+
 /**
  * Hand-written shortenings for models that are not Gemini. Each entry is a
  * pattern and a replacement; the first that matches wins.
@@ -145,35 +545,236 @@ plugin.dom.observe(NEW_CONV_SELECTOR, (btn) => {
   observers.set(btn, observer);
 });
 
-// Willow's exact expanded sidebar width (STUDIO_SIDEBAR_EXPANDED_WIDTH = 288) and transition
-const WILLOW_SIDEBAR_WIDTH = "288px";
+// Willow's exact sidebar widths (expanded = 288px, collapsed = 52px) and motion curve
+const WILLOW_SIDEBAR_EXPANDED_WIDTH = "288px";
+const WILLOW_SIDEBAR_COLLAPSED_WIDTH = "52px";
 const WILLOW_SIDEBAR_TRANSITION = "width 300ms cubic-bezier(0.2, 0, 0, 1), height 300ms cubic-bezier(0.2, 0, 0, 1)";
+const TOGGLE_SELECTOR = 'button[data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"], button[data-testid="sidebar-toggle"][aria-expanded]';
 
-function enforceSidebarGeometry(grandParent) {
-  if (!grandParent) return;
-  const w = grandParent.style.width;
-  if (w && w !== "0px" && w !== "0" && w !== WILLOW_SIDEBAR_WIDTH) {
-    grandParent.style.width = WILLOW_SIDEBAR_WIDTH;
+function isSidebarCollapsed() {
+  const toggle = document.querySelector(TOGGLE_SELECTOR);
+  if (toggle) {
+    return toggle.getAttribute("aria-expanded") === "false";
   }
-  const child = grandParent.firstElementChild;
-  if (child && child.style.width !== WILLOW_SIDEBAR_WIDTH) {
-    child.style.width = WILLOW_SIDEBAR_WIDTH;
-  }
-  if (grandParent.style.transition && grandParent.style.transition.includes("500ms")) {
-    grandParent.style.transition = WILLOW_SIDEBAR_TRANSITION;
+  const sidebar = document.querySelector(SIDEBAR_SELECTOR);
+  return sidebar?.getAttribute("data-collapsed") === "true";
+}
+
+let isEnforcingSidebarGeometry = false;
+
+function enforceSidebarGeometry(grandParent, collapsed) {
+  if (!grandParent || isEnforcingSidebarGeometry) return;
+  isEnforcingSidebarGeometry = true;
+  try {
+    const targetWidth = collapsed ? WILLOW_SIDEBAR_COLLAPSED_WIDTH : WILLOW_SIDEBAR_EXPANDED_WIDTH;
+    if (grandParent.style.width !== targetWidth) {
+      grandParent.style.width = targetWidth;
+    }
+    if (grandParent.style.minWidth !== "0px") {
+      grandParent.style.minWidth = "0px";
+    }
+    if (grandParent.style.visibility !== "visible") {
+      grandParent.style.visibility = "visible";
+    }
+    if (grandParent.style.transition !== WILLOW_SIDEBAR_TRANSITION) {
+      grandParent.style.transition = WILLOW_SIDEBAR_TRANSITION;
+    }
+    const child = grandParent.firstElementChild;
+    if (child) {
+      if (child.style.width !== targetWidth) {
+        child.style.width = targetWidth;
+      }
+      if (child.style.minWidth !== "0px") {
+        child.style.minWidth = "0px";
+      }
+      const targetLeft = collapsed ? "0px" : "";
+      if (child.style.left !== targetLeft) {
+        child.style.left = targetLeft;
+      }
+      const targetRight = collapsed ? "auto" : "";
+      if (child.style.right !== targetRight) {
+        child.style.right = targetRight;
+      }
+    }
+  } finally {
+    isEnforcingSidebarGeometry = false;
   }
 }
 
+function ensureSidebarHeader(sidebar, collapsed) {
+  const header = sidebar?.firstElementChild;
+  if (!header) return;
+
+  let logoBtn = header.querySelector(".gemini-logo-btn");
+  if (!logoBtn) {
+    logoBtn = document.createElement("button");
+    logoBtn.type = "button";
+    logoBtn.className = "gemini-logo-btn";
+    logoBtn.innerHTML = `
+      <div class="gemini-logo-wrap">
+        <div class="gemini-logo-mark"></div>
+      </div>
+      <div class="gemini-logo-expand-wrap">
+        <svg class="gemini-logo-expand-icon" width="20" height="20" viewBox="0 -960 960 960" fill="currentColor">
+          <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h160v-560H200v560Zm240 0h320v-560H440v560Zm-80 0v-560 560Z"/>
+        </svg>
+      </div>
+    `;
+    logoBtn.addEventListener("click", () => {
+      if (isSidebarCollapsed()) {
+        const toggle = document.querySelector(TOGGLE_SELECTOR);
+        if (toggle) toggle.click();
+      }
+    });
+    header.prepend(logoBtn);
+  }
+
+  const logoLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  if (logoBtn.getAttribute("aria-label") !== logoLabel) {
+    logoBtn.setAttribute("aria-label", logoLabel);
+  }
+  const logoTitle = collapsed ? "Expand sidebar" : "";
+  if (logoBtn.getAttribute("title") !== logoTitle && !logoBtn.hasAttribute("data-willow-tooltip")) {
+    if (logoTitle) logoBtn.setAttribute("title", logoTitle);
+    else logoBtn.removeAttribute("title");
+  }
+  const logoPos = collapsed ? "right" : "below";
+  if (logoBtn.getAttribute("data-tooltip-position") !== logoPos) {
+    logoBtn.setAttribute("data-tooltip-position", logoPos);
+  }
+
+  header.querySelector(".willow-sidenav-text")?.remove();
+}
+
+function updateSidebarItemsState(sidebar, collapsed) {
+  const navSpecs = [
+    { selector: '[data-testid="new-conversation-button"]', title: "New conversation" },
+    { selector: '[data-testid="history-button"]', title: "History" },
+    { selector: '#gemini-scheduled-tasks-button', title: "Scheduled tasks" },
+    { selector: '[data-testid="automations-button"]', title: "Scheduled tasks" },
+    { selector: '#gemini-new-project-button', title: "New project" },
+    { selector: '#gemini-display-options-button', title: "Display options" },
+    { selector: '[data-testid="settings-button"]', title: "Settings" }
+  ];
+
+  for (const spec of navSpecs) {
+    const el = sidebar.querySelector(spec.selector) || document.querySelector(spec.selector);
+    if (el) {
+      if (collapsed) {
+        if (el.getAttribute("data-tooltip-position") !== "right") {
+          el.setAttribute("data-tooltip-position", "right");
+        }
+        if (!el.getAttribute("title") && !el.hasAttribute("data-willow-tooltip")) {
+          el.setAttribute("title", spec.title);
+        }
+      } else {
+        if (el.getAttribute("data-tooltip-position") === "right") {
+          el.removeAttribute("data-tooltip-position");
+        }
+      }
+    }
+  }
+
+  const userPill = sidebar.querySelector("#gemini-sidebar-user-pill");
+  if (userPill) {
+    if (collapsed) {
+      userPill.setAttribute("data-tooltip-position", "right");
+    } else {
+      userPill.removeAttribute("data-tooltip-position");
+    }
+  }
+
+  const rows = sidebar.querySelectorAll('[data-testid="conversation-row-sidebar"]');
+  for (const row of rows) {
+    if (collapsed) {
+      const truncate = row.querySelector("span.truncate");
+      const title = truncate?.textContent?.trim() || "Conversation";
+      if (!row.getAttribute("title") && !row.hasAttribute("data-willow-tooltip")) {
+        row.setAttribute("title", title);
+      }
+      row.setAttribute("data-tooltip-position", "right");
+    } else {
+      if (row.getAttribute("data-tooltip-position") === "right") {
+        row.removeAttribute("data-tooltip-position");
+      }
+    }
+  }
+
+  const projectHeaders = sidebar.querySelectorAll('button[class*="group/headerbtn"]');
+  for (const pHeader of projectHeaders) {
+    if (collapsed) {
+      const truncate = pHeader.querySelector("span.truncate");
+      const title = truncate?.textContent?.trim() || "Project";
+      if (!pHeader.getAttribute("title") && !pHeader.hasAttribute("data-willow-tooltip")) {
+        pHeader.setAttribute("title", title);
+      }
+      pHeader.setAttribute("data-tooltip-position", "right");
+    } else {
+      if (pHeader.getAttribute("data-tooltip-position") === "right") {
+        pHeader.removeAttribute("data-tooltip-position");
+      }
+    }
+  }
+
+  const seeAllBtn = sidebar.querySelector('div[class*="pl-[22px]"] > button');
+  if (seeAllBtn) {
+    if (collapsed) {
+      if (!seeAllBtn.getAttribute("title") && !seeAllBtn.hasAttribute("data-willow-tooltip")) {
+        seeAllBtn.setAttribute("title", "All conversations");
+      }
+      seeAllBtn.setAttribute("data-tooltip-position", "right");
+    } else {
+      if (seeAllBtn.getAttribute("data-tooltip-position") === "right") {
+        seeAllBtn.removeAttribute("data-tooltip-position");
+      }
+    }
+  }
+}
+
+function syncSidebarState(sidebar) {
+  if (!sidebar) return;
+  const grandParent = sidebar.parentElement?.parentElement;
+  const collapsed = isSidebarCollapsed();
+
+  enforceSidebarGeometry(grandParent, collapsed);
+  if (sidebar.getAttribute("data-collapsed") !== String(collapsed)) {
+    sidebar.setAttribute("data-collapsed", String(collapsed));
+  }
+
+  ensureSidebarHeader(sidebar, collapsed);
+  sidebar.querySelector(".gemini-sidebar-expand-rail")?.remove();
+  ensureExperienceSwitch(sidebar);
+  updateSidebarItemsState(sidebar, collapsed);
+}
+
 plugin.dom.observe(SIDEBAR_SELECTOR, (sidebar) => {
+  syncSidebarState(sidebar);
   const grandParent = sidebar.parentElement?.parentElement;
   if (grandParent) {
-    enforceSidebarGeometry(grandParent);
     const observer = new MutationObserver(() => {
-      enforceSidebarGeometry(grandParent);
+      syncSidebarState(sidebar);
     });
     observer.observe(grandParent, { attributes: true, attributeFilter: ["style"] });
     observers.set(grandParent, observer);
   }
+  const sidebarObserver = new MutationObserver(() => {
+    ensureSidebarHeader(sidebar, isSidebarCollapsed());
+    ensureExperienceSwitch(sidebar);
+    sidebar.querySelector(".gemini-sidebar-expand-rail")?.remove();
+  });
+  sidebarObserver.observe(sidebar, { childList: true });
+  remember(sidebar, sidebarObserver);
+});
+
+plugin.dom.observe(TOGGLE_SELECTOR, (toggle) => {
+  const sidebar = document.querySelector(SIDEBAR_SELECTOR);
+  if (sidebar) syncSidebarState(sidebar);
+  const toggleObserver = new MutationObserver(() => {
+    const sb = document.querySelector(SIDEBAR_SELECTOR);
+    if (sb) syncSidebarState(sb);
+  });
+  toggleObserver.observe(toggle, { attributes: true, attributeFilter: ["aria-expanded", "class"] });
+  remember(toggle, toggleObserver);
 });
 
 /* ---------------------------------------------------------------------------
@@ -225,6 +826,16 @@ function markExperience(pill, selected) {
       tab.removeAttribute("data-willow-tooltip");
     }
   }
+
+  const collapsedBtn = pill.querySelector(".gemini-experience-collapsed-btn");
+  if (collapsedBtn) {
+    const isWork = selected === "work";
+    collapsedBtn.setAttribute("aria-pressed", String(isWork));
+    const nextTarget = isWork ? "Chat" : "Work";
+    collapsedBtn.title = `Switch to ${nextTarget}`;
+    collapsedBtn.setAttribute("aria-label", `Switch to ${nextTarget}`);
+    collapsedBtn.removeAttribute("data-willow-tooltip");
+  }
 }
 
 function buildExperienceSwitch() {
@@ -236,6 +847,9 @@ function buildExperienceSwitch() {
   const slider = document.createElement("div");
   slider.dataset.geminiExperienceSlider = "";
   track.append(slider);
+
+  const tabsWrap = document.createElement("div");
+  tabsWrap.className = "gemini-experience-tabs-wrap";
 
   for (const experience of EXPERIENCES) {
     const tab = document.createElement("button");
@@ -253,8 +867,27 @@ function buildExperienceSwitch() {
       tab.append(badge);
     }
     tab.addEventListener("click", () => markExperience(pill, experience.id));
-    track.append(tab);
+    tabsWrap.append(tab);
   }
+  track.append(tabsWrap);
+
+  const collapsedBtn = document.createElement("button");
+  collapsedBtn.type = "button";
+  collapsedBtn.className = "gemini-experience-collapsed-btn";
+  collapsedBtn.setAttribute("data-tooltip-position", "right");
+  collapsedBtn.innerHTML = `
+    <svg class="gemini-experience-collapsed-icon" width="14" height="22" viewBox="0 0 14 22" fill="none">
+      <rect x="1" y="1" width="12" height="20" rx="6" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="7" cy="7" r="3.2" fill="currentColor" class="gemini-switch-dot"/>
+    </svg>
+  `;
+  collapsedBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const current = pill.dataset.geminiExperience || "chat";
+    const next = current === "chat" ? "work" : "chat";
+    markExperience(pill, next);
+  });
+  track.append(collapsedBtn);
 
   pill.append(track);
   markExperience(pill, EXPERIENCES[0].id);
@@ -270,15 +903,6 @@ function ensureExperienceSwitch(sidebar) {
   const pill = sidebar.querySelector("#gemini-experience-switch") ?? buildExperienceSwitch();
   if (header.nextElementSibling !== pill) header.after(pill);
 }
-
-plugin.dom.observe(SIDEBAR_SELECTOR, (sidebar) => {
-  ensureExperienceSwitch(sidebar);
-  // Re-seating is itself a childList change, so this runs once more and finds
-  // the pill already in place, which ends it.
-  const observer = new MutationObserver(() => ensureExperienceSwitch(sidebar));
-  observer.observe(sidebar, { childList: true });
-  remember(sidebar, observer);
-});
 
 /* ---------------------------------------------------------------------------
  * The scrolling half of the navigation (Sidebar.tsx:1881-1925)
@@ -325,9 +949,11 @@ function ensureNewProjectRow(block) {
     newProjectBtn = navRow('gemini-new-project-button');
     newProjectBtn.innerHTML = `
       <span class="icon-box">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M4.308 19.5c-.505 0-.933-.175-1.283-.525C2.675 18.625 2.5 18.197 2.5 17.692V6.308c0-.505.175-.933.525-1.283.35-.35.778-.525 1.283-.525h4.742c.241 0 .473.047.695.14.223.094.416.223.58.388L11.8 6.5h7.892c.505 0 .933.175 1.283.525.35.35.525.778.525 1.283v2.01c0 .212-.072.39-.216.534-.143.144-.321.216-.534.216s-.39-.072-.534-.216A.728.728 0 0 1 20 10.317V8.308c0-.09-.029-.164-.087-.222A.302.302 0 0 0 19.692 8H11.185l-2-2H4.308a.302.302 0 0 0-.222.087.302.302 0 0 0-.086.222v11.384c0 .09.029.164.086.222.058.058.132.087.222.087h7.086c.213 0 .391.072.535.216.144.143.215.321.215.534s-.071.39-.215.534a.728.728 0 0 1-.535.216H4.308Z"/>
-          <path d="M17.5 20v-2.25H15.25a.728.728 0 0 1-.534-.216.728.728 0 0 1-.216-.534c0-.213.072-.391.216-.535a.728.728 0 0 1 .534-.215H17.5V14c0-.213.072-.391.216-.535a.728.728 0 0 1 .534-.215c.213 0 .391.072.535.215.143.144.215.322.215.535v2.25H21.25c.213 0 .391.072.535.215.143.144.215.322.215.535 0 .213-.072.391-.215.534a.728.728 0 0 1-.535.216H19V20c0 .213-.072.391-.215.535a.728.728 0 0 1-.535.215.728.728 0 0 1-.534-.215.728.728 0 0 1-.216-.535Z"/>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="7" height="7" x="3" y="3" rx="1"/>
+          <rect width="7" height="7" x="14" y="3" rx="1"/>
+          <rect width="7" height="7" x="14" y="14" rx="1"/>
+          <rect width="7" height="7" x="3" y="14" rx="1"/>
         </svg>
       </span>
       <span class="truncate">New project</span>
@@ -494,6 +1120,10 @@ plugin.dom.observe(LIST_SELECTOR, (scroller) => {
   const children = new MutationObserver(() => {
     ensureScrollNav();
     ensureTopFade(scroller);
+    const sidebar = scroller.closest(SIDEBAR_SELECTOR);
+    if (sidebar && isSidebarCollapsed()) {
+      updateSidebarItemsState(sidebar, true);
+    }
   });
   children.observe(scroller, { childList: true });
   remember(scroller, {
@@ -1237,17 +1867,29 @@ function createConvMenuItem(id, iconSvg, text, onClick) {
 function enhanceConversationMenu(menu) {
   // Ignore model selector, plus menu, or nested submenus that are not conversation actions
   if (menu.hasAttribute('data-gemini-plus-menu') || 
+      menu.querySelector('[data-gemini-tools]') ||
+      menu.querySelector('[data-gemini-row]') ||
+      menu.querySelector('[data-gemini-label]') ||
+      isPlusMenu(menu) ||
       menu.querySelector('[data-testid="model-selector-panel"]') || 
       menu.hasAttribute('data-nested')) {
     return;
   }
 
-  const hasConvItems = !!menu.querySelector('[data-testid*="conversation-"]');
+  const isConvTrigger = document.querySelector('[data-testid="conversation-kebab"][aria-expanded="true"]');
+  const hasConvItems = !!menu.querySelector('[data-testid*="conversation-"]') ||
+                       Array.from(menu.querySelectorAll('[role="menuitem"]')).some(el => {
+                         const t = (el.textContent || '').trim().toLowerCase();
+                         return t === 'rename' || t === 'delete' || t.startsWith('pin') || t.startsWith('unpin');
+                       });
+
+  if (!hasConvItems && !isConvTrigger) return;
+
   const row = activeConversationRow || 
-              document.querySelector('[data-testid="conversation-kebab"][aria-expanded="true"]')?.closest('[data-testid="conversation-row-sidebar"]') ||
+              isConvTrigger?.closest('[data-testid="conversation-row-sidebar"]') ||
               document.querySelector('[data-testid="conversation-row-sidebar"]:hover');
 
-  if (!hasConvItems && !row) return;
+  if (!row) return;
 
   menu.setAttribute('data-gemini-conversation-menu', 'true');
   menu.classList.remove('animate-slideIn');
@@ -1349,6 +1991,8 @@ plugin.onDispose(() => {
   document.getElementById("gemini-scheduled-tasks-button")?.remove();
   document.getElementById("gemini-scroll-nav")?.remove();
   document.getElementById("gemini-top-fade")?.remove();
+  document.querySelectorAll(".gemini-logo-btn, .willow-sidenav-text, .gemini-sidebar-expand-rail, #gemini-experience-switch").forEach((el) => el.remove());
+  document.querySelectorAll('[role="navigation"][aria-label="Sidebar"]').forEach((el) => el.removeAttribute("data-collapsed"));
 
   for (const [element, observer] of observers) {
     observer.disconnect();
@@ -1414,15 +2058,27 @@ const OPTION_LABEL = '[data-testid="menu-option-label"]';
  * subset would render as its own letters rather than fall through to a
  * fallback icon, which is why the list is not extended by guesswork.
  */
-const GOOGLE_SYMBOLS = new Set(["more_horiz", "computer", "school", "drive", "photos"]);
+const GOOGLE_SYMBOLS = new Set([
+  "more_horiz",
+  "computer",
+  "school",
+  "drive",
+  "photos",
+  "web",
+  "edit_note",
+  "terminal"
+]);
 
 /** Willow's glyph for each of Antigravity's own context rows, by label. */
 const CONTEXT_GLYPHS = {
   "Media": "attach_file",
-  "Mentions": "files",
+  "Mentions": "docs",
+  "Files": "docs",
+  "Docs": "docs",
   "Actions": "extension",
-  "Browser": "web",
-  "Screen Recording": "computer"
+  "Browser": "chrome",
+  "Screen Recording": "computer",
+  "Terminal": "terminal"
 };
 
 /**
@@ -1448,7 +2104,7 @@ const TOOL_GLYPHS = {
   "video": "movie",
   "music": "music",
   "skill": "school",
-  "browser": "web"
+  "browser": "chrome"
 };
 
 /** Anything the map above does not name. Willow's own generic tool glyph. */
@@ -1472,6 +2128,12 @@ const DEFAULT_TOOLS = [
 /** Letters only, so "computer-use", "computer_use", and "Computer Use" agree. */
 function glyphKey(name) {
   return name.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function isSkillsName(name) {
+  if (!name || typeof name !== "string") return false;
+  const k = glyphKey(name);
+  return k === "skill" || k === "skills" || k.startsWith("skill");
 }
 
 function glyphFor(name) {
@@ -1560,7 +2222,7 @@ function ensureTools(props) {
         tools = [];
         for (const item of Array.isArray(items) ? items : []) {
           const tool = toolFrom(item);
-          if (!tool || seen.has(tool.label.toLowerCase())) continue;
+          if (!tool || isSkillsName(tool.name) || isSkillsName(tool.label) || seen.has(tool.label.toLowerCase())) continue;
           seen.add(tool.label.toLowerCase());
           tools.push(tool);
         }
@@ -1721,6 +2383,15 @@ function row(kind, glyph, label, extra) {
  * ------------------------------------------------------------------------- */
 let selectedToolState = null;
 
+function getSelectedTool() {
+  return selectedToolState || window.__bettergravity_selected_tool || null;
+}
+
+function setSelectedTool(tool) {
+  selectedToolState = tool;
+  window.__bettergravity_selected_tool = tool;
+}
+
 const TOOL_CHIP_LABELS = {
   images: "Images",
   image: "Images",
@@ -1780,7 +2451,7 @@ const TOOL_CHIP_GLYPHS = {
   "personal-intelligence": "person",
   schedule: "assignment",
   boost: "group",
-  browser: "web"
+  browser: "chrome"
 };
 
 function chipLabelFor(tool) {
@@ -1812,6 +2483,7 @@ function createToolChipElement(tool) {
 
   const icon = document.createElement("span");
   icon.className = `gemini-tool-chip-icon${isGoogleSymbols ? " gemini-symbols-font" : ""}`;
+  icon.setAttribute("data-gemini-glyph", glyph);
   icon.textContent = glyph;
 
   const label = document.createElement("span");
@@ -1879,18 +2551,43 @@ function hasAttachments(box) {
   if (!box) return false;
   // Strictly check for user attachments (images, PDFs, videos) inside the prompt box
   return !!(
+    box.querySelector('[data-testid="input-attachment"]') ||
     box.querySelector('.relative.w-full img[alt*="attachment" i], .relative.w-full img[alt*="Image" i], .relative.w-full [alt*="PDF attachment" i], .relative.w-full [alt*="Video attachment" i]') ||
     box.querySelector('[data-testid="attachment-item"]')
   );
 }
 
+function getEditorTextRange(editor) {
+  if (!editor) return null;
+  const spans = editor.querySelectorAll('[data-lexical-text="true"]');
+  if (spans.length > 0) {
+    const range = document.createRange();
+    range.setStartBefore(spans[0]);
+    range.setEndAfter(spans[spans.length - 1]);
+    return range;
+  }
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  const firstText = walker.nextNode();
+  if (!firstText) return null;
+  let lastText = firstText;
+  let next;
+  while ((next = walker.nextNode())) {
+    lastText = next;
+  }
+  const range = document.createRange();
+  range.setStart(firstText, 0);
+  range.setEnd(lastText, lastText.length);
+  return range;
+}
+
 function checkPromptExpansion(box) {
   if (!box || !box.isConnected) return;
 
+  const currentTool = getSelectedTool();
   // 1. If a tool is selected, always expand and mount tool chip
-  if (selectedToolState) {
+  if (currentTool) {
     box.setAttribute("data-expanded", "true");
-    mountToolChip(box, selectedToolState);
+    mountToolChip(box, currentTool);
     return;
   } else {
     removeToolChip(box);
@@ -1908,6 +2605,9 @@ function checkPromptExpansion(box) {
     box.removeAttribute("data-expanded");
     return;
   }
+  if (editor.style.transition !== "none") {
+    editor.style.transition = "none";
+  }
 
   const text = (editor.textContent || "").replace(/[\uFEFF\u200B]/g, "");
   if (!text.trim()) {
@@ -1921,6 +2621,12 @@ function checkPromptExpansion(box) {
     return;
   }
 
+  const range = getEditorTextRange(editor);
+  if (!range) {
+    box.removeAttribute("data-expanded");
+    return;
+  }
+
   const card = box.querySelector(".bg-card");
   const isAlreadyExpanded = box.getAttribute("data-expanded") === "true";
 
@@ -1930,8 +2636,6 @@ function checkPromptExpansion(box) {
     let hasWrapped = false;
     let rangeRect = null;
     try {
-      const range = document.createRange();
-      range.selectNodeContents(editor);
       const rects = range.getClientRects();
       rangeRect = range.getBoundingClientRect();
 
@@ -1961,11 +2665,6 @@ function checkPromptExpansion(box) {
           return;
         }
       }
-
-      if (editor.clientWidth > 0 && rangeRect.width >= editor.clientWidth - 6) {
-        box.setAttribute("data-expanded", "true");
-        return;
-      }
     }
 
     box.removeAttribute("data-expanded");
@@ -1975,8 +2674,6 @@ function checkPromptExpansion(box) {
     let hasWrapped = false;
     let textWidth = 0;
     try {
-      const range = document.createRange();
-      range.selectNodeContents(editor);
       const rects = range.getClientRects();
       const rangeRect = range.getBoundingClientRect();
       textWidth = rangeRect.width;
@@ -2034,7 +2731,7 @@ function requestPromptExpansionCheck() {
 }
 
 function selectTool(tool) {
-  selectedToolState = tool;
+  setSelectedTool(tool);
   const box = document.querySelector(INPUT_BOX);
   if (box) {
     box.setAttribute("data-expanded", "true");
@@ -2045,7 +2742,13 @@ function selectTool(tool) {
   const root = editorRoot();
   if (root) {
     const text = (root.textContent || "").trim();
-    if (text === tool.name || text === `/${tool.name}` || text.toLowerCase() === (tool.label || "").toLowerCase()) {
+    const cmd = `/${tool.name.toLowerCase()}`;
+    if (
+      text === tool.name ||
+      text.toLowerCase() === cmd ||
+      text.toLowerCase() === (tool.label || "").toLowerCase() ||
+      (text.toLowerCase().startsWith(cmd + " ") && text.slice(cmd.length + 1).trim() === "")
+    ) {
       try {
         root.textContent = "";
         const sel = window.getSelection();
@@ -2056,29 +2759,16 @@ function selectTool(tool) {
   }
   requestAnimationFrame(() => {
     const b = document.querySelector(INPUT_BOX);
-    if (b && selectedToolState) {
-      mountToolChip(b, selectedToolState);
+    const active = getSelectedTool();
+    if (b && active) {
+      mountToolChip(b, active);
       checkPromptExpansion(b);
     }
   });
-  setTimeout(() => {
-    const b = document.querySelector(INPUT_BOX);
-    if (b && selectedToolState) {
-      mountToolChip(b, selectedToolState);
-      checkPromptExpansion(b);
-    }
-  }, 50);
-  setTimeout(() => {
-    const b = document.querySelector(INPUT_BOX);
-    if (b && selectedToolState) {
-      mountToolChip(b, selectedToolState);
-      checkPromptExpansion(b);
-    }
-  }, 150);
 }
 
 function deselectTool() {
-  selectedToolState = null;
+  setSelectedTool(null);
   const box = document.querySelector(INPUT_BOX);
   if (box) {
     removeToolChip(box);
@@ -2089,7 +2779,8 @@ function deselectTool() {
 }
 
 function toolRow(popup, tool) {
-  const isSelected = selectedToolState && (glyphKey(selectedToolState.name || selectedToolState.label) === glyphKey(tool.name || tool.label));
+  const currentTool = getSelectedTool();
+  const isSelected = currentTool && (glyphKey(currentTool.name || currentTool.label) === glyphKey(tool.name || tool.label));
   const node = row("tool", tool.glyph, tool.label, {
     ...(tool.description ? { title: tool.description } : {}),
     ...(isSelected ? { "data-selected": "true" } : {})
@@ -2103,6 +2794,7 @@ function toolRow(popup, tool) {
   };
 
   node.addEventListener("pointerdown", onSelect, { capture: true });
+  node.addEventListener("mousedown", onSelect, { capture: true });
   node.addEventListener("click", onSelect, { capture: true });
   return node;
 }
@@ -2127,12 +2819,43 @@ function moreRow(popup, rest) {
   };
   const open = () => {
     window.clearTimeout(timer);
-    // Willow lands the card's content edge on the parent's, which is 8px above
-    // the row that opened it. `offsetTop` is measured from the menu's padding
-    // edge, and an absolute `top` starts from the same place.
-    card.style.top = `${node.offsetTop - 8}px`;
     node.setAttribute("aria-expanded", "true");
     if (!card.isConnected) node.parentElement?.append(card);
+
+    // Willow default: land the card's content edge on the parent's, which is 8px
+    // above the row that opened it.
+    const defaultTop = node.offsetTop - 8;
+    let top = defaultTop;
+    const cardHeight = card.offsetHeight || (rest.length * 36 + 16);
+
+    // If opening downwards would hang below the parent menu, align its bottom
+    // edge with the parent menu's bottom edge.
+    if (top + cardHeight > popup.clientHeight) {
+      top = popup.clientHeight - cardHeight;
+    }
+
+    // Viewport collision detection: ensure the submenu never extends past the
+    // bottom of the window / screen.
+    const popupRect = popup.getBoundingClientRect();
+    const idealBottomInViewport = popupRect.top + top + cardHeight;
+    const maxBottom = window.innerHeight - 8;
+    if (idealBottomInViewport > maxBottom) {
+      top -= (idealBottomInViewport - maxBottom);
+    }
+
+    // Ensure it doesn't extend above the top of the viewport
+    const minTop = 8 - popupRect.top;
+    if (top < minTop) {
+      top = minTop;
+      card.style.maxHeight = `${window.innerHeight - 16}px`;
+      card.style.overflowY = "auto";
+    } else {
+      card.style.maxHeight = "";
+      card.style.overflowY = "";
+    }
+
+    card.style.top = `${top}px`;
+    card.style.transformOrigin = top < defaultTop ? "0 100%" : "0 0";
   };
   const closeSoon = () => {
     window.clearTimeout(timer);
@@ -2168,7 +2891,12 @@ function markContextRow(item) {
   const label = item.lastElementChild;
   const text = (label?.textContent ?? "").trim();
   if (!label || !text) return;
-  const glyph = CONTEXT_GLYPHS[text] ?? FALLBACK_GLYPH;
+  if (isSkillsName(text)) {
+    item.remove();
+    return;
+  }
+  const matchedKey = Object.keys(CONTEXT_GLYPHS).find((k) => k.toLowerCase() === text.toLowerCase());
+  const glyph = matchedKey ? CONTEXT_GLYPHS[matchedKey] : (glyphFor(text) || FALLBACK_GLYPH);
   label.setAttribute("data-gemini-label", "");
   item.setAttribute("data-gemini-row", "context");
   item.setAttribute("data-gemini-glyph", glyph);
@@ -2180,13 +2908,15 @@ function markContextRow(item) {
     const onBrowserSelect = (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const browserTool = { name: "browser", label: "Browser", glyph: "web" };
+      const browserTool = { name: "browser", label: "Browser", glyph: "chrome" };
       selectTool(browserTool);
       const popup = item.closest('[role="menu"]');
       if (popup) closeMenu(popup);
     };
     item.addEventListener("pointerdown", onBrowserSelect, { capture: true });
+    item.addEventListener("mousedown", onBrowserSelect, { capture: true });
     item.addEventListener("click", onBrowserSelect, { capture: true });
+    item.addEventListener("mouseup", onBrowserSelect, { capture: true });
   }
 }
 
@@ -2223,7 +2953,12 @@ function addTools(popup) {
   for (const label of popup.querySelectorAll('[data-gemini-row="context"] [data-gemini-label]')) {
     above.add((label.textContent ?? "").trim().toLowerCase());
   }
-  const offer = pool.filter((tool) => !above.has(tool.label.toLowerCase()) && !above.has(tool.name.toLowerCase()));
+  const offer = pool.filter((tool) => 
+    !above.has(tool.label.toLowerCase()) && 
+    !above.has(tool.name.toLowerCase()) &&
+    !isSkillsName(tool.name) &&
+    !isSkillsName(tool.label)
+  );
   if (offer.length === 0) return;
 
   const featured = [];
@@ -2245,10 +2980,21 @@ function addTools(popup) {
 function decorate(popup) {
   if (!isPlusMenu(popup)) return;
   popup.setAttribute("data-gemini-plus-menu", "");
-  for (const item of popup.querySelectorAll('[role="menuitem"]')) markContextRow(item);
+  popup.querySelector('#gemini-menu-item-pin')?.remove();
+  popup.querySelector('#gemini-menu-item-archive')?.remove();
+
+  for (const item of popup.querySelectorAll('[role="menuitem"]')) {
+    const text = (item.textContent ?? "").trim();
+    if (isSkillsName(text) || item.id === 'gemini-menu-item-pin' || item.id === 'gemini-menu-item-archive') {
+      item.remove();
+      continue;
+    }
+    markContextRow(item);
+  }
   addTools(popup);
-  if (selectedToolState) {
-    const activeKey = glyphKey(selectedToolState.name || selectedToolState.label);
+  const currentTool = getSelectedTool();
+  if (currentTool) {
+    const activeKey = glyphKey(currentTool.name || currentTool.label);
     for (const item of popup.querySelectorAll('[data-gemini-row="tool"]')) {
       const label = (item.querySelector('[data-gemini-label]')?.textContent ?? "").trim();
       if (glyphKey(label) === activeKey) {
@@ -3094,11 +3840,12 @@ function onComposerSubmitKey(event) {
   const target = event.target instanceof Element ? event.target : null;
   if (!target?.closest(COMPOSER_BOX) && !target?.closest(INPUT_BOX)) return;
 
-  if (selectedToolState) {
+  const currentTool = getSelectedTool();
+  if (currentTool) {
     const root = editorRoot();
     if (root) {
       const text = (root.textContent || "").trim();
-      const cmd = `/${selectedToolState.name}`;
+      const cmd = `/${currentTool.name}`;
       if (!text.startsWith(cmd)) {
         try {
           const range = document.createRange();
@@ -3113,6 +3860,9 @@ function onComposerSubmitKey(event) {
         } catch (_) {}
       }
     }
+    setTimeout(() => {
+      deselectTool();
+    }, 50);
     window.requestAnimationFrame(() => requestPromptExpansionCheck());
   }
 
@@ -3123,11 +3873,12 @@ function onComposerSubmitClick(event) {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
   if (target.closest(SEND_BUTTON) || target.closest('[data-testid="send-button"]')) {
-    if (selectedToolState) {
+    const currentTool = getSelectedTool();
+    if (currentTool) {
       const root = editorRoot();
       if (root) {
         const text = (root.textContent || "").trim();
-        const cmd = `/${selectedToolState.name}`;
+        const cmd = `/${currentTool.name}`;
         if (!text.startsWith(cmd)) {
           try {
             const range = document.createRange();
@@ -3142,6 +3893,9 @@ function onComposerSubmitClick(event) {
           } catch (_) {}
         }
       }
+      setTimeout(() => {
+        deselectTool();
+      }, 50);
       window.requestAnimationFrame(() => requestPromptExpansionCheck());
     }
 
@@ -3183,6 +3937,9 @@ function ensureSidebarUserCard(footer) {
     const initial = (name || "Y").charAt(0).toUpperCase();
 
     pill.title = `${name} (${email})`;
+    if (isSidebarCollapsed()) {
+      pill.setAttribute("data-tooltip-position", "right");
+    }
 
     const avatarWrap = document.createElement("div");
     avatarWrap.className = "gemini-user-avatar-wrap";
@@ -3229,6 +3986,11 @@ function ensureSidebarUserCard(footer) {
     footer.insertBefore(pill, settingsBtn);
   } else if (pill.nextElementSibling !== settingsBtn) {
     footer.insertBefore(pill, settingsBtn);
+  }
+  if (isSidebarCollapsed()) {
+    pill.setAttribute("data-tooltip-position", "right");
+  } else {
+    pill.removeAttribute("data-tooltip-position");
   }
 }
 
@@ -3309,8 +4071,10 @@ plugin.onDispose(() => {
   observers.clear();
   for (const added of document.querySelectorAll("[data-gemini-greeting]")) added.remove();
   for (const pill of document.querySelectorAll("#gemini-sidebar-user-pill")) pill.remove();
-  for (const chip of document.querySelectorAll("[data-gemini-tool-chip]")) chip.remove();
-  for (const box of document.querySelectorAll(INPUT_BOX)) box.removeAttribute("data-expanded");
+  if (!window.BetterGravity?.plugins?.isRunning?.("gemini-app")) {
+    for (const chip of document.querySelectorAll("[data-gemini-tool-chip]")) chip.remove();
+    for (const box of document.querySelectorAll(INPUT_BOX)) box.removeAttribute("data-expanded");
+  }
 });
 
 /* ---------------------------------------------------------------------------
@@ -3420,7 +4184,7 @@ function topChipLabel(trigger) {
  */
 function ensureTopChip(spec, host) {
   const trigger = document.querySelector(spec.trigger);
-  const existing = host.querySelector(`:scope > [data-gemini-top-chip="${spec.id}"]`);
+  const existing = host.querySelector(`:scope > [data-gemini-top-chip="${spec.id}"]:not([data-gemini-top-static])`);
   if (!trigger) {
     existing?.remove();
     return;
@@ -3555,16 +4319,16 @@ function openChipMenu(spec, chip) {
   trigger.click();
 }
 
-/** Both chips, against whatever is on screen now. */
+/** Both chips against whatever is on screen now. Hidden when inside a session. */
 function reconcileTopChips() {
   // React can rebuild a trigger while its menu is open, which closes the menu
   // without ever writing `aria-expanded` on the node that was parked.
   if (parkedTrigger && !parkedTrigger.trigger.isConnected) releaseParkedTrigger();
 
-  // No host until there is something to put in it: an empty one would still hold
-  // its 8px of leading space in the top bar.
-  const wanted = TOP_CHIPS.some((spec) => document.querySelector(spec.trigger));
-  const host = wanted ? topChipHost() : null;
+  // Top chips only appear on screens where live triggers exist (e.g. home screen),
+  // and do not appear when already inside a session.
+  const live = TOP_CHIPS.some((spec) => document.querySelector(spec.trigger));
+  const host = live ? topChipHost() : null;
   for (const stray of document.querySelectorAll("[data-gemini-top-chips]")) {
     if (stray !== host) stray.remove();
   }
@@ -3580,12 +4344,11 @@ function reconcileTopChips() {
  * expensive one, because it then allocates a record for every mutation of a
  * streaming response for the rest of the session.
  *
- * So departures are noticed by a tick instead, and the tick is free on the
- * screens that have no chips: `location.pathname` is a string, `topChipHostEl`
- * is a variable, and a conversation is neither the home route nor holding a
- * host, so the whole check is two reads. It only walks the document on the one
- * screen the chips live on, or on the first tick after leaving it, which is the
- * tick that takes them away.
+ * So departures are noticed by a tick instead. It costs a handful of selector
+ * matches, and it does that on every screen that shows the name, which since the
+ * name follows the app into a conversation is every screen. What it never does is
+ * grow with the page's own work: a reply arriving is thousands of mutations and
+ * none of them reach this.
  *
  * A timer rather than a frame callback because a minimised window never runs a
  * frame, and a plugin that stops reconciling while the window is hidden comes
@@ -3605,6 +4368,8 @@ plugin.onDispose(() => {
   releaseParkedTrigger();
   for (const host of document.querySelectorAll("[data-gemini-top-chips]")) host.remove();
   for (const row of document.querySelectorAll("[data-gemini-parked-row]")) row.removeAttribute("data-gemini-parked-row");
+  const s = document.getElementById("gemini-theme-dynamic-styles");
+  if (s) s.remove();
 });
 
 

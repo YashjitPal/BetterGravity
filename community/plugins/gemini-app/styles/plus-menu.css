@@ -57,6 +57,20 @@
   display: none !important;
 }
 
+/* Ensure Pin/Archive buttons and Skills never appear in the plus menu */
+[data-gemini-plus-menu] #gemini-menu-item-pin,
+[data-gemini-plus-menu] #gemini-menu-item-archive,
+[data-gemini-plus-menu] [role="menuitem"][id*="pin" i],
+[data-gemini-plus-menu] [role="menuitem"]:has([data-gemini-label*="Pin" i]),
+[data-gemini-plus-menu] [role="menuitem"]:has([data-gemini-label*="Unpin" i]),
+[data-gemini-plus-menu] [role="menuitem"]:has([data-gemini-label="Skills" i]),
+[data-gemini-plus-menu] [role="menuitem"]:has([data-gemini-label="Skill" i]),
+[data-gemini-plus-menu] [role="menuitem"]:has([data-gemini-label*="skill" i]),
+[data-gemini-plus-menu] [data-gemini-label="Skills" i],
+[data-gemini-plus-menu] [data-gemini-label="Skill" i] {
+  display: none !important;
+}
+
 /* --- 3b. The rows ------------------------------------------------------------
  * 36px tall, 8px of inline padding, 12px corners. Willow paints hover as a
  * layer of its own measured at `transition: all 0s` — Gemini snaps it in, so no
@@ -166,7 +180,8 @@
   text-transform: none;
   white-space: nowrap;
   direction: ltr;
-  font-feature-settings: "liga";
+  font-feature-settings: "liga", "rlig", "rclt" !important;
+  -webkit-font-feature-settings: "liga", "rlig", "rclt" !important;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -175,12 +190,23 @@
   content: attr(data-gemini-glyph);
 }
 
+/* Authentic Google Chrome icon for Browser (sized optically to 16px to match adjacent icon weights) */
+[data-gemini-plus-menu] [role="menuitem"][data-gemini-glyph="chrome"]::before {
+  content: "" !important;
+  width: 16px !important;
+  height: 16px !important;
+  left: 12px !important;
+  background-color: currentColor !important;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z'/%3E%3C/svg%3E") no-repeat center / contain !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-5.344 9.257c.206.01.413.016.621.016 6.627 0 12-5.373 12-12 0-1.54-.29-3.011-.818-4.364zM12 16.364a4.364 4.364 0 1 1 0-8.728 4.364 4.364 0 0 1 0 8.728Z'/%3E%3C/svg%3E") no-repeat center / contain !important;
+}
+
 /* The handful of glyphs Willow takes from Google Symbols rather than Luminous.
  * The two faces are not interchangeable and neither is a superset of the other,
  * so a row says which one it means. */
 [data-gemini-plus-menu] [role="menuitem"][data-gemini-glyph-family="google-symbols"]::before {
-  font-family: var(--gemini-symbols-font);
-  font-variation-settings: var(--gemini-symbols-axes-menu);
+  font-family: var(--gemini-symbols-font), "Google Symbols" !important;
+  font-variation-settings: var(--gemini-symbols-axes-menu) !important;
 }
 
 /* more_horiz is the one glyph Willow asks for with no variation settings at all. */

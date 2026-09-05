@@ -15,6 +15,7 @@ import {
   nativeButton,
   nativeNote,
   nativeNumberInput,
+  nativePalette,
   nativeSecretInput,
   nativeSelect,
   nativeSwitch,
@@ -337,6 +338,9 @@ function optionControl(
 
   if (setting.type === "boolean") return nativeSwitch(current === true, setting.label, () => commit(current !== true));
   if (setting.type === "select") return nativeSelect(setting.options, current, commit);
+  if (setting.type === "palette") {
+    return nativePalette(setting.options, typeof current === "string" ? current : setting.default, commit);
+  }
   if (setting.type === "number") {
     return nativeNumberInput(typeof current === "number" ? current : setting.default, setting.min, setting.max, commit);
   }

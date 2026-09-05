@@ -31,8 +31,33 @@
   background: #1f1f1f !important;
   border-right: none !important;
   width: 288px !important;
+  min-width: 0px !important;
   font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
   font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  position: relative !important;
+}
+
+/* Willow 52px collapsed rail width and layout anchoring */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] {
+  width: 52px !important;
+  min-width: 0px !important;
+  max-width: 52px !important;
+}
+
+div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) {
+  width: 52px !important;
+  min-width: 0px !important;
+  max-width: 52px !important;
+  left: 0px !important;
+  right: auto !important;
+}
+
+div.flex:has(> div > [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]),
+div[style*="transition: width"]:has(> div > [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) {
+  width: 52px !important;
+  min-width: 0px !important;
+  max-width: 52px !important;
+  visibility: visible !important;
 }
 
 /* Eliminate dark rectangular patch backgrounds on sticky/project header elements */
@@ -61,7 +86,7 @@ div.bg-border.flex-shrink-0.w-\[1px\] {
 div[style*="transition: width"],
 div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
 [role="navigation"][aria-label="Sidebar"],
-[role="navigation"][aria-label="Sidebar"] > div {
+[role="navigation"][aria-label="Sidebar"] > div:not(:last-child):not(:has(> [data-testid="settings-button"])) {
   transition: width 300ms cubic-bezier(0.2, 0, 0, 1),
               height 300ms cubic-bezier(0.2, 0, 0, 1),
               transform 300ms cubic-bezier(0.2, 0, 0, 1),
@@ -112,113 +137,149 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
  * the rows below sit at x=12, centre x=26, and a 22px mark at x=15 centres at
  * 26 as well, so the mark lines up with the icons under it the way Willow's
  * logo lines up with its own. */
-[role="navigation"][aria-label="Sidebar"] > div.shrink-0.flex.items-center:first-child::before {
-  content: "";
-  position: absolute;
-  left: 15px;
-  top: 15px;
-  width: 22px;
-  height: 22px;
-  background-image: var(--gemini-antigravity-mark);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain; /* object-contain, on a mark cropped to its own ink */
-  pointer-events: none;
-}
-
-/* The wordmark beside it — Willow's `Willow`, here the name of the app whose
- * window this is (Sidebar.tsx:1544-1554). Willow's span is `ml-1 mt-4 text-[17px]
- * leading-6 text-[#e6e6e6]` after the 32px logo button, which its own header
- * comment records as landing the box at (46, 16) against Gemini's measured
- * `.gemini-sidenav-text` — the same two numbers used here, carrying the mark's
- * 2px lift so the pair keeps Gemini's own 1px stagger: box top 14 against the
- * mark's 15. That puts the 24px box's centre on 61 in viewport terms, the line
- * the mark's ink and the toggle's glyph both centre on, with the cap band
- * (53.5..66.5) a pixel above it and the full ink a pixel below — Gemini ships
- * the same pixel, and at 17px with descenders in `g` and `y` it is what makes
- * the word read as level rather than low.
- *
- * Absolute like the mark: the strip is a flex row, so a pseudo-element left in
- * flow would become a flex item and push its contents along.
- *
- * The axes are the one place the wordmark departs from the sidebar's own
- * (Sidebar.css:69-73): `"ROND" 20, "slnt" 0, "wdth" 94, "wght" 470` rather than
- * the inherited ROND 0 / wdth 92. Willow pairs them with a 100ms fade; that is
- * not reproduced, because it exists to mark the moment the text appears on
- * expansion and this sidebar is never unmounted — the drawer slides a mounted
- * rail to x=-288 — so there is no such moment to mark. */
+/* Disable old pseudo-elements on header band */
+[role="navigation"][aria-label="Sidebar"] > div.shrink-0.flex.items-center:first-child::before,
 [role="navigation"][aria-label="Sidebar"] > div.shrink-0.flex.items-center:first-child::after {
-  content: "Antigravity";
-  position: absolute;
-  left: 46px;
-  top: 14px;
-  /* 46 → 222, stopping 12px short of the toggle at 234. The name is ~95px wide
-   * at these axes, so the ellipsis is a guard, not a working part. */
-  max-width: 176px;
-  height: 24px;
-  font-family: var(--gemini-font);
-  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 94, "wght" 470;
-  font-size: 17px;
-  font-weight: 470;
-  line-height: 24px;
-  color: var(--gemini-text, #e6e6e6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  user-select: none;
-  pointer-events: none;
-}
-
-/* The toggle's stock icon is a traced Material path in an 18px svg; Willow asks
- * the font for the same shape. Hide whatever the button nests inside its span
- * rather than the svg alone — the svg sits under an `absolute inset-0` wrapper,
- * so hiding the wrapper is what actually removes it. */
-[data-testid="sidebar-toggle"] > span:first-child > * {
+  content: none !important;
   display: none !important;
 }
 
-[data-testid="sidebar-toggle"] > span:first-child {
-  width: 24px !important;
-  height: 24px !important;
+/* Willow interactive top logo button */
+.gemini-logo-btn {
+  position: relative !important;
+  margin-left: 10px !important;
+  margin-top: 12px !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  outline: none !important;
+  transition: transform 200ms ease, background-color 150ms ease !important;
 }
 
-[data-testid="sidebar-toggle"] > span:first-child::before {
-  content: "side_nav";
-  font-family: var(--gemini-icon-font, "Luminous Symbols");
-  font-variation-settings: var(--gemini-icon-axes, "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24);
-  font-size: 24px;
-  line-height: 24px;
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  color: inherit;
-  letter-spacing: normal;
-  text-transform: none;
-  white-space: nowrap;
-  direction: ltr;
-  font-feature-settings: "liga";
-  -webkit-font-smoothing: antialiased;
+.gemini-logo-btn:active {
+  transform: scale(0.95) !important;
 }
 
-/* Closed, Willow's rail offers the mirrored glyph instead — its collapsed logo
- * button swaps to `side_nav_expand` on hover. */
-[data-testid="sidebar-toggle"][aria-expanded="false"] > span:first-child::before {
-  content: "side_nav_expand";
+.gemini-logo-wrap {
+  width: 22px !important;
+  height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 200ms ease, transform 200ms ease !important;
 }
 
-/* Open, the button crosses the rail to Willow's corner: 288 − 14 − 40 = 234,
- * `top-1.5` = 6, `h-10 w-10 rounded-full text-[#e3e3e3] hover:bg-white/[0.08]
- * transition-colors`. It stays in the floating toolbar, which is what keeps it
- * clickable over the sidebar and keeps this to one repositioned element. If the
- * host ever stops flipping aria-expanded the button simply keeps Antigravity's
- * own place, still drawing the Willow glyph. */
-[data-testid="sidebar-toggle"][aria-expanded="true"] {
+.gemini-logo-mark {
+  width: 22px !important;
+  height: 22px !important;
+  background-image: var(--gemini-antigravity-mark) !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: contain !important;
+  filter: var(--gemini-logo-filter, none) !important;
+  pointer-events: none !important;
+  transition: filter 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+.gemini-logo-expand-wrap {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 200ms ease, transform 200ms ease !important;
+  pointer-events: none !important;
+}
+
+.gemini-logo-expand-icon {
+  width: 20px !important;
+  height: 20px !important;
+  color: var(--gemini-body-text, #e3e3e3) !important;
+  display: block !important;
+}
+
+/* Collapsed logo hover state: logo scales down and fades out; expand icon scales up and fades in */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-logo-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-logo-btn:hover .gemini-logo-wrap {
+  opacity: 0 !important;
+  transform: scale(0.75) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-logo-btn:hover .gemini-logo-expand-wrap {
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+}
+
+/* Expanded logo: default cursor, expand icon hidden */
+[role="navigation"][aria-label="Sidebar"]:not([data-collapsed="true"]) .gemini-logo-btn {
+  cursor: default !important;
+}
+[role="navigation"][aria-label="Sidebar"]:not([data-collapsed="true"]) .gemini-logo-btn:hover {
+  background-color: transparent !important;
+}
+[role="navigation"][aria-label="Sidebar"]:not([data-collapsed="true"]) .gemini-logo-expand-wrap {
+  display: none !important;
+}
+
+/* Staged wordmark */
+.willow-sidenav-text {
+  margin-left: 4px !important;
+  margin-top: 16px !important;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 94, "wght" 470 !important;
+  font-size: 17px !important;
+  font-weight: 470 !important;
+  line-height: 24px !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  user-select: none !important;
+  opacity: 0;
+  animation: willow-sidenav-text-fade-in 100ms ease 100ms forwards !important;
+}
+
+@keyframes willow-sidenav-text-fade-in {
+  0% {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes willow-sidenav-show-close-button {
+  to {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .willow-sidenav-text {
+  display: none !important;
+}
+
+/* Sidebar toggle when open: placed in top-right corner of the sidebar */
+button[data-testid="sidebar-toggle"][aria-expanded="true"] {
   position: absolute !important;
   left: 234px !important;
   top: 6px !important;
@@ -228,11 +289,19 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
   color: var(--gemini-body-text, #e3e3e3) !important;
   background-color: transparent !important;
   transition: background-color 150ms ease !important;
+  opacity: 0;
+  visibility: hidden;
+  animation: willow-sidenav-show-close-button 50ms linear 250ms forwards !important;
 }
 
-[data-testid="sidebar-toggle"][aria-expanded="true"]:hover {
+button[data-testid="sidebar-toggle"][aria-expanded="true"]:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
   color: var(--gemini-body-text, #e3e3e3) !important;
+}
+
+/* Sidebar toggle when closed: hidden in favor of the rail logo expand button */
+button[data-testid="sidebar-toggle"][aria-expanded="false"] {
+  display: none !important;
 }
 
 /* Antigravity keeps Go Back / Go Forward in this same floating toolbar, which is
@@ -297,6 +366,13 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
   height: 32px;
   margin: 4px 0 12px;
   padding: 0 6px;
+  transition: padding 300ms cubic-bezier(0.2, 0, 0, 1), margin 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch {
+  padding: 0 10px !important;
+  margin: 4px 0 12px !important;
+  width: 52px !important;
 }
 
 #gemini-experience-switch [data-gemini-experience-track] {
@@ -309,6 +385,30 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
   padding: 2px;
   border-radius: 9999px;
   background-color: var(--gemini-switch-track, #171717);
+  transition: background-color 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch [data-gemini-experience-track] {
+  background-color: transparent !important;
+  padding: 0 !important;
+  justify-content: center !important;
+}
+
+.gemini-experience-tabs-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  transition: transform 300ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms cubic-bezier(0, 0, 0, 1);
+  transform-origin: left center;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-experience-tabs-wrap {
+  opacity: 0 !important;
+  transform: scaleX(0.2) !important;
+  pointer-events: none !important;
 }
 
 /* Gemini animates the slider's INSET, not a transform, and over 400ms on an
@@ -322,8 +422,73 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
   width: calc(50% - 2px);
   border-radius: 9999px;
   background-color: var(--gemini-switch-slider, #1f1f1f);
-  transition: left 400ms cubic-bezier(0.25, 1, 0.5, 1), width 400ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition: left 400ms cubic-bezier(0.25, 1, 0.5, 1), width 400ms cubic-bezier(0.25, 1, 0.5, 1), opacity 150ms ease;
   pointer-events: none;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch [data-gemini-experience-slider] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Willow collapsed compact experience capsule button */
+.gemini-experience-collapsed-btn {
+  position: absolute !important;
+  left: 10px !important;
+  top: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--gemini-body-text, #e6e6e6) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  outline: none !important;
+  opacity: 0 !important;
+  transform: scale(0.72) !important;
+  pointer-events: none !important;
+  will-change: transform !important;
+  transition: transform 300ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms cubic-bezier(0, 0, 0, 1), background-color 150ms ease !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-experience-collapsed-btn {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  pointer-events: auto !important;
+  transition: transform 300ms cubic-bezier(0.2, 0, 0, 1), opacity 300ms cubic-bezier(0.2, 0, 0, 1), background-color 150ms ease !important;
+}
+
+.gemini-experience-collapsed-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.gemini-experience-collapsed-btn:active {
+  transform: scale(0.95) !important;
+}
+
+.gemini-experience-collapsed-icon {
+  width: 14px !important;
+  height: 22px !important;
+  display: block !important;
+  color: var(--gemini-body-text, #e6e6e6) !important;
+  transition: transform 150ms ease !important;
+}
+
+#gemini-experience-switch[data-gemini-experience="work"] .gemini-experience-collapsed-icon {
+  transform: rotate(180deg) !important;
+}
+
+#gemini-experience-switch[data-gemini-experience="chat"] .gemini-experience-collapsed-icon {
+  transform: rotate(0deg) !important;
 }
 
 #gemini-experience-switch[data-gemini-experience="work"] [data-gemini-experience-slider] {
@@ -621,6 +786,62 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
   text-align: start !important;
 }
 
+/* Collapsed nav rows (32x32 circular button centered in 52px rail) */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  margin: 2px auto 2px auto !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] span:last-child,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] span:last-child,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] span:last-child,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-shortcut]::after {
+  opacity: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  transition: opacity 150ms ease, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item .icon-box,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] > span:first-child {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item .icon-box svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
 /* ---------------------------------------------------------------------------
  * The current destination (Willow's `active`, SidebarPrimitives.tsx:51-85)
  *
@@ -776,7 +997,7 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
   min-width: 0 !important;
   letter-spacing: normal !important;
   text-align: start !important;
-  transition: opacity 200ms linear, color 150ms ease !important;
+  transition: opacity 200ms linear, max-width 300ms cubic-bezier(0.2, 0, 0, 1), color 150ms ease !important;
 }
 
 /* The current row's label and glyph. Willow's active label is `font-medium
@@ -1816,12 +2037,256 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   text-overflow: ellipsis !important;
 }
 
-[role="navigation"][aria-label="Sidebar"][data-state="collapsed"] #gemini-sidebar-user-pill,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill {
+/* Collapsed scrollable conversation list */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] {
+  width: 52px !important;
+  max-width: 52px !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  overflow-x: hidden !important;
+}
+
+/* Hide section headers when collapsed */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] h2,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] h3,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] .text-xs.font-medium,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] button.flex.w-full.items-center:not([class*="group/headerbtn"]):not([data-testid="conversation-row-sidebar"]) {
   display: none !important;
 }
 
+/* Collapsed project headers */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="group/header"] {
+  width: 52px !important;
+  padding: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+}
 
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"] {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  margin: 2px auto !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  position: relative !important;
+  outline: none !important;
+  background-color: transparent !important;
+  transition: background-color 150ms ease !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]::before {
+  content: "" !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: inline-block !important;
+  background-color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z'/></svg>") no-repeat center / contain !important;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z'/></svg>") no-repeat center / contain !important;
+  transition: background-color 150ms ease, transform 200ms ease !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]:hover::before {
+  background-color: var(--gemini-text, #e6e6e6) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]:active::before {
+  transform: scale(0.9) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"] > * {
+  display: none !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="group/header"] button:not([class*="group/headerbtn"]) {
+  display: none !important;
+}
+
+/* Collapsed conversation rows */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"] {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  margin: 2px auto !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  cursor: pointer !important;
+  position: relative !important;
+  transition: background-color 150ms ease !important;
+}
+
+/* Ensure link covers the entire 32x32 button for direct clicks */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"] > a {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 9999px !important;
+  z-index: 5 !important;
+  pointer-events: auto !important;
+  display: block !important;
+  opacity: 0 !important;
+}
+
+/* Hide inner details/text and kebab buttons */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"] > div {
+  display: none !important;
+}
+
+/* Default unpinned conversation row icon: chat bubble vector mask */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]::before {
+  content: "" !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: inline-block !important;
+  background-color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H240L80-80Zm126-240h594v-480H160v525l46-45Zm-46 0v-480 480Z'/></svg>") no-repeat center / contain !important;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H240L80-80Zm126-240h594v-480H160v525l46-45Zm-46 0v-480 480Z'/></svg>") no-repeat center / contain !important;
+  pointer-events: none !important;
+  transition: background-color 150ms ease, transform 200ms ease !important;
+}
+
+/* Pinned conversation row icon: star */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"][data-pinned="true"]::before,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:has([data-testid="conversation-pin-button"][aria-label="Unpin conversation"])::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-355Z'/></svg>") !important;
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-355Z'/></svg>") !important;
+}
+
+/* Selected conversation row in collapsed rail */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"][data-selected="true"],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:has(a[aria-current="page"]) {
+  background-color: #171717 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"][data-selected="true"]::before,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:has(a[aria-current="page"])::before {
+  background-color: #ffffff !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:hover {
+  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:hover::before {
+  background-color: #ffffff !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:active::before {
+  transform: scale(0.9) !important;
+}
+
+/* Collapsed "See all" / "All conversations" */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] {
+  padding-left: 0 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] > button {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  margin: 2px auto !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] > button::before {
+  content: "" !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: inline-block !important;
+  background-color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M240-400q-33 0-56.5-23.5T160-480q0-33 23.5-56.5T240-560q33 0 56.5 23.5T320-480q0 33-23.5 56.5T240-400Zm240 0q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm240 0q-33 0-56.5-23.5T640-480q0-33 23.5-56.5T720-560q33 0 56.5 23.5T800-480q0 33-23.5 56.5T720-400Z'/></svg>") no-repeat center / contain !important;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M240-400q-33 0-56.5-23.5T160-480q0-33 23.5-56.5T240-560q33 0 56.5 23.5T320-480q0 33-23.5 56.5T240-400Zm240 0q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm240 0q-33 0-56.5-23.5T640-480q0-33 23.5-56.5T720-560q33 0 56.5 23.5T800-480q0 33-23.5 56.5T720-400Z'/></svg>") no-repeat center / contain !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] > button::after {
+  display: none !important;
+}
+
+/* Collapsed footer container: 92px height, column-reverse (gear on top, avatar below) */
+[role="navigation"][aria-label="Sidebar"] > div:has(> [data-testid="settings-button"]),
+[role="navigation"][aria-label="Sidebar"] > div:last-child {
+  transition: none !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div:has(> [data-testid="settings-button"]),
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div:last-child {
+  height: 92px !important;
+  min-height: 92px !important;
+  max-height: 92px !important;
+  flex-direction: column-reverse !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  padding: 6px 10px !important;
+  box-sizing: border-box !important;
+  transition: none !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="settings-button"] {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  margin: 0 auto !important;
+  align-self: center !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  align-self: center !important;
+  justify-content: center !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-text {
+  display: none !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-avatar-wrap {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  margin: 0 !important;
+}
+
+/* Settings button styling */
 [data-testid="settings-button"] {
   width: 32px !important;
   height: 32px !important;
@@ -1853,11 +2318,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   display: none !important;
 }
 
-/* Hide host SVG */
-[data-testid="settings-button"] > span:first-child > svg {
-  display: none !important;
-}
-
+/* Native Settings SVG styling */
 [data-testid="settings-button"] > span:first-child {
   width: 20px !important;
   height: 20px !important;
@@ -1866,25 +2327,12 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   justify-content: center !important;
 }
 
-/* Replace icon with Luminous Symbols "settings" gear */
-[data-testid="settings-button"] > span:first-child::before {
-  content: "settings";
-  font-family: var(--gemini-icon-font, "Luminous Symbols");
-  font-variation-settings: var(--gemini-icon-axes-menu, "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
-  font-size: 20px;
-  line-height: 20px;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  color: inherit;
-  letter-spacing: normal;
-  text-transform: none;
-  white-space: nowrap;
-  direction: ltr;
-  font-feature-settings: "liga";
-  -webkit-font-smoothing: antialiased;
+[data-testid="settings-button"] > span:first-child > svg {
+  width: 20px !important;
+  height: 20px !important;
+  color: inherit !important;
+  fill: currentColor !important;
+  display: block !important;
 }
+
 

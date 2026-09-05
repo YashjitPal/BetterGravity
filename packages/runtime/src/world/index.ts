@@ -124,16 +124,21 @@ async function boot(bridge: RuntimeBridge, initial: RuntimeState): Promise<void>
   apply(initial);
 }
 
-// Before anything else, and before Antigravity's own scripts run. Plugins that
-// wrap page globals are only useful if the wrappers are in place first.
-installNetworkHooks();
-
-const bridge = resolveBridge();
-if (!bridge) {
-  console.error("[BetterGravity] The runtime bridge is unavailable; plugins will not load.");
+if ((globalThis as any).__BETTERGRAVITY_BOOTED__) {
+  // Runtime has already booted in this document.
 } else {
-  void bridge
-    .getState()
-    .then((state) => boot(bridge, state))
-    .catch((error: unknown) => bridge.log(`could not start the page runtime: ${String(error)}`));
+  (globalThis as any).__BETTERGRAVITY_BOOTED__ = true;
+  // Before anything else, and before Antigravity's own scripts run. Plugins that
+  // wrap page globals are only useful if the wrappers are in place first.
+  installNetworkHooks();
+
+  const bridge = resolveBridge();
+  if (!bridge) {
+    console.error("[BetterGravity] The runtime bridge is unavailable; plugins will not load.");
+  } else {
+    void bridge
+      .getState()
+      .then((state) => boot(bridge, state))
+      .catch((error: unknown) => bridge.log(`could not start the page runtime: ${String(error)}`));
+  }
 }

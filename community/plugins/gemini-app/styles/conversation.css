@@ -97,6 +97,149 @@
   box-shadow: none !important;
 }
 
+/* --- 3b-1. Sent message attachments (Willow style) ----------------------------
+ * Willow renders sent message attachments directly above the user bubble,
+ * right-aligned in a horizontal strip with 8px gap between tiles and 8px margin
+ * beneath the strip. Tiles are 112px x 112px, 20px radius, rgba(255,255,255,0.12)
+ * surface, cover-cropped edge-to-edge images, with no close button.
+ */
+[data-testid="user-input-step"] > [data-testid="lifted-context-menu-trigger"]:has(img[alt*="User uploaded media" i]),
+[data-testid="user-input-step"] > [data-testid="lifted-context-menu-trigger"]:has([data-no-scroll-jump] button > img) {
+  width: 100% !important;
+  max-width: 516px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+}
+
+[data-testid="lifted-context-menu-trigger"]:has(img[alt*="User uploaded media" i]) > .bg-card,
+[data-testid="lifted-context-menu-trigger"]:has([data-no-scroll-jump] button > img) > .bg-card {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  width: 100% !important;
+  overflow: visible !important;
+  gap: 0 !important;
+}
+
+[data-testid="lifted-context-menu-trigger"]:has(img[alt*="User uploaded media" i]) > .bg-card > .flex-1,
+[data-testid="lifted-context-menu-trigger"]:has([data-no-scroll-jump] button > img) > .bg-card > .flex-1 {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 0 !important;
+}
+
+/* Sent message attachment strip */
+[data-testid="user-input-step"] [data-no-scroll-jump].flex:has(> button > img),
+[data-testid="user-input-step"] .flex.flex-wrap:has(> button > img) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  margin-bottom: 8px !important;
+  width: 100% !important;
+  max-width: 516px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+[data-testid="user-input-step"] [data-no-scroll-jump].flex:has(> button > img)::-webkit-scrollbar,
+[data-testid="user-input-step"] .flex.flex-wrap:has(> button > img)::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* If no text follows attachments, remove bottom margin */
+[data-testid="user-input-step"] [data-no-scroll-jump].flex:has(> button > img):last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Sent message attachment tile */
+[data-testid="user-input-step"] [data-no-scroll-jump] button:has(> img[alt*="User uploaded media" i]),
+[data-testid="user-input-step"] button:has(> img.h-16.w-16) {
+  position: relative !important;
+  width: 112px !important;
+  height: 112px !important;
+  min-width: 112px !important;
+  min-height: 112px !important;
+  max-width: 112px !important;
+  max-height: 112px !important;
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: none !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+  transition: opacity 150ms ease !important;
+}
+
+[data-testid="user-input-step"] [data-no-scroll-jump] button:has(> img[alt*="User uploaded media" i]):hover,
+[data-testid="user-input-step"] button:has(> img.h-16.w-16):hover {
+  opacity: 0.9 !important;
+}
+
+/* Sent message attachment image */
+[data-testid="user-input-step"] [data-no-scroll-jump] button > img[alt*="User uploaded media" i],
+[data-testid="user-input-step"] button > img.h-16.w-16 {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* Sent message text bubble when attachments are present */
+[data-testid="lifted-context-menu-trigger"]:has(img[alt*="User uploaded media" i]) [data-quotable="true"],
+[data-testid="lifted-context-menu-trigger"]:has([data-no-scroll-jump] button > img) [data-quotable="true"] {
+  background: var(--gemini-bubble-bg) !important;
+  border-radius: 40px !important;
+  padding: 20px 28px !important;
+  width: fit-content !important;
+  max-width: 508px !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes);
+  font-size: 17px !important;
+  line-height: 24px !important;
+  color: var(--gemini-body-text) !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+[data-testid="lifted-context-menu-trigger"] [data-quotable="true"]:empty {
+  display: none !important;
+}
+
+/* Generic documents (PDFs, text files, etc.) matching 112x112 20px standard */
+[data-testid="user-input-step"] div[data-no-scroll-jump="true"].flex.h-16.items-center.rounded-md.border.bg-muted {
+  width: 112px !important;
+  height: 112px !important;
+  min-width: 112px !important;
+  min-height: 112px !important;
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: none !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
 /* --- 3c. The reply ------------------------------------------------------------- */
 [data-testid="planner-response-text"] {
   padding: 0 !important;
@@ -948,16 +1091,22 @@
  * business. `no-drag` twice over — the attribute Antigravity's own triggers carry
  * and the property behind it — because the bar is a window drag region, and a
  * chip inside one swallows the click that should open its menu. */
+/* The slot holding the top chips in the top bar. When the sidebar collapses,
+ * Antigravity defaults to 100px padding for macOS buttons, which leaves a huge
+ * gap on Windows. By setting padding-left to max(8px, 40px - var(--sidebar-width)),
+ * the relative distance between the left sidebar / toggle button and the project
+ * chips remains perfectly consistent when expanded (8px + 8px = 16px to chip)
+ * or contracted (40px - 32px + 8px = 16px to chip). */
+div:has(> [data-gemini-top-chips]) {
+  padding-left: max(8px, 40px - var(--sidebar-width)) !important;
+  transition: padding-left 500ms var(--ease-expo-out) !important;
+}
+
 [data-gemini-top-chips] {
   display: flex;
   align-items: center;
   gap: 4px; /* Willow's `ml-1` between the trigger and the button beside it. */
   min-width: 0;
-  /* Willow's `left-4` is 16px in from the pane's left edge (TopDropdown.tsx:31),
-   * and with the dropdown's own `px-3` that puts its text 28px in. The slot the
-   * host is appended to already begins 8px into the pane, so 8px here is what
-   * lands the chip's edge on 16 and its text on 28 — measured at 304 and 316
-   * against a pane edge of 288. */
   padding-left: 8px;
   -webkit-app-region: no-drag;
 }
@@ -1035,6 +1184,16 @@
 
 [data-gemini-top-chip="workspace"][data-gemini-open] > svg:nth-of-type(2) {
   transform: rotate(180deg);
+}
+
+/* Inside a conversation Antigravity mounts no project trigger, so the name there
+ * is read off the breadcrumb and written into a plain span instead. It reads as
+ * Willow's name reads — same 18px, same place — but it is only a word: there is
+ * nothing on that screen for a press to open, so it takes neither the pointer nor
+ * the hover brightening that promises a menu. */
+[data-gemini-top-chip][data-gemini-top-static] {
+  cursor: default;
+  pointer-events: none;
 }
 
 /* --- local or git (TopDropdown.tsx:57-64) -------------------------------------

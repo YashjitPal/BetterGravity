@@ -75,6 +75,7 @@
    * path survive into a stylesheet that reaches the page as inline text with no
    * base URL of its own. */
   --gemini-antigravity-mark: url("../assets/antigravity-mark.png");
+  --gemini-logo-filter: none;
   --gemini-docs-logo: url("../assets/docs-logo.png");
 
   /* The Chat/Work switch under the header band (Sidebar.tsx:1581-1704, which is
@@ -123,21 +124,18 @@
   --gemini-composer-placeholder: #bdc1c6;
   --gemini-control-hover: #333537;
   --gemini-mic-hover: rgba(255, 255, 255, 0.08);
-  /* Willow's default workspace colour is Willow Green; its send button follows. */
-  --gemini-send-bg: #127352;
-  --gemini-send-bg-hover: #0d5c41;
+  /* Workspace color default is Blue; its send button follows. */
+  --gemini-send-bg: #1b3f95;
+  --gemini-send-bg-hover: #153277;
   --gemini-stop-bg: #171717;
   --gemini-stop-bg-hover: #282828;
   --gemini-control-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
 
-  /* The glow behind the prompt box on the home screen (home-glow.css). Willow
-   * derives one of these per workspace colour and ships the green
-   * (features/media/src/home-glow.ts: `DEFAULT_GLOW_ACCENT`, Tailwind
-   * emerald-900), which is the same Willow Green the send button above is drawn
-   * from — so the glow and the button agree, as they do in Willow. The blue
-   * Gemini itself glows with is that file's `GEMINI_GLOW_ACCENT_HEX`, #14204f,
-   * i.e. `rgb(20, 32, 79)` here. */
-  --gemini-home-glow-accent: rgb(6, 78, 59);
+  /* The glow behind the prompt box on the home screen (home-glow.css).
+   * Default is Blue: rgb(20, 32, 79). */
+  --gemini-home-glow-accent: rgb(20, 32, 79);
+  --gemini-chip-bg: #192967;
+  --gemini-selection-bg: rgba(168, 199, 250, 0.35);
 
   /* The conversation (features/chat/src/ChatView.tsx, UserMessageBubble.tsx,
    * platform/ui/src/streaming-markdown-styles.ts). */
