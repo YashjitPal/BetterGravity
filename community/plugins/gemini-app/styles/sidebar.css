@@ -30,34 +30,42 @@
 [role="navigation"][aria-label="Sidebar"] {
   background: #1f1f1f !important;
   border-right: none !important;
-  width: 288px !important;
+  width: 100% !important;
   min-width: 0px !important;
   font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
   font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
   position: relative !important;
+  overflow: hidden !important;
 }
 
-/* Willow 52px collapsed rail width and layout anchoring */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] {
-  width: 52px !important;
+/* Willow exact sidebar widths (expanded = 288px, collapsed = 52px) and motion curve */
+div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
+div[style*="transition: width"]:has(> div > [role="navigation"][aria-label="Sidebar"]) {
+  width: 288px !important;
   min-width: 0px !important;
-  max-width: 52px !important;
-}
-
-div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) {
-  width: 52px !important;
-  min-width: 0px !important;
-  max-width: 52px !important;
-  left: 0px !important;
-  right: auto !important;
+  max-width: none !important;
+  transition: width 300ms cubic-bezier(0.2, 0, 0, 1),
+              background-color 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  will-change: width, background-color;
+  overflow: hidden !important;
 }
 
 div.flex:has(> div > [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]),
 div[style*="transition: width"]:has(> div > [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) {
   width: 52px !important;
   min-width: 0px !important;
-  max-width: 52px !important;
+  max-width: none !important;
   visibility: visible !important;
+}
+
+div:has(> [role="navigation"][aria-label="Sidebar"]),
+[role="navigation"][aria-label="Sidebar"] {
+  width: 100% !important;
+  min-width: 0px !important;
+  max-width: none !important;
+  overflow: hidden !important;
+  left: 0px !important;
+  right: auto !important;
 }
 
 /* Eliminate dark rectangular patch backgrounds on sticky/project header elements */
@@ -78,21 +86,6 @@ div.bg-border.flex-shrink-0.w-\[1px\] {
   display: none !important;
   width: 0 !important;
   background: transparent !important;
-}
-
-/* ---------------------------------------------------------------------------
- * Collapsing / Expanding motion (Willow's GEMINI_SIDEBAR_POSITION_MOTION)
- * ------------------------------------------------------------------------- */
-div[style*="transition: width"],
-div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
-[role="navigation"][aria-label="Sidebar"],
-[role="navigation"][aria-label="Sidebar"] > div:not(:last-child):not(:has(> [data-testid="settings-button"])) {
-  transition: width 300ms cubic-bezier(0.2, 0, 0, 1),
-              height 300ms cubic-bezier(0.2, 0, 0, 1),
-              transform 300ms cubic-bezier(0.2, 0, 0, 1),
-              opacity 300ms cubic-bezier(0.2, 0, 0, 1),
-              background-color 300ms cubic-bezier(0.2, 0, 0, 1) !important;
-  will-change: width, background-color;
 }
 
 /* ---------------------------------------------------------------------------
@@ -208,10 +201,23 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
 }
 
 .gemini-logo-expand-icon {
-  width: 20px !important;
-  height: 20px !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", "Material Symbols Rounded", sans-serif !important;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24, "ROND" 100 !important;
+  font-size: 24px !important;
+  line-height: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   color: var(--gemini-body-text, #e3e3e3) !important;
-  display: block !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  direction: ltr !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  user-select: none !important;
 }
 
 /* Collapsed logo hover state: logo scales down and fades out; expand icon scales up and fades in */
@@ -274,12 +280,95 @@ div.flex:has(> div > [role="navigation"][aria-label="Sidebar"]),
   }
 }
 
+.willow-sidenav-text {
+  margin-left: 6px !important;
+  margin-top: 12px !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif) !important;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 94, "wght" 470 !important;
+  font-size: 17px !important;
+  font-weight: 470 !important;
+  line-height: 24px !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  max-width: 176px !important;
+  opacity: 1 !important;
+  display: inline-block !important;
+  transition: opacity 150ms ease 100ms, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .willow-sidenav-text {
+  opacity: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  display: inline-block !important;
+  transition: opacity 80ms ease !important;
+}
+
+/* The toggle's stock icon is a traced Material path in an 18px svg; Willow asks
+ * the font for the same shape. Hide whatever the button nests inside its span
+ * rather than the svg alone — the svg sits under an `absolute inset-0` wrapper,
+ * so hiding the wrapper is what actually removes it. */
+[data-testid="sidebar-toggle"] > span:first-child > * {
   display: none !important;
 }
 
-/* Sidebar toggle when open: placed in top-right corner of the sidebar */
-button[data-testid="sidebar-toggle"][aria-expanded="true"] {
+[data-testid="sidebar-toggle"] > span:first-child {
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+[data-testid="sidebar-toggle"] > span:first-child::before {
+  content: "side_nav" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", "Material Symbols Rounded", sans-serif !important;
+  font-variation-settings: var(--gemini-icon-axes, "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24) !important;
+  font-size: 24px !important;
+  line-height: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  color: inherit !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  direction: ltr !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  transition: transform 200ms ease !important;
+}
+
+[data-testid="sidebar-toggle"]:active > span:first-child::before {
+  transform: scale(0.9) !important;
+}
+
+/* Closed, Willow's rail hides the close toggle completely: the collapsed logo
+ * button assumes the expand role with `side_nav_expand` on hover. */
+[data-testid="sidebar-toggle"][aria-expanded="false"],
+body:has([role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
+html:has([role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] ~ * [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
+div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  animation: none !important;
+}
+
+/* Open, the button crosses the rail to Willow's corner: 288 − 14 − 40 = 234,
+ * `top-1.5` = 6, `h-10 w-10 rounded-full text-[#e3e3e3] hover:bg-white/[0.08]`.
+ * Willow's staged reveal: lands 50ms before the 300ms width settles (250ms delay)
+ * so the button never paints over a rail that is still narrower than itself. */
+[data-testid="sidebar-toggle"] {
   position: absolute !important;
   left: 234px !important;
   top: 6px !important;
@@ -288,20 +377,23 @@ button[data-testid="sidebar-toggle"][aria-expanded="true"] {
   border-radius: 9999px !important;
   color: var(--gemini-body-text, #e3e3e3) !important;
   background-color: transparent !important;
-  transition: background-color 150ms ease !important;
   opacity: 0;
   visibility: hidden;
   animation: willow-sidenav-show-close-button 50ms linear 250ms forwards !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border: none !important;
+  cursor: pointer !important;
+  outline: none !important;
+  z-index: 50 !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
 }
 
-button[data-testid="sidebar-toggle"][aria-expanded="true"]:hover {
+[data-testid="sidebar-toggle"]:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
   color: var(--gemini-body-text, #e3e3e3) !important;
-}
-
-/* Sidebar toggle when closed: hidden in favor of the rail logo expand button */
-button[data-testid="sidebar-toggle"][aria-expanded="false"] {
-  display: none !important;
 }
 
 /* Antigravity keeps Go Back / Go Forward in this same floating toolbar, which is
@@ -362,17 +454,19 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
   position: relative;
   flex-shrink: 0;
   box-sizing: border-box;
-  width: 100%;
+  width: 100% !important;
   height: 32px;
   margin: 4px 0 12px;
-  padding: 0 6px;
-  transition: padding 300ms cubic-bezier(0.2, 0, 0, 1), margin 300ms cubic-bezier(0.2, 0, 0, 1);
+  padding: 0 10px !important;
+  overflow: hidden;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch {
   padding: 0 10px !important;
   margin: 4px 0 12px !important;
-  width: 52px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
 }
 
 #gemini-experience-switch [data-gemini-experience-track] {
@@ -391,7 +485,7 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch [data-gemini-experience-track] {
   background-color: transparent !important;
   padding: 0 !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
 }
 
 .gemini-experience-tabs-wrap {
@@ -434,7 +528,7 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
 /* Willow collapsed compact experience capsule button */
 .gemini-experience-collapsed-btn {
   position: absolute !important;
-  left: 10px !important;
+  left: 0px !important;
   top: 0 !important;
   width: 32px !important;
   height: 32px !important;
@@ -476,10 +570,11 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
 }
 
 .gemini-experience-collapsed-icon {
-  width: 14px !important;
-  height: 22px !important;
+  width: 20px !important;
+  height: 13px !important;
   display: block !important;
   color: var(--gemini-body-text, #e6e6e6) !important;
+  transform-origin: center center !important;
   transition: transform 150ms ease !important;
 }
 
@@ -607,20 +702,30 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
  * Willow Horizontal Rail Inset & Item Spreading (px-1.5 = 6px rail inset)
  * ------------------------------------------------------------------------- */
 [role="navigation"][aria-label="Sidebar"] > .px-2,
-[role="navigation"][aria-label="Sidebar"] > div.px-2 {
-  padding-left: 6px !important;
-  padding-right: 6px !important;
+[role="navigation"][aria-label="Sidebar"] > div.px-2,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > .px-2,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div.px-2 {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"] {
-  padding-left: 6px !important;
+  padding-left: 10px !important;
   padding-right: 0px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* Top navigation buttons container: space-y-0 (0px gap between items matching Willow) */
 [role="navigation"][aria-label="Sidebar"] > .px-2 > div.flex-col,
-[role="navigation"][aria-label="Sidebar"] > div.px-2 > div.flex-col {
+[role="navigation"][aria-label="Sidebar"] > div.px-2 > div.flex-col,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > .px-2 > div.flex-col,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div.px-2 > div.flex-col {
+  width: 100% !important;
   gap: 0px !important;
+  align-items: flex-start !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -705,9 +810,15 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
  * end where every conversation row and heading below them ends, 6px short of the
  * two pinned rows above — which is the same step Willow has between its fixed
  * block and its scroller, and for the same reason. */
-[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav {
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scroll-nav {
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
   display: flex !important;
   flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 0px !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -760,6 +871,9 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"],
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"],
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"],
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button,
+[role="navigation"][aria-label="Sidebar"] #gemini-new-project-button,
+[role="navigation"][aria-label="Sidebar"] #gemini-display-options-button,
 [role="navigation"][aria-label="Sidebar"] .gemini-nav-item {
   height: 32px !important;
   min-height: 32px !important;
@@ -767,18 +881,19 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
   border: none !important;
   background-color: transparent !important;
   color: var(--gemini-text, #e6e6e6) !important;
-  padding: 0 6px !important;
-  gap: 6px !important;
+  padding: 0 !important;
+  gap: 0 !important;
   width: 100% !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+  margin: 2px 0 !important;
   box-sizing: border-box !important;
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
   cursor: pointer !important;
   outline: none !important;
-  transition: background-color 150ms ease, color 150ms ease !important;
+  transition: width 300ms cubic-bezier(0.2, 0, 0, 1),
+              background-color 150ms ease,
+              color 150ms ease !important;
   font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
   font-variation-settings: var(--gemini-font-axes, "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400) !important;
   overflow: hidden !important;
@@ -786,10 +901,13 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
   text-align: start !important;
 }
 
-/* Collapsed nav rows (32x32 circular button centered in 52px rail) */
+/* Collapsed nav rows: 32x32 circular button centered in 52px rail (container padding 10px, button 32px, centroid = 26px) */
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"],
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"],
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scheduled-tasks-button,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-new-project-button,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-display-options-button,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item {
   width: 32px !important;
   height: 32px !important;
@@ -798,45 +916,100 @@ button[data-testid="sidebar-toggle"][aria-expanded="false"] {
   min-height: 32px !important;
   max-height: 32px !important;
   padding: 0 !important;
-  margin: 2px auto 2px auto !important;
+  margin: 2px 0 !important;
   border-radius: 9999px !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
   gap: 0 !important;
   overflow: visible !important;
   box-sizing: border-box !important;
 }
 
+/* Nav row labels smooth fade in expanded & collapsed */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button span.truncate,
+[role="navigation"][aria-label="Sidebar"] #gemini-new-project-button span.truncate,
+[role="navigation"][aria-label="Sidebar"] #gemini-display-options-button span.truncate,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item span.truncate,
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] span:last-child {
+  opacity: 1;
+  margin-left: 6px !important;
+  padding: 0 !important;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  transition: opacity 150ms ease 100ms, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scheduled-tasks-button span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-new-project-button span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-display-options-button span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] span:last-child,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] span:last-child,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] span:last-child,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-shortcut]::after {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] span:last-child {
   opacity: 0 !important;
   max-width: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
   overflow: hidden !important;
+  white-space: nowrap !important;
   pointer-events: none !important;
-  transition: opacity 150ms ease, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: opacity 80ms ease, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
 }
 
+/* Hide shortcut hints in collapsed mode so icon is not pushed off-center */
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"]::after,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-shortcut]::after {
+  display: none !important;
+  content: none !important;
+  width: 0 !important;
+  max-width: 0 !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Icon containers: 32x32 box at x=0 of button (x=10 of rail), 20px glyph centered -> centroid exactly 26px */
+[role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button > span.icon-box,
+[role="navigation"][aria-label="Sidebar"] #gemini-new-project-button > span.icon-box,
+[role="navigation"][aria-label="Sidebar"] #gemini-display-options-button > span.icon-box,
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item .icon-box,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item .icon-box,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] > span:first-child,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] > span:first-child,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] > span:first-child {
-  width: 20px !important;
-  height: 20px !important;
-  min-width: 20px !important;
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scheduled-tasks-button > span.icon-box,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-new-project-button > span.icon-box,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-display-options-button > span.icon-box {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
   margin: 0 !important;
   padding: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
+[role="navigation"][aria-label="Sidebar"] .gemini-nav-item .icon-box svg,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item .icon-box svg {
   width: 20px !important;
   height: 20px !important;
@@ -2037,205 +2210,56 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   text-overflow: ellipsis !important;
 }
 
-/* Collapsed scrollable conversation list */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] {
-  width: 52px !important;
-  max-width: 52px !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  overflow-x: hidden !important;
-}
-
-/* Hide section headers when collapsed */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] h2,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] h3,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] .text-xs.font-medium,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] button.flex.w-full.items-center:not([class*="group/headerbtn"]):not([data-testid="conversation-row-sidebar"]) {
-  display: none !important;
-}
-
-/* Collapsed project headers */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="group/header"] {
-  width: 52px !important;
-  padding: 0 !important;
-  display: flex !important;
-  justify-content: center !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"] {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
-  max-width: 32px !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
-  padding: 0 !important;
-  margin: 2px auto !important;
-  border-radius: 9999px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  position: relative !important;
-  outline: none !important;
-  background-color: transparent !important;
-  transition: background-color 150ms ease !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]::before {
-  content: "" !important;
-  width: 20px !important;
-  height: 20px !important;
-  display: inline-block !important;
-  background-color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z'/></svg>") no-repeat center / contain !important;
-  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z'/></svg>") no-repeat center / contain !important;
-  transition: background-color 150ms ease, transform 200ms ease !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]:hover {
-  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]:hover::before {
-  background-color: var(--gemini-text, #e6e6e6) !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"]:active::before {
-  transform: scale(0.9) !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[class*="group/headerbtn"] > * {
-  display: none !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="group/header"] button:not([class*="group/headerbtn"]) {
-  display: none !important;
-}
-
-/* Collapsed conversation rows */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"] {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
-  max-width: 32px !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
-  padding: 0 !important;
-  margin: 2px auto !important;
-  border-radius: 9999px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
-  cursor: pointer !important;
-  position: relative !important;
-  transition: background-color 150ms ease !important;
-}
-
-/* Ensure link covers the entire 32x32 button for direct clicks */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"] > a {
-  position: absolute !important;
-  inset: 0 !important;
+/* Conversation list container transition (smooth staged reveal matching Willow) */
+[role="navigation"][aria-label="Sidebar"] .overflow-y-auto,
+[role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"] {
   width: 100% !important;
-  height: 100% !important;
-  border-radius: 9999px !important;
-  z-index: 5 !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
   pointer-events: auto !important;
-  display: block !important;
+  overflow-x: hidden !important;
+  transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1) 100ms !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .overflow-y-auto,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  scrollbar-width: none !important;
+  transition: opacity 100ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div.h-px,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div[class*="h-px"] {
+  display: none !important;
   opacity: 0 !important;
 }
 
-/* Hide inner details/text and kebab buttons */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"] > div {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="conversation-list-sidebar"]::-webkit-scrollbar {
   display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
-/* Default unpinned conversation row icon: chat bubble vector mask */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]::before {
-  content: "" !important;
-  width: 20px !important;
-  height: 20px !important;
-  display: inline-block !important;
-  background-color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H240L80-80Zm126-240h594v-480H160v525l46-45Zm-46 0v-480 480Z'/></svg>") no-repeat center / contain !important;
-  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M80-80v-720q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v480q0 33-23.5 56.5T800-240H240L80-80Zm126-240h594v-480H160v525l46-45Zm-46 0v-480 480Z'/></svg>") no-repeat center / contain !important;
-  pointer-events: none !important;
-  transition: background-color 150ms ease, transform 200ms ease !important;
-}
-
-/* Pinned conversation row icon: star */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"][data-pinned="true"]::before,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:has([data-testid="conversation-pin-button"][aria-label="Unpin conversation"])::before {
-  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-355Z'/></svg>") !important;
-  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='m354-287 126-76 126 77-33-144 111-96-146-13-58-136-58 135-146 13 111 97-33 143ZM233-120l65-281L80-590l288-25 112-265 112 265 288 25-218 189 65 281-247-149-247 149Zm247-355Z'/></svg>") !important;
-}
-
-/* Selected conversation row in collapsed rail */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"][data-selected="true"],
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:has(a[aria-current="page"]) {
-  background-color: #171717 !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"][data-selected="true"]::before,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:has(a[aria-current="page"])::before {
-  background-color: #ffffff !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:hover {
-  background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:hover::before {
-  background-color: #ffffff !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[data-testid="conversation-row-sidebar"]:active::before {
-  transform: scale(0.9) !important;
-}
-
-/* Collapsed "See all" / "All conversations" */
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] {
-  padding-left: 0 !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] > button {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
-  max-width: 32px !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
-  padding: 0 !important;
-  margin: 2px auto !important;
-  border-radius: 9999px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] > button::before {
-  content: "" !important;
-  width: 20px !important;
-  height: 20px !important;
-  display: inline-block !important;
-  background-color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M240-400q-33 0-56.5-23.5T160-480q0-33 23.5-56.5T240-560q33 0 56.5 23.5T320-480q0 33-23.5 56.5T240-400Zm240 0q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm240 0q-33 0-56.5-23.5T640-480q0-33 23.5-56.5T720-560q33 0 56.5 23.5T800-480q0 33-23.5 56.5T720-400Z'/></svg>") no-repeat center / contain !important;
-  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'><path d='M240-400q-33 0-56.5-23.5T160-480q0-33 23.5-56.5T240-560q33 0 56.5 23.5T320-480q0 33-23.5 56.5T240-400Zm240 0q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm240 0q-33 0-56.5-23.5T640-480q0-33 23.5-56.5T720-560q33 0 56.5 23.5T800-480q0 33-23.5 56.5T720-400Z'/></svg>") no-repeat center / contain !important;
-}
-
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] div[class*="pl-[22px]"] > button::after {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-top-fade {
   display: none !important;
 }
 
 /* Collapsed footer container: 92px height, column-reverse (gear on top, avatar below) */
 [role="navigation"][aria-label="Sidebar"] > div:has(> [data-testid="settings-button"]),
 [role="navigation"][aria-label="Sidebar"] > div:last-child {
+  width: 100% !important;
+  box-sizing: border-box !important;
   transition: none !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div:has(> [data-testid="settings-button"]),
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] > div:last-child {
+  width: 52px !important;
   height: 92px !important;
   min-height: 92px !important;
   max-height: 92px !important;
@@ -2259,6 +2283,14 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   align-self: center !important;
 }
 
+#gemini-sidebar-user-pill .gemini-user-text {
+  opacity: 1;
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 200ms ease 100ms, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill {
   width: 32px !important;
   height: 32px !important;
@@ -2275,7 +2307,12 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-text {
-  display: none !important;
+  opacity: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  display: inline-block !important;
+  transition: opacity 120ms ease, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-avatar-wrap {
@@ -2318,21 +2355,45 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   display: none !important;
 }
 
-/* Native Settings SVG styling */
+/* Hide host SVG */
+[data-testid="settings-button"] > span:first-child > * {
+  display: none !important;
+}
+
 [data-testid="settings-button"] > span:first-child {
   width: 20px !important;
   height: 20px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  position: relative !important;
 }
 
-[data-testid="settings-button"] > span:first-child > svg {
+/* Replace icon with Luminous Symbols "settings" gear matching Willow */
+[data-testid="settings-button"] > span:first-child::before {
+  content: "settings" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", "Material Symbols Rounded", sans-serif !important;
+  font-variation-settings: "FILL" 0, "wght" 330, "GRAD" 0, "opsz" 20, "ROND" 100 !important;
+  font-size: 20px !important;
+  line-height: 20px !important;
   width: 20px !important;
   height: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   color: inherit !important;
-  fill: currentColor !important;
-  display: block !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  direction: ltr !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  box-sizing: border-box !important;
+  transition: transform 200ms ease !important;
+}
+
+[data-testid="settings-button"]:active > span:first-child::before {
+  transform: scale(0.9) !important;
 }
 
 

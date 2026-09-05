@@ -548,12 +548,12 @@ plugin.dom.observe(NEW_CONV_SELECTOR, (btn) => {
 // Willow's exact sidebar widths (expanded = 288px, collapsed = 52px) and motion curve
 const WILLOW_SIDEBAR_EXPANDED_WIDTH = "288px";
 const WILLOW_SIDEBAR_COLLAPSED_WIDTH = "52px";
-const WILLOW_SIDEBAR_TRANSITION = "width 300ms cubic-bezier(0.2, 0, 0, 1), height 300ms cubic-bezier(0.2, 0, 0, 1)";
-const TOGGLE_SELECTOR = 'button[data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"], button[data-testid="sidebar-toggle"][aria-expanded]';
+const WILLOW_SIDEBAR_TRANSITION = "width 300ms cubic-bezier(0.2, 0, 0, 1), background-color 300ms cubic-bezier(0.2, 0, 0, 1)";
+const TOGGLE_SELECTOR = 'button[data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"]';
 
 function isSidebarCollapsed() {
   const toggle = document.querySelector(TOGGLE_SELECTOR);
-  if (toggle) {
+  if (toggle && toggle.hasAttribute("aria-expanded")) {
     return toggle.getAttribute("aria-expanded") === "false";
   }
   const sidebar = document.querySelector(SIDEBAR_SELECTOR);
@@ -576,24 +576,48 @@ function enforceSidebarGeometry(grandParent, collapsed) {
     if (grandParent.style.visibility !== "visible") {
       grandParent.style.visibility = "visible";
     }
+    if (grandParent.style.maxWidth !== "none") {
+      grandParent.style.maxWidth = "none";
+    }
     if (grandParent.style.transition !== WILLOW_SIDEBAR_TRANSITION) {
       grandParent.style.transition = WILLOW_SIDEBAR_TRANSITION;
     }
     const child = grandParent.firstElementChild;
     if (child) {
-      if (child.style.width !== targetWidth) {
-        child.style.width = targetWidth;
+      if (child.style.width !== "100%") {
+        child.style.width = "100%";
       }
       if (child.style.minWidth !== "0px") {
         child.style.minWidth = "0px";
       }
-      const targetLeft = collapsed ? "0px" : "";
+      if (child.style.maxWidth !== "none") {
+        child.style.maxWidth = "none";
+      }
+      if (child.style.transition !== "none") {
+        child.style.transition = "none";
+      }
+      const targetLeft = "0px";
       if (child.style.left !== targetLeft) {
         child.style.left = targetLeft;
       }
-      const targetRight = collapsed ? "auto" : "";
+      const targetRight = "auto";
       if (child.style.right !== targetRight) {
         child.style.right = targetRight;
+      }
+      const sidebar = child.querySelector(SIDEBAR_SELECTOR);
+      if (sidebar) {
+        if (sidebar.style.width !== "100%") {
+          sidebar.style.width = "100%";
+        }
+        if (sidebar.style.minWidth !== "0px") {
+          sidebar.style.minWidth = "0px";
+        }
+        if (sidebar.style.maxWidth !== "none") {
+          sidebar.style.maxWidth = "none";
+        }
+        if (sidebar.style.transition !== "none") {
+          sidebar.style.transition = "none";
+        }
       }
     }
   } finally {
@@ -615,13 +639,15 @@ function ensureSidebarHeader(sidebar, collapsed) {
         <div class="gemini-logo-mark"></div>
       </div>
       <div class="gemini-logo-expand-wrap">
-        <svg class="gemini-logo-expand-icon" width="20" height="20" viewBox="0 -960 960 960" fill="currentColor">
-          <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h160v-560H200v560Zm240 0h320v-560H440v560Zm-80 0v-560 560Z"/>
-        </svg>
+        <span class="gemini-logo-expand-icon">side_nav_expand</span>
       </div>
     `;
     logoBtn.addEventListener("click", () => {
-      if (isSidebarCollapsed()) {
+      const sb = document.querySelector(SIDEBAR_SELECTOR);
+      if (sb && sb.getAttribute("data-collapsed") === "true") {
+        sb.setAttribute("data-collapsed", "false");
+        const gp = sb.parentElement?.parentElement;
+        if (gp) enforceSidebarGeometry(gp, false);
         const toggle = document.querySelector(TOGGLE_SELECTOR);
         if (toggle) toggle.click();
       }
@@ -643,7 +669,13 @@ function ensureSidebarHeader(sidebar, collapsed) {
     logoBtn.setAttribute("data-tooltip-position", logoPos);
   }
 
-  header.querySelector(".willow-sidenav-text")?.remove();
+  let textSpan = header.querySelector(".willow-sidenav-text");
+  if (!textSpan) {
+    textSpan = document.createElement("span");
+    textSpan.className = "willow-sidenav-text";
+    textSpan.textContent = "Antigravity";
+    logoBtn.after(textSpan);
+  }
 }
 
 function updateSidebarItemsState(sidebar, collapsed) {
@@ -744,6 +776,7 @@ function syncSidebarState(sidebar) {
   ensureSidebarHeader(sidebar, collapsed);
   sidebar.querySelector(".gemini-sidebar-expand-rail")?.remove();
   ensureExperienceSwitch(sidebar);
+  ensureScrollNav();
   updateSidebarItemsState(sidebar, collapsed);
 }
 
@@ -769,6 +802,15 @@ plugin.dom.observe(SIDEBAR_SELECTOR, (sidebar) => {
 plugin.dom.observe(TOGGLE_SELECTOR, (toggle) => {
   const sidebar = document.querySelector(SIDEBAR_SELECTOR);
   if (sidebar) syncSidebarState(sidebar);
+  toggle.addEventListener("click", () => {
+    const sb = document.querySelector(SIDEBAR_SELECTOR);
+    if (sb) {
+      const willCollapse = toggle.getAttribute("aria-expanded") !== "false";
+      sb.setAttribute("data-collapsed", String(willCollapse));
+      const grandParent = sb.parentElement?.parentElement;
+      if (grandParent) enforceSidebarGeometry(grandParent, willCollapse);
+    }
+  });
   const toggleObserver = new MutationObserver(() => {
     const sb = document.querySelector(SIDEBAR_SELECTOR);
     if (sb) syncSidebarState(sb);
@@ -876,9 +918,9 @@ function buildExperienceSwitch() {
   collapsedBtn.className = "gemini-experience-collapsed-btn";
   collapsedBtn.setAttribute("data-tooltip-position", "right");
   collapsedBtn.innerHTML = `
-    <svg class="gemini-experience-collapsed-icon" width="14" height="22" viewBox="0 0 14 22" fill="none">
-      <rect x="1" y="1" width="12" height="20" rx="6" stroke="currentColor" stroke-width="1.8"/>
-      <circle cx="7" cy="7" r="3.2" fill="currentColor" class="gemini-switch-dot"/>
+    <svg class="gemini-experience-collapsed-icon" width="20" height="13" viewBox="0 0 20 13" fill="none">
+      <rect x="0.8" y="0.8" width="18.4" height="11.4" rx="5.7" stroke="currentColor" stroke-width="1.6"/>
+      <circle cx="5.7" cy="6.5" r="2.6" fill="currentColor" class="gemini-switch-dot"/>
     </svg>
   `;
   collapsedBtn.addEventListener("click", (e) => {
@@ -1054,8 +1096,12 @@ const SCROLL_NAV_ROWS = [
 ];
 
 function ensureScrollNav() {
+  const collapsed = isSidebarCollapsed();
+  const topNav = document.querySelector('[role="navigation"][aria-label="Sidebar"] > .px-2 > div.flex-col') ||
+                 document.querySelector('[role="navigation"][aria-label="Sidebar"] > div.px-2 > div.flex-col');
   const scroller = document.querySelector(LIST_SELECTOR);
-  if (!scroller) return;
+  if (!topNav && !scroller) return;
+
   let block = document.getElementById('gemini-scroll-nav');
   if (!block) {
     block = document.createElement('div');
@@ -1074,7 +1120,16 @@ function ensureScrollNav() {
   if (wanted.length !== current.length || wanted.some((row, i) => current[i] !== row)) {
     block.replaceChildren(...wanted);
   }
-  if (scroller.firstChild !== block) scroller.insertBefore(block, scroller.firstChild);
+
+  if (collapsed) {
+    if (topNav && block.parentElement !== topNav) {
+      topNav.appendChild(block);
+    }
+  } else {
+    if (scroller && scroller.firstChild !== block) {
+      scroller.insertBefore(block, scroller.firstChild);
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------------

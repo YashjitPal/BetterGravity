@@ -1099,7 +1099,7 @@
  * or contracted (40px - 32px + 8px = 16px to chip). */
 div:has(> [data-gemini-top-chips]) {
   padding-left: max(8px, 40px - var(--sidebar-width)) !important;
-  transition: padding-left 500ms var(--ease-expo-out) !important;
+  transition: padding-left 300ms cubic-bezier(0.2, 0, 0, 1) !important;
 }
 
 [data-gemini-top-chips] {
