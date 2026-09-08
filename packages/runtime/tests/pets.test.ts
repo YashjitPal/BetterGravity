@@ -9,6 +9,15 @@ interface PetActions {
   askThread(key: string | null, text: string): Promise<void>;
   stopThread(key: string): Promise<void>;
   readEntries(): unknown[];
+  dismiss(key: string): void;
+  settings: Record<string, unknown>;
+  connectSurface(send: (message: ActivityMessage) => void): void;
+}
+
+interface ActivityMessage {
+  t: string;
+  working: boolean;
+  entries: { key: string; status: string }[];
 }
 
 const cleanups: (() => void)[] = [];
@@ -16,6 +25,7 @@ const sent: { key: string | null; path: string; text: string }[] = [];
 const stopped: string[] = [];
 let pet: PetActions;
 let enableSend = true;
+let hostState: unknown;
 
 function showConversation(key: string | null): HTMLTextAreaElement {
   history.replaceState(null, "", key === null ? "/" : `/c/${key}`);
@@ -62,6 +72,7 @@ beforeEach(() => {
   sent.length = 0;
   stopped.length = 0;
   enableSend = true;
+  hostState = undefined;
   showConversation("previous");
 
   // Run the actual community plugin with its pet hidden. The fixture supplies
@@ -74,11 +85,134 @@ beforeEach(() => {
       onChange: () => () => undefined
     },
     storage: { get: (key: string, fallback: unknown) => key === "shown" ? false : fallback },
+    react: {
+      getFiber: () => hostState === undefined ? undefined : ({
+        dependencies: { firstContext: { memoizedValue: { store: { getState: () => hostState } } } }
+      })
+    },
     log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     ui: { button: () => ({ element: document.createElement("button"), setActive: vi.fn(), remove: vi.fn() }) },
     onDispose: (cleanup: () => void) => cleanups.push(cleanup)
   };
-  pet = new Function("plugin", "window", `${source}\nreturn { askThread, stopThread, readEntries };`)(plugin, document.defaultView) as PetActions;
+  pet = new Function("plugin", "window", `${source}\nreturn {
+    askThread, stopThread, readEntries, dismiss, settings,
+    connectSurface: (send) => { surface = { send, close() {} }; poll(); }
+  };`)(plugin, document.defaultView) as PetActions;
+});
+
+describe("Pets activity updates", () => {
+  function observe(): ActivityMessage[] {
+    const updates: ActivityMessage[] = [];
+    document.querySelector('[data-tooltip-id="input-send-button-cancel-tooltip"]')!.remove();
+    pet.connectSurface((message) => updates.push(message));
+    return updates;
+  }
+
+  it("reports ongoing work independently of dismissing its card, and reports when it ends", () => {
+    const updates = observe();
+    addThread("working", null);
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: true, entries: [{ key: "working" }] });
+
+    pet.dismiss("working");
+    expect(updates.at(-1)).toMatchObject({ working: true, entries: [] });
+    vi.advanceTimersByTime(4000);
+    expect(updates.at(-1)).toMatchObject({ working: true, entries: [] });
+
+    // The notification list stays empty: the separate work signal is the only
+    // change, and still has to reach both renderers.
+    document.querySelector('[data-testid="status-loading-spinner"]')!.remove();
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: false, entries: [] });
+  });
+
+  it("keeps observing agent state while activity cards are disabled", () => {
+    pet.settings.activity = false;
+    const updates = observe();
+    addThread("working", null);
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: true, entries: [] });
+    document.querySelector('[data-testid="status-loading-spinner"]')!.remove();
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: false, entries: [] });
+  });
+
+  it("detects a worker beyond the displayed notification limit", () => {
+    const updates = observe();
+    for (let index = 0; index < 33; index += 1) {
+      addThread(`waiting-${index}`, null);
+      document.querySelector(`[data-cascade-id="waiting-${index}"] [data-testid="status-loading-spinner"]`)!
+        .setAttribute("data-testid", "attention-dot");
+    }
+    addThread("working", null);
+    vi.advanceTimersByTime(2000);
+    const last = updates.at(-1)!;
+    expect(last.working).toBe(true);
+    expect(last.entries).toHaveLength(32);
+    expect(last.entries.every((entry) => entry.status === "waiting")).toBe(true);
+  });
+
+  it("lets a new status appear after its running notification was dismissed", () => {
+    const updates = observe();
+    addThread("working", null);
+    vi.advanceTimersByTime(2000);
+    pet.dismiss("working");
+    document.querySelector('[data-testid="status-loading-spinner"]')!.setAttribute("data-testid", "status-unread-dot");
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: false, entries: [{ key: "working", status: "review" }] });
+  });
+
+  it("follows live work when its sidebar row is filtered or unmounted", () => {
+    const updates = observe();
+    hostState = { trajectorySummaries: { summaries: {
+      hidden: { status: 2, notFullyIdle: true, waitingSteps: [] }
+    } } };
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: true, entries: [] });
+
+    // A new store snapshot replaces the old one; a cached fiber summary or an
+    // indefinitely retained running record would keep the pet working here.
+    hostState = { trajectorySummaries: { summaries: {
+      hidden: { status: 1, notFullyIdle: false, waitingSteps: [] }
+    } } };
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: false, entries: [] });
+  });
+
+  it("includes a working child agent even while another conversation needs input", () => {
+    const updates = observe();
+    hostState = { trajectorySummaries: { summaries: {
+      waiting: { status: 2, notFullyIdle: true, waitingSteps: [{}] },
+      child: { status: 1, notFullyIdle: true, waitingSteps: [], trajectoryMetadata: { parentConversationId: "parent" } }
+    } } };
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)?.working).toBe(true);
+  });
+
+  it("does not treat a waiting or completed conversation as ongoing work", () => {
+    const updates = observe();
+    hostState = { trajectorySummaries: { summaries: {
+      waiting: { status: 2, notFullyIdle: true, waitingSteps: [{}] },
+      completed: { status: 1, notFullyIdle: false, waitingSteps: [{}] }
+    } } };
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)?.working).toBe(false);
+  });
+
+  it.each([3, 4])("treats host run status %s as work even without a mounted row", (status) => {
+    const updates = observe();
+    hostState = { trajectorySummaries: { summaries: { hidden: { status, waitingSteps: [] } } } };
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)?.working).toBe(true);
+  });
+
+  it("keeps the DOM sensor working if the host store shape changes", () => {
+    const updates = observe();
+    hostState = { trajectorySummaries: null };
+    addThread("working", null);
+    vi.advanceTimersByTime(2000);
+    expect(updates.at(-1)).toMatchObject({ working: true, entries: [{ key: "working" }] });
+  });
 });
 
 afterEach(() => {

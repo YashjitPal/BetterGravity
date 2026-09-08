@@ -18,9 +18,9 @@
 //
 //   The sensor is everything after it. Codex reads its own notification tray;
 //   Antigravity has no tray, so the same activity entries are built by reading
-//   its sidebar. The reading is ours. Everything done with the result — the
-//   priority order, the tone, the labels, the expiry, the sort, the stack — is
-//   Codex's, and the comments name the file each number came from.
+//   its sidebar. A read of the live conversation store also keeps work visible
+//   when rows are filtered or virtualised. Notification priority, timing, and
+//   geometry follow the Codex reference; working loops while any agent is active.
 //
 // Copy this folder into %APPDATA%\BetterGravity\plugins\ and turn on developer
 // mode to run it.
@@ -104,9 +104,9 @@ function petSurface(host, data) {
 
   /* ── Sequencing ─────────────────────────────────────────────────────────
    *
-   * Idle loops forever. Everything else plays three times and then falls into
-   * the slow idle tail, so the pet always ends up breathing again without
-   * anything having to decide that it should — a state is set once and left.
+   * Idle loops forever. Reactions use Codex's three bursts and slow idle tail.
+   * Working keeps its own row looping until the last active agent stops; an
+   * unchanged activity snapshot must not need a hover to restart the animation.
    *
    * Reduced motion is a single frame held still. Not a slower animation: the
    * shipped code returns one frame and no loop, so the pet becomes a picture.
@@ -115,6 +115,7 @@ function petSurface(host, data) {
     const frames = STATES[state] ?? STATES.idle;
     if (reducedMotion) return { frames: [frames[0]], loopStartIndex: null };
     if (state === "idle") return { frames: IDLE, loopStartIndex: 0 };
+    if (state === "running") return { frames, loopStartIndex: 0 };
     const burst = [...frames, ...frames, ...frames];
     return { frames: [...burst, ...IDLE], loopStartIndex: burst.length };
   }
@@ -138,7 +139,7 @@ function petSurface(host, data) {
    *   _t = w?.caretPoint ?? Re
    *
    * `caretPoint` rides on `follow-up-editor-changed` (frame 6653) — the caret in
-   * the quick chat, sent on every keystroke. `Re` is set from
+   * the follow-up reply, sent on every keystroke. `Re` is set from
    * `avatar-overlay-computer-use-cursor-changed` (frame 3722), which is the
    * cursor the *agent* is driving during computer use. Both are null by default
    * (page 2997), and when the point is null so is the look frame: the pet just
@@ -659,6 +660,8 @@ function petSurface(host, data) {
 
   /** The activity entries, already sorted and trimmed by the sensor. */
   let entries = Array.isArray(data?.entries) ? data.entries : [];
+  /** Work is independent of notification priority, dismissal, and visibility. */
+  let working = data?.working === true || entries.some((entry) => entry.status === "running");
 
   let width = clampWidth(config.size);
   let height = Math.round((width * SHEET.cellHeight) / SHEET.cellWidth);
@@ -716,7 +719,7 @@ function petSurface(host, data) {
   /** Whether the quick-chat pill is showing. */
   let chatOpen = false;
   /**
-   * `W`: which card the pill is aimed at, or null for whatever is at the front.
+    * `W`: which card the pill is aimed at, or null for a new projectless chat.
    *
    * Codex's composer belongs to a card — `G(_.turnKey)` on the reply control, and
    * `submit-follow-up` carries that notification with it (frame 6477, 6656). One
@@ -1152,7 +1155,7 @@ function petSurface(host, data) {
    * here either.
    */
   function lookPoint() {
-    return caretAt;
+    return chatTarget === null ? null : caretAt;
   }
 
   /**
@@ -1481,6 +1484,9 @@ function petSurface(host, data) {
     root.dataset.petTone = level.tone;
     root.dataset.petInline = inline ? "true" : "false";
     root.dataset.petHovered = hoveredKey === entry.key ? "true" : "false";
+    // A single card is not a collapsed stack (native-frame 3822).
+    root.dataset.petCollapsed = !stackExpanded && entries.length > 1 ? "true" : "false";
+    root.dataset.petReplying = chatTarget === entry.key ? "true" : "false";
     // Inert under aria-hidden, but this is where Codex keeps the level's name and
     // the only place it belongs.
     root.setAttribute("aria-label", `${level.label} · ${title}`);
@@ -1495,6 +1501,9 @@ function petSurface(host, data) {
      */
     const controls = level.controls ?? (level.tone === "success" ? "success" : "default");
     root.dataset.petPill = level.loading ? "loading" : controls === "none" ? "none" : "default";
+    root.dataset.petControlsVisible = controls !== "none" &&
+      (chatTarget === entry.key || ((stackExpanded || entries.length === 1) && hoveredKey === entry.key))
+      ? "true" : "false";
 
     card.text.textContent = "";
     if (inline) {
@@ -1632,8 +1641,11 @@ function petSurface(host, data) {
     }
 
     // `Ce` only survives while the card does (frame 5941), so a thread that has
-    // gone takes the aim with it and the pill goes back to the front of the list.
-    if (chatTarget !== null && !entries.some((entry) => entry.key === chatTarget)) chatTarget = null;
+    // gone takes the aim with it and the pill returns to a new projectless chat.
+    if (chatTarget !== null && !entries.some((entry) => entry.key === chatTarget)) {
+      chatTarget = null;
+      composerClosed();
+    }
 
     /*
      * Draw, measure, and draw again if the measurement moved anything.
@@ -1704,7 +1716,7 @@ function petSurface(host, data) {
 
   /** Everything that depends on the activity list, in the order it depends on it. */
   function renderActivity() {
-    statusState = (LEVELS[entries[0]?.status] ?? LEVELS.idle).mascot;
+    statusState = working ? "running" : (LEVELS[entries[0]?.status] ?? LEVELS.idle).mascot;
     renderBadge();
     renderTray();
     layout();
@@ -1889,6 +1901,7 @@ function petSurface(host, data) {
   });
   on(document, "mouseleave", forgetPointer);
   on(window, "blur", () => {
+    if (drag !== null) endDrag({ pointerId: drag.pointerId }, false);
     if (desktop) chatInput.blur();
     else forgetPointer();
   });
@@ -2067,7 +2080,7 @@ function petSurface(host, data) {
   on(pet, "pointerdown", (event) => {
     // Codex's own guard: the primary button only, and never a ctrl-press (which is
     // a right-click on macOS).
-    if (event.button !== 0 || event.ctrlKey) return;
+    if (event.button !== 0 || event.ctrlKey || event.isPrimary === false) return;
     // The mascot is draggable; the badge sitting on it is a button. Asking which
     // hit region the press landed in rather than testing for a `.no-drag` class
     // also means a page that happens to use that class cannot nail the pet down.
@@ -2109,6 +2122,11 @@ function petSurface(host, data) {
     "pointermove",
     (event) => {
       if (drag === null || event.pointerId !== drag.pointerId) return;
+      // A release outside the window can be missed even with document capture.
+      if (event.buttons === 0) {
+        endDrag(event, false);
+        return;
+      }
 
       const next = sampleOf(event);
       drag.samples = prune([...drag.samples, next]);
@@ -2146,12 +2164,23 @@ function petSurface(host, data) {
     // let go and flies through the air as whatever the agent is doing.
     transient = null;
 
-    if (pet.hasPointerCapture(event.pointerId)) pet.releasePointerCapture(event.pointerId);
+    try {
+      if (pet.hasPointerCapture(event.pointerId)) pet.releasePointerCapture(event.pointerId);
+    } catch {}
     delete pet.dataset.petDragging;
+    renderBadge();
     refresh();
 
-    const release = released ? sampleOf(event) : undefined;
-    const samples = prune(release ? [...held.samples, release] : held.samples);
+    // Cancellation is a placement, never a click or a throw. The next real
+    // pointer move can re-establish hover after focus or capture was lost.
+    if (!released) {
+      forgetPointer();
+      report();
+      return;
+    }
+
+    const release = sampleOf(event);
+    const samples = prune([...held.samples, release]);
 
     // A flick too fast to register a single accepted move still counts as a drag,
     // measured from where the press started.
@@ -2182,6 +2211,7 @@ function petSurface(host, data) {
 
   on(document, "pointerup", (event) => endDrag(event, true), true);
   on(document, "pointercancel", (event) => endDrag(event, false), true);
+  on(pet, "lostpointercapture", (event) => endDrag(event, false));
 
   /* ── The things you can press ───────────────────────────────────────────
    *
@@ -2285,6 +2315,7 @@ function petSurface(host, data) {
           submitChat();
           break;
       }
+      renderCluster();
       return;
     }
 
@@ -2366,6 +2397,12 @@ function petSurface(host, data) {
 
   /** The `follow-up-editor-changed` half of frame 5666: measure, then report. */
   function composerChanged() {
+    // Codex's separate quick-chat input only updates its text (frame 5504).
+    // Only a targeted follow-up supplies a look point to the mascot.
+    if (chatTarget === null || document.activeElement !== chatInput) {
+      composerClosed();
+      return;
+    }
     const reading = composerReading();
     if (reading === caretReading) return;
     caretReading = reading;
@@ -2410,7 +2447,11 @@ function petSurface(host, data) {
     // The editor has a great many global key handlers and no reason to see a
     // question being typed at the pet, so none of them get it.
     event.stopPropagation();
-    if (event.key === "Enter") submitChat();
+    if (event.isComposing || event.keyCode === 229) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitChat();
+    }
     else if (event.key === "Escape") chatInput.blur();
   });
 
@@ -2446,6 +2487,7 @@ function petSurface(host, data) {
         }
         case "activity": {
           entries = Array.isArray(message.entries) ? message.entries : [];
+          working = message.working === true || entries.some((entry) => entry.status === "running");
           renderActivity();
           break;
         }
@@ -2493,10 +2535,8 @@ function petSurface(host, data) {
    * There is no code here for the greeting, and that is the point of it. Codex
    * greets you with a notification rather than an animation — Ti(), native-page
    * 1431 — and the wave is what rr() makes of a notification whose kind is
-   * `first-awake`. So the sensor puts a card in the list, `renderActivity` reads
-   * the front of the list, and the pet waves for exactly as long as the card is
-   * there. Anything the agent starts doing outranks it and takes the pet back
-   * mid-wave, which a timer of its own could not have managed.
+   * `first-awake`. The sensor puts that card in the list and the pet plays its
+   * waving reaction. Any agent starting work preempts the greeting immediately.
    */
 
   function mount() {
@@ -2563,6 +2603,7 @@ function petSurface(host, data) {
 
 /** Antigravity's own marks, each one taken from its own row component. */
 const ROW = '[data-testid="conversation-row-sidebar"]';
+const ROW_LIST = '[data-testid="conversation-list-sidebar"]';
 /**
  * A row's name, twice over.
  *
@@ -2756,7 +2797,7 @@ const settings = plugin.settings.define({
     type: "boolean",
     label: "Show what the agent is doing",
     description:
-      "A card under the pet for every thread that is working, waiting, blocked, or has something unread — and the indicator under its feet, coloured by the most important of them.",
+      "Activity cards and an indicator coloured by the most important notification. The pet keeps animating while an agent works, even with cards hidden.",
     default: true
   },
   bounce: {
@@ -2969,6 +3010,52 @@ const SEEN_MAX = 512;
 const LIVE = new Set(["running", "waiting", "failed"]);
 
 /**
+ * Read current work from Antigravity's live Redux store, including conversations
+ * whose rows are virtualised, filtered, or collapsed. React context dependencies
+ * expose the same store used by the sidebar's selectors. getState() is deliberate:
+ * a fiber's memoized summary can belong to the previous render.
+ *
+ * Only a bounded ancestor walk is needed. Older hosts without these context
+ * fields keep the DOM sensor; no last-known running flag is retained indefinitely.
+ */
+function backgroundWorking() {
+  if (typeof plugin.react?.getFiber !== "function") return false;
+  const checked = new Set();
+  try {
+    for (const selector of [ROW_LIST, VIEW, COMPOSER, ROW]) {
+      const anchor = document.querySelector(selector);
+      if (anchor === null) continue;
+      let fiber = plugin.react.getFiber(anchor);
+      for (let depth = 0; fiber && depth < 32; depth += 1, fiber = fiber.return) {
+        const contexts = [fiber.memoizedProps?.value];
+        let dependency = fiber.dependencies?.firstContext;
+        for (let index = 0; dependency && index < 32; index += 1, dependency = dependency.next) {
+          contexts.push(dependency.memoizedValue);
+        }
+        for (const context of contexts) {
+          const store = context?.store;
+          if (typeof store?.getState !== "function" || checked.has(store)) continue;
+          checked.add(store);
+          const summaries = store.getState()?.trajectorySummaries?.summaries;
+          if (summaries === null || typeof summaries !== "object" || Array.isArray(summaries)) continue;
+          return Object.values(summaries).some((summary) => {
+            if (summary === null || typeof summary !== "object") return false;
+            // CascadeRunStatus: RUNNING=2, CANCELING=3, BUSY=4. notFullyIdle also
+            // covers background agents; waitingSteps are a pause for user input.
+            const active = summary.notFullyIdle === true || summary.hasActiveChildren === true ||
+              summary.status === 2 || summary.status === 3 || summary.status === 4;
+            return active && !(Array.isArray(summary.waitingSteps) && summary.waitingSteps.length > 0);
+          });
+        }
+      }
+    }
+  } catch {
+    // Host internals can change independently of this plugin; the DOM still works.
+  }
+  return false;
+}
+
+/**
  * The stamp each dismissed card had, per key.
  *
  * The tray is read off the DOM every two seconds, so without this the next poll
@@ -3143,13 +3230,7 @@ function readEntries() {
     if (now - at >= DISMISSED_MS) dismissed.delete(key);
   }
 
-  // Ci() (native-page 1391) drops a dismissed notification. A dismissal is of one
-  // notification, though, and a level change makes a new one — so it only covers
-  // the stamp it was pressed on.
-  return entries.filter((entry) => {
-    const at = dismissed.get(entry.key);
-    return at === undefined || entry.updatedAtMs > at;
-  });
+  return entries;
 }
 
 /* ── The greeting ──────────────────────────────────────────────────────────
@@ -3273,7 +3354,15 @@ function wake() {
  * anything to say about it.
  */
 function activityOf() {
-  const entries = readEntries();
+  const all = readEntries();
+  // Read work before hiding, dismissing, or bounding the notification list.
+  // Sending a card away acknowledges that notification; it does not stop its agent.
+  const working = all.some((entry) => entry.status === "running") || backgroundWorking();
+  // Ci() dismisses one notification. A later status change gets a new stamp.
+  const entries = all.filter((entry) => {
+    const at = dismissed.get(entry.key);
+    return at === undefined || entry.updatedAtMs > at;
+  });
   const now = Date.now();
 
   // Ci() (native-page 1391) drops a notification whose expiry has passed, or that
@@ -3293,26 +3382,24 @@ function activityOf() {
       a.key.localeCompare(b.key)
   );
 
-  return entries.slice(0, MAX_ENTRIES);
+  return { entries: settings.activity === false ? [] : entries.slice(0, MAX_ENTRIES), working };
 }
 
 /** Enough of the list to tell whether the pet needs to be told about it. */
 /**
  * What was sent last, as one string, so an unchanged tray is not resent.
  *
- * Order-sensitive by construction — a reorder is news, because the front of the
- * list is what the pet's own state is read from — and timestamp-free, because a
- * stamp that moves without a level moving is not something a card shows.
+ * Order-sensitive because the front card and badge follow notification priority.
+ * Work is included separately: a dismissed agent can finish while the tray stays
+ * empty. Timestamps alone do not change anything the surface needs to draw.
  *
  * The title is in here, and it has to be: Antigravity names a conversation from
  * its first exchange, so a thread started at the pill arrives untitled and is
  * renamed a few seconds later. Without the title the card would keep the name it
  * was born with for as long as its level held.
  */
-const signatureOf = (entries) =>
-  entries
-    .map((entry) => `${entry.key}|${entry.status}|${entry.title}|${entry.subtitle}`)
-    .join("\n");
+const signatureOf = (entries, working) =>
+  JSON.stringify([working, entries.map((entry) => [entry.key, entry.status, entry.title, entry.subtitle])]);
 
 /* ── The two places it can live ────────────────────────────────────────────
  *
@@ -3456,6 +3543,7 @@ let generation = 0;
 
 /** What was last sent, so nothing is sent twice. */
 let activity = [];
+let working = false;
 let signature = "";
 
 /** Reported back by the pet, for the panel's status row. */
@@ -3759,8 +3847,8 @@ function dismiss(key) {
   if (entry === undefined) return;
   dismissed.set(key, entry.updatedAtMs);
   activity = activity.filter((item) => item.key !== key);
-  signature = signatureOf(activity);
-  surface?.send({ t: "activity", entries: activity });
+  signature = signatureOf(activity, working);
+  surface?.send({ t: "activity", entries: activity, working });
 }
 
 /** Everything the pet sends back. */
@@ -3831,10 +3919,12 @@ async function start() {
   // cards on later still gets you an introduction.
   if (settings.activity !== false) wake();
 
-  activity = settings.activity === false ? [] : activityOf();
-  signature = signatureOf(activity);
+  const snapshot = activityOf();
+  activity = snapshot.entries;
+  working = snapshot.working;
+  signature = signatureOf(activity, working);
 
-  const data = { config: configOf(), entries: activity, at: position };
+  const data = { config: configOf(), entries: activity, working, at: position };
 
   const next =
     settings.home === "window"
@@ -3875,13 +3965,14 @@ function begin() {
 
 function poll() {
   if (surface === null) return;
-  const next = settings.activity === false ? [] : activityOf();
-  const nextSignature = signatureOf(next);
+  const next = activityOf();
+  const nextSignature = signatureOf(next.entries, next.working);
   if (nextSignature === signature) return;
 
-  activity = next;
+  activity = next.entries;
+  working = next.working;
   signature = nextSignature;
-  surface.send({ t: "activity", entries: next });
+  surface.send({ t: "activity", entries: activity, working });
 }
 
 /* ── The toggle ────────────────────────────────────────────────────────────
@@ -4009,7 +4100,7 @@ function describeStatus() {
   const threads = activity.filter((entry) => entry.status !== "greeting");
   const reporting =
     settings.activity === false
-      ? "not reporting"
+      ? "cards hidden"
       : threads.length === 0
         ? activity.length === 0
           ? "nothing to report"

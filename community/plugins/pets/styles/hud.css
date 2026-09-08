@@ -17,10 +17,20 @@
  * to --vscode-editorWarning-foreground; these are the same mappings, and the
  * literals are the raw scale those tokens fall back to in the dark theme.
  *
- * FOCUS. Nothing in here is focusable. The overlay sits over an editor, and a
- * card that could take the caret would be worse than a card you have to click.
- * Everything is a div with a title, and the tray is aria-hidden.
+ * FOCUS. Cards do not take keyboard focus. Only the chat input requests the
+ * caret and, on the desktop, native window focus while it is being used.
  */
+
+/* The desktop starts in a blank document without Antigravity's CSS reset.
+   Keep padding and borders inside the same measured boxes in both renderers. */
+:is(.bettergravity-pet, .bettergravity-pet-tray, .bettergravity-pet-chat),
+:is(.bettergravity-pet, .bettergravity-pet-tray, .bettergravity-pet-chat)::before,
+:is(.bettergravity-pet, .bettergravity-pet-tray, .bettergravity-pet-chat)::after,
+:is(.bettergravity-pet, .bettergravity-pet-tray, .bettergravity-pet-chat) *,
+:is(.bettergravity-pet, .bettergravity-pet-tray, .bettergravity-pet-chat) *::before,
+:is(.bettergravity-pet, .bettergravity-pet-tray, .bettergravity-pet-chat) *::after {
+  box-sizing: border-box;
+}
 
 .bettergravity-pet,
 .bettergravity-pet-tray,
@@ -464,8 +474,10 @@
 
   border-radius: var(--pet-card-radius);
   background: var(--pet-material-background);
-  border: 1px solid var(--pet-material-border);
-  box-shadow: var(--pet-material-shadow);
+  /* Codex paints the material border on a separate backing. An inset ring
+     keeps the content's 54px height instead of adding two layout pixels. */
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--pet-material-border), var(--pet-material-shadow);
 
   /* Codex marks its own notification card root `no-drag`, and for the same reason
      it needs it: a press that lands inside one of the host window's drag regions
@@ -560,13 +572,10 @@
 /*
  * frame 392-399: the fade that keeps long text from running under the controls.
  * The mask is measured from the right edge — transparent for the first 84.75px,
- * fully opaque by 140.75px. A loading card has nothing over there to hide
- * behind, so it is not masked at all; nor is a card with no controls, whose
- * `data-pet-pill` is `none` — Ui() puts the fade behind `ke`, and `ke` wants a
- * control target. Both keep the base padding, because the status box is over
- * there either way.
+ * fully opaque by 140.75px. Ui() adds this fade only while the controls are
+ * visible, including on a running card. Otherwise the whole line stays readable.
  */
-.bettergravity-pet-card[data-pet-pill="default"] .bettergravity-pet-card__content {
+.bettergravity-pet-card[data-pet-controls-visible="true"] .bettergravity-pet-card__content {
   mask-image: linear-gradient(
     to left,
     transparent var(--pet-pill-fade-transparent-inset),
@@ -721,8 +730,8 @@
  *
  * Ui() (js 5875) decides which of these exist, and the answer is narrower than
  * it looks. `ke = De && (Te || (!u && Y))` puts the reply/stop row on screen only
- * when the stack is *expanded* and the card is hovered, so a collapsed pile never
- * shows a button; `Oe = he && …` enables stop only on a card that is loading; and
+ * when a card is hovered outside a collapsed stack, or its reply is open. A
+ * single card is never a collapsed stack. `Oe = he && …` enables stop only on a card that is loading; and
  * the expand chevron (`be = V != null && ye`) needs a waitingRequest, which is a
  * realtime-voice thing Antigravity never produces — so there is no chevron here.
  *
@@ -747,12 +756,9 @@
   transition: opacity 0.18s ease-out;
 }
 
-/* Expanded plus hovered — Ui()'s `ke`. Never a card with nothing to press: `ke`
-   is `De && …` and `De` wants a control target, so a greeting's controls are not
-   rendered at all over there rather than rendered empty. */
-.bettergravity-pet-tray[data-pet-stack="expanded"]
-  .bettergravity-pet-card[data-pet-hovered="true"]
-  .bettergravity-pet-card__controls:not([data-pet-controls="none"]) {
+/* Ui()'s `ke`: one hovered card, a hovered row in an open stack, or the card
+   whose follow-up is open. A greeting has no control target. */
+.bettergravity-pet-card[data-pet-controls-visible="true"] .bettergravity-pet-card__controls {
   opacity: 1;
   pointer-events: auto;
 }
@@ -901,7 +907,7 @@
   transition: opacity 0.18s ease-out, scale 0.12s ease-out;
 }
 
-.bettergravity-pet-card[data-pet-hovered="true"] .bettergravity-pet-card__close {
+.bettergravity-pet-card[data-pet-hovered="true"]:not([data-pet-replying="true"]) .bettergravity-pet-card__close {
   opacity: 1;
   pointer-events: auto;
 }
