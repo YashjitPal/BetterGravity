@@ -21,14 +21,28 @@ For each completed row, extract and inspect it immediately:
 <python> "<skill>/scripts/inspect_frames.py" --frames-root "<run>/qa/rows/<state>/frames" --json-out "<run>/qa/rows/<state>/review.json" --states <state> --require-components
 ```
 
-Fix clipping, detached parts, identity drift, and extraction errors before accepting the row. If stable source strips acquire scale jitter through extraction, the supported `stable-slots` method is a deterministic correction; do not regenerate good source imagery merely to change extraction. Record visual/tool failures as progress errors instead of displaying invented completion.
+Fix clipping, detached parts, identity drift, and extraction errors before accepting the row. Record visual/tool failures as progress errors instead of displaying invented completion. Repair the failing row in the existing run, keeping approved rows and the canonical base.
+
+### Recovering extraction
+
+When a source strip has complete, separated poses with stable scale and placement, `stable-slots` can correct extraction-induced size or baseline jumps. Use it only after checking the source: overlapping poses, limbs crossing slot boundaries, and fragments from neighboring poses need a regenerated row. Keep the canonical base and matching layout guide attached to that regeneration.
+
+For a suitable source, extract and inspect the same row with these paired options:
+
+```text
+<python> "<skill>/scripts/extract_strip_frames.py" --decoded-dir "<run>/decoded" --output-dir "<run>/qa/rows/<state>/frames" --states <state> --method stable-slots
+<python> "<skill>/scripts/inspect_frames.py" --frames-root "<run>/qa/rows/<state>/frames" --json-out "<run>/qa/rows/<state>/review.json" --states <state> --require-components --allow-stable-slots
+```
+
+`--allow-stable-slots` permits that explicit extraction method; it does not approve the artwork. Inspect the extracted cells and their motion at normal pet size before accepting the warning. Slot slicing can cut off a limb or include another pose's fragments even when the numerical check passes. If that happens, regenerate the row rather than accepting it or relaxing further checks.
 
 ## Standard atlas and motion
 
-Once all nine rows pass:
+Once all nine rows pass, collect their approved frames into `<run>/frames/<state>/`. Merge the per-row `frames-manifest.json` files into `<run>/frames/frames-manifest.json`, retaining the common `chroma_key`, each row's `state` and extraction `method`, and updating `frames` to the copied paths. Copy the exact reviewed images; re-extracting every row with `auto` would discard a correction already approved during row QA.
+
+Run the combined inspection below. Add `--allow-stable-slots` only if a collected row used that method and its visual warning was reviewed. Then assemble and preview the standard atlas:
 
 ```text
-<python> "<skill>/scripts/extract_strip_frames.py" --decoded-dir "<run>/decoded" --output-dir "<run>/frames" --states all --method auto
 <python> "<skill>/scripts/inspect_frames.py" --frames-root "<run>/frames" --json-out "<run>/qa/review.json" --require-components
 <python> "<skill>/scripts/compose_atlas.py" --frames-root "<run>/frames" --output "<run>/final/standard.png"
 <python> "<skill>/scripts/make_contact_sheet.py" "<run>/final/standard.png" --output "<run>/qa/standard-contact-sheet.png"
