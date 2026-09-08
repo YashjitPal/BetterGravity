@@ -241,7 +241,7 @@ describe("Pets animation behavior", () => {
     ["right", 1024, 10_000],
     ["left", 360, 0],
     ["right", 360, 10_000]
-  ])("keeps the tray's horizontal position when chat opens at the %s edge of a %ipx viewport", (_edge, viewportWidth, petX) => {
+  ])("keeps independent horizontal positions when chat opens at the %s edge of a %ipx viewport", (edge, viewportWidth, petX) => {
     vi.stubGlobal("innerWidth", viewportWidth);
     mount([entry("Working")]);
     receive!({ t: "at", x: petX, y: 120 });
@@ -249,7 +249,15 @@ describe("Pets animation behavior", () => {
     const composer = document.querySelector<HTMLElement>(".bettergravity-pet-chat")!;
     const card = document.querySelector<HTMLElement>("[data-pet-key]")!;
     const center = tray.style.getPropertyValue("--pet-tray-x");
+    const chatCenter = composer.style.getPropertyValue("--pet-chat-x");
     const mascotLeft = pet.style.left;
+    const cardHalf = Number.parseFloat(tray.style.getPropertyValue("--pet-tray-width")) / 2;
+    const chatHalf = Number.parseFloat(composer.style.getPropertyValue("--pet-chat-width")) / 2;
+    const edgeOf = (center: string, half: number) => Number.parseFloat(center) + (edge === "right" ? half : -half);
+    // Each surface can reach the same screen edge despite their different
+    // widths. A shared center would strand the narrower card farther inward.
+    expect(edgeOf(center, cardHalf)).toBe(edgeOf(chatCenter, chatHalf));
+    expect(center).not.toBe(chatCenter);
 
     for (let cycle = 0; cycle < 3; cycle += 1) {
       expect(composer.dataset.petChat).toBe("closed");
@@ -261,7 +269,7 @@ describe("Pets animation behavior", () => {
       }));
       expect(composer.dataset.petChat).toBe("open");
       expect(tray.style.getPropertyValue("--pet-tray-x")).toBe(center);
-      expect(composer.style.getPropertyValue("--pet-chat-x")).toBe(center);
+      expect(composer.style.getPropertyValue("--pet-chat-x")).toBe(chatCenter);
       expect(pet.style.left).toBe(mascotLeft);
       move(false);
       vi.advanceTimersByTime(350);

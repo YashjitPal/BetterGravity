@@ -1,7 +1,7 @@
 {
   "name": "Pets",
   "description": "The Codex desktop pet, rebuilt for Antigravity. It lives on your desktop rather than inside the window, so it stays with you when the editor is behind something else. It shows what the agent is doing: a coloured indicator under its feet, and a stack of cards naming every thread that is running, waiting, blocked, or has something unread. Drag it anywhere, throw it and watch it bounce off the edges of the screen.",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "author": "Yashjit Pal",
   "main": "index.js",
   "styles": [

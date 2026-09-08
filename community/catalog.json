@@ -146,11 +146,11 @@
       "kind": "plugin",
       "name": "Pets",
       "description": "The Codex desktop pet, rebuilt for Antigravity. It lives on your desktop rather than inside the window, so it stays with you when the editor is behind something else. It shows what the agent is doing: a coloured indicator under its feet, and a stack of cards naming every thread that is running, waiting, blocked, or has something unread. Drag it anywhere, throw it and watch it bounce off the edges of the screen.",
-      "version": "2.9.2",
+      "version": "2.9.3",
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/pets",
-      "bytes": 1201664,
+      "bytes": 1201495,
       "files": [
         {
           "name": "assets/rocky.webp",
@@ -159,13 +159,13 @@
         },
         {
           "name": "index.js",
-          "bytes": 172440,
-          "sha256": "899b667db3830be1b9da7526c1b06f538a3f9f687e46062bd5abe4ff478839fa"
+          "bytes": 172271,
+          "sha256": "ed1c20affb33a8c107962136ce39b329642898bd7b2d0f254e2eab5f40e32cae"
         },
         {
           "name": "plugin.json",
           "bytes": 648,
-          "sha256": "cb1e9b7ec59b701e69a542a07f1be6111dfa81fc781a4b183c6e511f4be6dc26"
+          "sha256": "d94e9b9dbf0374b6ab8bf4d8db20d8fc88f5d37ff1173cadf385d880146e71bf"
         },
         {
           "name": "styles/hud.css",

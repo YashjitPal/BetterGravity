@@ -997,12 +997,12 @@ function petSurface(host, data) {
   /**
    * Lays out the cluster, the tray and the chat pill around wherever the pet is.
    *
-   * The tray and the quick chat are one column, not two surfaces that happen to
-   * be near each other. frame 4867 stacks them in a `flex flex-col items-center
+   * The tray and quick chat share a vertical column. frame 4867 stacks them in
+   * a `flex flex-col items-center
    * gap-2` and picks the order from isTrayAboveMascot — composer first when the
    * column is above the mascot, last when it is below — so the activity stack is
    * always the member touching the pet and the composer is always on the far side
-   * of it. Both are centred on the pet.
+   * of it. Both start centered on the pet, with their own horizontal bounds.
    *
    * Where the column starts is Jt(): under the pet, or under the open cluster when
    * that is what is showing, flipping above when the whole column would run past
@@ -1019,11 +1019,10 @@ function petSurface(host, data) {
     pet.style.setProperty("--pet-badge-arc-y", `${arc.y}px`);
 
     /*
-     * The column's width is the pill's own, measured — page 2191 hands the stack a
+     * The activity width is measured — page 2191 hands the stack a
      * `viewportRect` of `{height: 208, left: 0, top: 0, width: Hr().width}` and
      * fbe() gives every row `left: viewportRect.left` and `width: viewportRect.width`,
-     * so nothing about the screen edge enters into it. Qt(), which does take the
-     * edge into account, belongs to the transcript bubble and not to this.
+     * independently of the quick-chat pill's 344px width.
      */
     const room = Math.max(0, window.innerWidth - VIEWPORT_INSET * 2);
     const trayWidth = Math.min(cardWidth(), room);
@@ -1043,21 +1042,21 @@ function petSurface(host, data) {
     const columnHeight = column.reduce((sum, member, index) => sum + member.size + (index > 0 ? COLUMN_GAP : 0), 0);
 
     /*
-     * Ri() keeps a w-[344px] quick-chat placeholder in the column whenever quick
-     * chat is enabled, even while its input is hidden (frame 4713-4740). Reserve
-     * that width before hover too: using only visible members moves a 200px card
-     * sideways by 72px at a screen edge when the 344px input appears.
-     *
-     * Clamp the whole column to the viewport with one stable center, keeping its
-     * members aligned and every control reachable. The mascot has its own bounds
-     * and can still be dragged all the way to the edge independently of the tray.
+     * Clamp each surface using its own width. Sharing the widest member's clamp
+     * leaves a narrow task card needlessly far from the screen edge; using only
+     * visible members also makes it jump sideways when quick chat appears.
+     * Neither surface's horizontal position should depend on the other's
+     * visibility. The mascot retains its independent drag bounds as well.
      */
-    const half = Math.max(trayWidth, chatWidth) / 2;
     const petCentre = x + width / 2;
-    const nearest = half + VIEWPORT_INSET;
-    const furthest = window.innerWidth - half - VIEWPORT_INSET;
-    const centreX =
-      furthest < nearest ? window.innerWidth / 2 : Math.min(Math.max(petCentre, nearest), furthest);
+    const centerFor = (surfaceWidth) => {
+      const half = surfaceWidth / 2;
+      const nearest = half + VIEWPORT_INSET;
+      const furthest = window.innerWidth - half - VIEWPORT_INSET;
+      return furthest < nearest ? window.innerWidth / 2 : Math.min(Math.max(petCentre, nearest), furthest);
+    };
+    const trayCentreX = centerFor(trayWidth);
+    const chatCentreX = centerFor(chatWidth);
 
     const anchor = cluster() ? arc.y + HOVER_CONTROL_SIZE : height;
     const below = y + anchor + GAP_BELOW;
@@ -1081,12 +1080,12 @@ function petSurface(host, data) {
       cursor += member.size + COLUMN_GAP;
     }
 
-    tray.style.setProperty("--pet-tray-x", `${centreX}px`);
+    tray.style.setProperty("--pet-tray-x", `${trayCentreX}px`);
     tray.style.setProperty("--pet-tray-y", `${trayTop}px`);
     tray.style.setProperty("--pet-tray-width", `${trayWidth}px`);
     tray.style.setProperty("--pet-tray-height", `${trayHeight}px`);
 
-    chat.style.setProperty("--pet-chat-x", `${centreX}px`);
+    chat.style.setProperty("--pet-chat-x", `${chatCentreX}px`);
     chat.style.setProperty("--pet-chat-y", `${chatTop}px`);
     chat.style.setProperty("--pet-chat-width", `${chatWidth}px`);
 
@@ -1094,16 +1093,16 @@ function petSurface(host, data) {
     // without measuring them. Padded by the 12 px the dismiss button and the
     // shadows hang outside the box.
     trayRect = {
-      left: centreX - trayWidth / 2 - 12,
+      left: trayCentreX - trayWidth / 2 - 12,
       top: trayTop - 12,
-      right: centreX + trayWidth / 2 + 12,
+      right: trayCentreX + trayWidth / 2 + 12,
       bottom: trayTop + trayHeight + 12
     };
 
     chatRect = {
-      left: centreX - chatWidth / 2,
+      left: chatCentreX - chatWidth / 2,
       top: chatTop,
-      right: centreX + chatWidth / 2,
+      right: chatCentreX + chatWidth / 2,
       bottom: chatTop + CHAT_HEIGHT
     };
   }
