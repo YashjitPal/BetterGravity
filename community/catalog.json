@@ -146,11 +146,11 @@
       "kind": "plugin",
       "name": "Pets",
       "description": "An animated desktop companion with Codex-style activity cards, replies, and working animations. Choose a pet from the sidebar library or create your own with Antigravity's AI and the bundled Hatch Pet skill. The toolbar paw shows or hides your companion, and your created pets stay saved when the plugin is disabled.",
-      "version": "2.10.1",
+      "version": "2.10.2",
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/pets",
-      "bytes": 1419667,
+      "bytes": 1419697,
       "files": [
         {
           "name": "assets/rocky.webp",
@@ -159,13 +159,13 @@
         },
         {
           "name": "index.js",
-          "bytes": 182597,
-          "sha256": "4d97d7b05d3d5eacd948f9ebbdb61b7bcb0bfda3b94274c154359c344dea45e3"
+          "bytes": 182627,
+          "sha256": "19f6966516dd0ddefbdd049b390bc7301f22c3ce20671e02a1133142f512724e"
         },
         {
           "name": "plugin.json",
           "bytes": 577,
-          "sha256": "2ae09dc4bf034ade2fd78728e8d31f78058ef0a9ffc7ffbea5fe1dade2108c38"
+          "sha256": "e43cdae395234332a25b14ecfd03bf30f4fa1cb07f0c709c1e14bc437e94f46f"
         },
         {
           "name": "skills/hatch-pet/LICENSE.txt",

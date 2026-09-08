@@ -932,16 +932,16 @@ function petSurface(host, data) {
 
     if (custom.length === 0 || !SHEET_URL.test(custom)) {
       sheetProblem = custom.length === 0 ? "" : "the sprite sheet needs an http, https, or data URL";
-      pet.style.removeProperty("--pet-sheet");
+      sprite.style.removeProperty("background-image");
       pet.dataset.pet = "rocky";
       return;
     }
 
     sheetProblem = "";
     pet.dataset.pet = "custom";
-    // JSON.stringify escapes quotes and backslashes, which are the only two
-    // characters that could end the CSS string early.
-    pet.style.setProperty("--pet-sheet", `url(${JSON.stringify(custom)})`);
+    // Chromium drops oversized CSS custom properties, including generated sheets.
+    // Set the image directly; JSON.stringify escapes quotes and backslashes.
+    sprite.style.backgroundImage = `url(${JSON.stringify(custom)})`;
   }
 
   /* ── Where it stands, and where the tray goes ───────────────────────────

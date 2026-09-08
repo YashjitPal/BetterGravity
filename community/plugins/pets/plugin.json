@@ -1,7 +1,7 @@
 {
   "name": "Pets",
   "description": "An animated desktop companion with Codex-style activity cards, replies, and working animations. Choose a pet from the sidebar library or create your own with Antigravity's AI and the bundled Hatch Pet skill. The toolbar paw shows or hides your companion, and your created pets stay saved when the plugin is disabled.",
-  "version": "2.10.1",
+  "version": "2.10.2",
   "author": "Yashjit Pal",
   "main": "index.js",
   "styles": [
