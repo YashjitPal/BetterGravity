@@ -32,11 +32,13 @@ import { spawnGuardian } from "./guardian.js";
 import { installSourceInterceptor } from "./intercept.js";
 import { OverlayWindow } from "./overlay.js";
 import { PresenceConnection } from "./presence.js";
+import { PetLibrary } from "./pets.js";
 
 const WATCH_DEBOUNCE_MS = 150;
 
-function buildState(paths: RuntimePaths, context: RuntimeContext): RuntimeState {
+function buildState(paths: RuntimePaths, context: RuntimeContext, pets: PetLibrary): RuntimeState {
   const settings = readSettings(paths.settings);
+  pets.sync(settings);
   const themes = readThemes(paths.themes, settings);
   const plugins = readPlugins(paths.plugins, settings);
   return {
@@ -180,9 +182,28 @@ function registerChannels(
   paths: RuntimePaths,
   context: RuntimeContext,
   storage: PluginStorageStore,
-  gemini: GeminiTranslator
+  gemini: GeminiTranslator,
+  pets: PetLibrary
 ): void {
-  ipcMain.handle(CHANNEL.getState, () => buildState(paths, context));
+  ipcMain.handle(CHANNEL.getState, () => buildState(paths, context, pets));
+
+  const petOwner = (owner: string) => {
+    if (owner !== "pets") throw new Error("The pet library belongs to the Pets plugin.");
+  };
+  ipcMain.handle(CHANNEL.petsRead, (_event, owner: string) => { petOwner(owner); return pets.read(); });
+  ipcMain.handle(CHANNEL.petsLoad, (_event, owner: string, id: string) => { petOwner(owner); return pets.load(id); });
+  ipcMain.handle(CHANNEL.petsPrepare, (_event, owner: string) => { petOwner(owner); return pets.prepareCreation(); });
+  ipcMain.handle(CHANNEL.petsOpenFolder, async (_event, owner: string) => {
+    petOwner(owner);
+    const { directory } = pets.prepareCreation();
+    const problem = await shell.openPath(directory);
+    if (problem) throw new Error(problem);
+  });
+  pets.onChanged(() => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.webContents.isDestroyed()) window.webContents.send(CHANNEL.petsChanged);
+    }
+  });
 
   ipcMain.handle(CHANNEL.readStorage, () => storage.snapshot());
 
@@ -200,7 +221,7 @@ function registerChannels(
     const owner = readGeminiPlugins(paths.plugins, next)[0];
     if (owner === undefined) gemini.suspend();
     else gemini.resume(() => storedGeminiConfig(storage, owner));
-    const state = buildState(paths, context);
+    const state = buildState(paths, context, pets);
     broadcast(state);
     return state;
   });
@@ -221,7 +242,7 @@ function registerChannels(
   // Adding or deleting content changes what is on disk, so each one answers with
   // the rebuilt state; the watcher would otherwise race the reply.
   const afterChange = (result: ContentResult): ContentResult => {
-    if (result.ok) broadcast(buildState(paths, context));
+    if (result.ok) broadcast(buildState(paths, context, pets));
     return result;
   };
 
@@ -265,7 +286,9 @@ export function activate(context: RuntimeContext): void {
   const presence = new PresenceConnection();
   const overlay = new OverlayWindow();
   const gemini = new GeminiTranslator(paths.gemini);
-  registerChannels(paths, context, storage, gemini);
+  const pets = new PetLibrary(paths.root, paths.plugins, app.getPath("home"));
+  pets.sync(readSettings(paths.settings));
+  registerChannels(paths, context, storage, gemini, pets);
   registerPresenceChannels(presence);
   registerOverlayChannels(overlay);
   registerGeminiChannels(gemini);
@@ -298,6 +321,7 @@ export function activate(context: RuntimeContext): void {
     storage.flush();
     presence.dispose();
     overlay.dispose();
+    pets.dispose();
     void gemini.dispose();
     if (readSettings(paths.settings).reapplyAfterHostUpdate) {
       spawnGuardian(path.join(context.runtimeDirectory, "runtime"), paths.log);
@@ -318,7 +342,7 @@ export function activate(context: RuntimeContext): void {
       const patches = readPluginPatches(paths.plugins, readSettings(paths.settings));
       installSourceInterceptor(target, patches);
 
-        watchForChanges(paths, () => broadcast(buildState(paths, context)));
+        watchForChanges(paths, () => broadcast(buildState(paths, context, pets)));
         logger.info(`Runtime active. Preload registered via ${method}.`);
       } catch (error) {
         logger.error("Runtime activation failed after app ready. Antigravity continues unmodified.", error);

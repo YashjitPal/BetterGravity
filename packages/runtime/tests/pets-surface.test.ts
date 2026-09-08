@@ -16,16 +16,18 @@ let media: EventTarget & { matches: boolean };
 let sent: Message[];
 let pet: HTMLElement;
 let sprite: HTMLElement;
+let setFocusable: ReturnType<typeof vi.fn>;
 
-function mount(entries: Entry[] = [], config: Record<string, unknown> = {}): void {
+function mount(entries: Entry[] = [], config: Record<string, unknown> = {}, desktop = false): void {
   mountSurface({
     send: (message: Message) => sent.push(message),
     setInteractive: vi.fn(),
+    setFocusable,
     onMessage: (listener: (message: Message) => void) => {
       receive = listener;
       return () => { receive = undefined; };
     }
-  }, { entries, config, at: { x: 200, y: 200 } });
+  }, { entries, config, desktop, at: { x: 200, y: 200 } });
   pet = document.querySelector<HTMLElement>(".bettergravity-pet")!;
   sprite = document.querySelector<HTMLElement>(".bettergravity-pet__body")!;
 }
@@ -75,6 +77,7 @@ const row = () => Number.parseFloat(sprite.style.backgroundPosition.split(" ")[1
 beforeEach(() => {
   vi.useFakeTimers();
   sent = [];
+  setFocusable = vi.fn();
   media = Object.assign(new EventTarget(), { matches: false });
   vi.stubGlobal("matchMedia", vi.fn(() => media));
   Object.defineProperty(document, "elementFromPoint", { configurable: true, value: vi.fn(() => null) });
@@ -209,6 +212,18 @@ describe("Pets animation behavior", () => {
     expect(row()).toBe(7);
     vi.advanceTimersByTime(10_000);
     expect(row()).toBe(7);
+  });
+
+  it("requests native focus for Reply even when DOM focus emits no event", () => {
+    mount([entry("working")], {}, true);
+    const input = document.querySelector<HTMLInputElement>(".bettergravity-pet-chat__input")!;
+    // Chromium can update the selected field in a non-focusable native window
+    // without dispatching focus. Relying on that event leaves typing in the app behind it.
+    vi.spyOn(input, "focus").mockImplementation(() => undefined);
+    document.querySelector<HTMLElement>('[data-pet-control="reply"]')!.click();
+    expect(setFocusable).toHaveBeenCalledWith(true);
+    expect(input.focus).toHaveBeenCalled();
+    expect(sent.some((message) => message.t === "ask")).toBe(false);
   });
 
   it("looks at the follow-up caret and resumes work when that reply is closed", () => {

@@ -711,6 +711,46 @@ export interface PluginOverlay {
   onStatusChanged(listener: (status: OverlayStatus) => void): Unpatch;
 }
 
+export interface PetRecord {
+  readonly id: string;
+  readonly displayName: string;
+  readonly description: string;
+  readonly spriteVersionNumber: 2;
+  readonly previewDataUrl: string;
+}
+
+export interface PetCreationProgress {
+  readonly id: string;
+  readonly name: string;
+  readonly stage: "preparing" | "imagining" | "posing" | "hatching" | "ready" | "error";
+  readonly updatedAt: string;
+  readonly previewDataUrl?: string;
+  readonly petId?: string;
+  readonly message?: string;
+}
+
+export interface PetLibraryState {
+  readonly enabled: boolean;
+  readonly directory: string;
+  readonly skillPath: string | null;
+  readonly pets: readonly PetRecord[];
+  readonly runs: readonly PetCreationProgress[];
+  readonly message?: string;
+}
+
+export interface PetSprite extends PetRecord {
+  readonly spritesheetDataUrl: string;
+}
+
+/** Local pet packages and the creation skill managed by the Pets plugin. */
+export interface PluginPets {
+  read(): Promise<PetLibraryState>;
+  load(id: string): Promise<PetSprite>;
+  prepareCreation(): Promise<{ readonly skillPath: string; readonly directory: string }>;
+  openFolder(): Promise<void>;
+  onChanged(listener: () => void): Unpatch;
+}
+
 export interface PluginContext {
   readonly manifest: PluginManifest;
   readonly log: PluginLogger;
@@ -726,6 +766,7 @@ export interface PluginContext {
   readonly gemini: PluginGemini;
   readonly account: PluginAccount;
   readonly overlay: PluginOverlay;
+  readonly pets: PluginPets;
   /**
    * Registers cleanup to run when the plugin is disabled. Injected code cannot
    * be truly unloaded, so this is how a plugin undoes its own visible effects.

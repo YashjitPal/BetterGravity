@@ -2291,6 +2291,9 @@ function petSurface(host, data) {
           chatInput.value = "";
           chatTarget = key;
           composerClosed();
+          // A non-focusable native window can select a DOM input without
+          // emitting its focus event. Reply must request native focus itself.
+          focusChat();
           chatInput.focus();
           break;
         case "stop":
@@ -2770,7 +2773,17 @@ const MIN_WIDTH = 80;
 const MAX_WIDTH = 224;
 const DEFAULT_WIDTH = 113;
 
+let selectedPet = null;
+let selectedPetId = plugin.storage.get("selectedPet", "rocky");
+
 const settings = plugin.settings.define({
+  library: {
+    type: "action",
+    label: "Your pet",
+    description: "Choose a companion or create one with AI.",
+    action: "Choose or create a pet",
+    onSelect: () => openPetLibrary()
+  },
   home: {
     type: "select",
     label: "Where it lives",
@@ -2837,6 +2850,223 @@ const settings = plugin.settings.define({
     // pet is, what it is doing, and what it is reporting.
     read: () => describeStatus()
   }
+});
+
+/* The picker uses native skill discovery and local, validated pet packages. */
+let libraryState = null;
+let libraryError = "";
+let libraryModal = null;
+let libraryRoot = null;
+let libraryBusy = false;
+let libraryRefreshPending = false;
+let libraryDisposed = false;
+let libraryRequest = 0;
+let previewTimer;
+
+const libraryElement = (tag, className, text) => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+
+function libraryButton(text, action, quiet = false) {
+  const button = libraryElement("button", `bettergravity-pet-library__button${quiet ? " is-quiet" : ""}`, text);
+  button.type = "button";
+  button.addEventListener("click", () => { void action(); });
+  return button;
+}
+
+async function refreshPetLibrary() {
+  if (libraryBusy) { libraryRefreshPending = true; return; }
+  const mine = ++libraryRequest;
+  try {
+    if (!plugin.pets) throw new Error("Restart Antigravity to activate pet creation.");
+    const next = await plugin.pets.read();
+    if (libraryDisposed || mine !== libraryRequest) return;
+    libraryState = next;
+    libraryError = next.message ?? "";
+    const customId = selectedPetId.startsWith("custom:") ? selectedPetId.slice(7) : null;
+    if (customId && next.pets.some(pet => pet.id === customId)) {
+      const loaded = await plugin.pets.load(customId);
+      if (libraryDisposed || mine !== libraryRequest) return;
+      const changed = selectedPet?.spritesheetDataUrl !== loaded.spritesheetDataUrl;
+      selectedPet = loaded;
+      if (changed) begin();
+    }
+  } catch (error) {
+    if (libraryDisposed || mine !== libraryRequest) return;
+    libraryError = error?.message ?? String(error);
+  }
+  renderPetLibrary();
+}
+
+async function selectLibraryPet(id) {
+  const mine = ++libraryRequest;
+  libraryBusy = true;
+  renderPetLibrary();
+  try {
+    if (id !== "rocky" && !id.startsWith("custom:")) throw new Error("Unknown pet selection.");
+    const next = id === "rocky" ? null : await plugin.pets.load(id.slice(7));
+    if (libraryDisposed || mine !== libraryRequest) return;
+    selectedPet = next;
+    selectedPetId = id;
+    plugin.storage.set("selectedPet", id);
+    settings.sheet = "";
+    libraryError = "";
+    begin();
+  } catch (error) {
+    if (!libraryDisposed) libraryError = error?.message ?? String(error);
+  } finally {
+    libraryBusy = false;
+    renderPetLibrary();
+    if (libraryRefreshPending) { libraryRefreshPending = false; void refreshPetLibrary(); }
+  }
+}
+
+async function createPet() {
+  if (libraryBusy || libraryDisposed) return;
+  libraryBusy = true;
+  libraryError = "";
+  renderPetLibrary();
+  try {
+    if (!plugin.pets) throw new Error("Restart Antigravity to activate pet creation.");
+    await plugin.pets.prepareCreation();
+    if (libraryDisposed) return;
+    if (!(await newConversation())) throw new Error("The new conversation could not be opened.");
+    const expected = currentId();
+    const current = () => !libraryDisposed && currentId() === expected && projectlessHome();
+    const field = await waitForComposer(current);
+    if (!field || !current()) throw new Error("The new conversation is no longer selected.");
+    const draft = "value" in field ? field.value : field.textContent;
+    if (draft?.trim()) throw new Error("The new conversation already has a draft. Clear it before creating a pet.");
+    const prompt = "Use the hatch-pet skill to create a pet based on what you know about me. Show me the character and animation previews.";
+    if (!typeInto(field, prompt)) throw new Error("The pet request could not be added to the composer.");
+    // Codex's Create action prefills a projectless chat; the user can add a
+    // description or reference image before sending the request.
+    libraryModal?.close();
+    window.BetterGravity?.panel?.close();
+    field.focus();
+  } catch (error) {
+    if (!libraryDisposed) libraryError = error?.message ?? String(error);
+  } finally {
+    libraryBusy = false;
+    renderPetLibrary();
+    if (libraryRefreshPending) { libraryRefreshPending = false; void refreshPetLibrary(); }
+  }
+}
+
+function renderPetLibrary() {
+  clearTimeout(previewTimer);
+  if (!libraryRoot || libraryDisposed) return;
+  libraryRoot.replaceChildren();
+  const hero = libraryElement("div", "bettergravity-pet-library__hero");
+  const preview = libraryElement("div", "bettergravity-pet-library__sprite");
+  preview.setAttribute("role", "img");
+  preview.setAttribute("aria-label", selectedPet?.displayName ?? "Rocky");
+  const sheet = selectedPet?.spritesheetDataUrl || settings.sheet;
+  if (sheet) preview.style.backgroundImage = `url(${JSON.stringify(sheet)})`;
+  const caption = libraryElement("div", "bettergravity-pet-library__caption");
+  caption.append(libraryElement("span", "bettergravity-pet-library__eyebrow", "Your companion"),
+    libraryElement("strong", "", selectedPet?.displayName ?? "Rocky"),
+    libraryElement("span", "", selectedPet?.description ?? "A little company while you work."));
+  hero.append(preview, caption);
+  libraryRoot.append(hero);
+  if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    let frame = 0;
+    const animate = () => {
+      if (!preview.isConnected || libraryDisposed) return;
+      preview.style.backgroundPosition = `${frame / 7 * 100}% 70%`;
+      const delay = frame === 5 ? 220 : 120;
+      frame = (frame + 1) % 6;
+      previewTimer = setTimeout(animate, delay);
+    };
+    previewTimer = setTimeout(animate, 120);
+  }
+  const actions = libraryElement("div", "bettergravity-pet-library__actions");
+  const create = libraryButton(libraryBusy ? "Opening…" : "Create your own pet", createPet);
+  create.disabled = libraryBusy;
+  actions.append(create, libraryButton("Refresh", refreshPetLibrary, true), libraryButton("Open folder", async () => {
+    try { await plugin.pets.openFolder(); }
+    catch (error) { libraryError = error?.message ?? String(error); renderPetLibrary(); }
+  }, true));
+  libraryRoot.append(actions);
+  const notice = libraryError || (libraryState === null ? "Loading your pets…" : "");
+  if (notice) {
+    const message = libraryElement("p", "bettergravity-pet-library__notice", notice);
+    message.setAttribute("role", libraryError ? "alert" : "status");
+    libraryRoot.append(message);
+  }
+  const stages = ["preparing", "imagining", "posing", "hatching"];
+  const labels = ["Getting ready", "Imagining the main look", "Picturing the poses", "Hatching"];
+  for (const run of libraryState?.runs ?? []) {
+    if (run.stage === "ready") continue;
+    const card = libraryElement("section", "bettergravity-pet-library__progress");
+    if (run.previewDataUrl) {
+      const image = libraryElement("img", "bettergravity-pet-library__progress-image");
+      image.src = run.previewDataUrl;
+      image.alt = `${run.name} in progress`;
+      card.append(image);
+    }
+    const content = libraryElement("div", "bettergravity-pet-library__progress-content");
+    content.append(libraryElement("strong", "", run.name));
+    const steps = libraryElement("ol", "bettergravity-pet-library__steps");
+    steps.setAttribute("aria-label", `Creating ${run.name}`);
+    labels.forEach((label, index) => {
+      const step = libraryElement("li", "", label);
+      step.dataset.stage = index < stages.indexOf(run.stage) ? "complete" : stages[index] === run.stage ? "current" : "pending";
+      if (step.dataset.stage === "current") step.setAttribute("aria-current", "step");
+      steps.append(step);
+    });
+    content.append(steps);
+    if (run.stage === "error") content.append(libraryElement("p", "bettergravity-pet-library__notice", run.message || "Creation needs attention."));
+    card.append(content);
+    libraryRoot.append(card);
+  }
+  const list = libraryElement("div", "bettergravity-pet-library__list");
+  const records = [{ id: "rocky", displayName: "Rocky", description: "The original companion." },
+    ...(libraryState?.pets ?? []).map(pet => ({ ...pet, id: `custom:${pet.id}` }))];
+  for (const pet of records) {
+    const row = libraryElement("div", "bettergravity-pet-library__row");
+    row.dataset.petChoice = pet.id;
+    const thumbnail = libraryElement("div", "bettergravity-pet-library__thumbnail");
+    if (pet.previewDataUrl) {
+      const image = libraryElement("img", "");
+      image.src = pet.previewDataUrl;
+      image.alt = "";
+      thumbnail.append(image);
+    } else thumbnail.dataset.builtin = "true";
+    const details = libraryElement("div", "bettergravity-pet-library__details");
+    details.append(libraryElement("strong", "", pet.displayName), libraryElement("span", "", pet.description));
+    const current = selectedPetId === pet.id && !settings.sheet;
+    const choose = libraryButton(current ? "Selected" : "Use pet", () => selectLibraryPet(pet.id), true);
+    choose.disabled = current || libraryBusy;
+    row.append(thumbnail, details, choose);
+    list.append(row);
+  }
+  libraryRoot.append(list);
+  if (libraryState && libraryState.pets.length === 0) libraryRoot.append(libraryElement("p", "bettergravity-pet-library__empty", "Describe a companion or add a reference image in the new chat. Your finished pet will appear here."));
+}
+
+function openPetLibrary() {
+  libraryModal?.close();
+  libraryModal = plugin.ui.modal({
+    title: "Pets", width: 620,
+    render: body => {
+      libraryRoot = libraryElement("div", "bettergravity-pet-library");
+      body.append(libraryRoot);
+      renderPetLibrary();
+      void refreshPetLibrary();
+    },
+    onClose: () => { libraryRoot = null; libraryModal = null; clearTimeout(previewTimer); }
+  });
+}
+
+plugin.onDispose(() => {
+  libraryDisposed = true;
+  libraryRequest++;
+  clearTimeout(previewTimer);
+  libraryModal?.close();
 });
 
 /* ── Reading the sidebar ───────────────────────────────────────────────────
@@ -3270,6 +3500,7 @@ const GREETED_KEY = "greeted";
 
 /** Which sheet is being worn, as the thing that gets remembered. */
 const sheetId = () => {
+  if (selectedPet) return `custom:${selectedPet.id}`;
   const custom = typeof settings.sheet === "string" ? settings.sheet.trim() : "";
   return custom.length === 0 ? "rocky" : custom;
 };
@@ -3282,6 +3513,7 @@ const sheetId = () => {
  * takes to be introduced to Luna.
  */
 function petName() {
+  if (selectedPet) return selectedPet.displayName;
   const id = sheetId();
   if (id === "rocky") return "Rocky";
 
@@ -3554,7 +3786,7 @@ let trouble = "";
 const configOf = () => ({
   size: settings.size,
   force: settings.force,
-  sheet: settings.sheet,
+  sheet: selectedPet?.spritesheetDataUrl ?? settings.sheet,
   activity: settings.activity !== false,
   bounce: settings.bounce === true
 });
@@ -3987,10 +4219,7 @@ function poll() {
 const TOE = "q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29Z";
 const PAW = `M180-475${TOE}M360-635${TOE}M600-635${TOE}M780-475${TOE}M220-250a260 190 0 1 0 520 0a260 190 0 1 0-520 0Z`;
 
-/** How long the title bar has to appear before the sidebar gets the button. */
-const ANCHOR_GRACE_MS = 4000;
-
-/** The toggle, wherever it ended up. */
+/** The title-bar toggle stays registered while the host mounts or rebuilds it. */
 let toggle = null;
 
 function setShown(next) {
@@ -3999,13 +4228,13 @@ function setShown(next) {
   plugin.storage.set("shown", shown);
   toggle?.setActive(shown);
   if (shown) begin();
-  else stop();
+  else { generation++; stop(); }
 }
 
-function placeToggle(area) {
+function placeToggle() {
   try {
     toggle = plugin.ui.button({
-      area,
+      area: "titleBar",
       label: "Pet",
       icon: PAW,
       tooltip: "Show or hide the pet",
@@ -4019,28 +4248,30 @@ function placeToggle(area) {
   }
 }
 
-placeToggle("titleBar");
+placeToggle();
 
-// The title bar is where this belongs, but the anchor it hangs off is the host's
-// and the host is free to move it. A button that never landed anywhere is worse
-// than one in the second-best place, so if nothing has appeared by now the
-// sidebar gets it instead. `element` is undefined until it is placed.
-if (toggle !== null) {
-  const grace = setTimeout(() => {
-    if (toggle === null || toggle.element !== undefined) return;
-    toggle.remove();
-    placeToggle("sidebar");
-    plugin.log.info("the toggle went to the sidebar; there was no title bar to put it in");
-  }, ANCHOR_GRACE_MS);
-  plugin.onDispose(() => clearTimeout(grace));
-}
+// The sidebar opens the library independently of the title-bar visibility
+// toggle. A late title bar must never move the toggle into this entry's place.
+const libraryButtonHandle = plugin.ui.button({
+  area: "sidebar",
+  label: "Pets",
+  icon: PAW,
+  tooltip: "Choose or create a pet",
+  onClick: openPetLibrary
+});
+plugin.onDispose(() => libraryButtonHandle.remove());
 
 const poller = setInterval(poll, POLL_INTERVAL_MS);
 plugin.onDispose(() => clearInterval(poller));
-plugin.onDispose(stop);
+plugin.onDispose(() => { generation++; stop(); });
 
 plugin.onDispose(
   plugin.settings.onChange((key) => {
+    if (key === "sheet" && settings.sheet) {
+      selectedPet = null;
+      selectedPetId = "rocky";
+      plugin.storage.set("selectedPet", "rocky");
+    }
     // Moving house means a new surface; everything else the live one can be told.
     if (key === "home") {
       begin();
@@ -4053,6 +4284,11 @@ plugin.onDispose(
     poll();
   })
 );
+
+if (plugin.pets) {
+  plugin.onDispose(plugin.pets.onChanged(() => { void refreshPetLibrary(); }));
+  void refreshPetLibrary();
+}
 
 begin();
 

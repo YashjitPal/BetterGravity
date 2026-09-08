@@ -10,6 +10,7 @@ import { createPatcher } from "./hooks/patcher.js";
 import { createReactTools } from "./hooks/react.js";
 import { createOverlayTools } from "./overlay.js";
 import { createPresenceTools } from "./presence.js";
+import { createPetTools } from "./pets.js";
 import { createUiTools } from "./ui/index.js";
 
 export const PLUGIN_STYLE_ATTRIBUTE = "data-bettergravity-plugin-style";
@@ -162,6 +163,7 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
       gemini: createGeminiTools(track),
       account: createAccountTools(),
       overlay: createOverlayTools(record.id, track),
+      pets: createPetTools(record.id, track),
       onDispose: track
     },
     dispose: () => {

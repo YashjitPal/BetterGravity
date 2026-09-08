@@ -145,12 +145,12 @@
       "id": "pets",
       "kind": "plugin",
       "name": "Pets",
-      "description": "The Codex desktop pet, rebuilt for Antigravity. It lives on your desktop rather than inside the window, so it stays with you when the editor is behind something else. It shows what the agent is doing: a coloured indicator under its feet, and a stack of cards naming every thread that is running, waiting, blocked, or has something unread. Drag it anywhere, throw it and watch it bounce off the edges of the screen.",
-      "version": "2.9.3",
+      "description": "An animated desktop companion with Codex-style activity cards, replies, and working animations. Choose a pet from the sidebar library or create your own with Antigravity's AI and the bundled Hatch Pet skill. The toolbar paw shows or hides your companion, and your created pets stay saved when the plugin is disabled.",
+      "version": "2.10.0",
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/pets",
-      "bytes": 1201495,
+      "bytes": 1418070,
       "files": [
         {
           "name": "assets/rocky.webp",
@@ -159,18 +159,148 @@
         },
         {
           "name": "index.js",
-          "bytes": 172271,
-          "sha256": "ed1c20affb33a8c107962136ce39b329642898bd7b2d0f254e2eab5f40e32cae"
+          "bytes": 182597,
+          "sha256": "4d97d7b05d3d5eacd948f9ebbdb61b7bcb0bfda3b94274c154359c344dea45e3"
         },
         {
           "name": "plugin.json",
-          "bytes": 648,
-          "sha256": "d94e9b9dbf0374b6ab8bf4d8db20d8fc88f5d37ff1173cadf385d880146e71bf"
+          "bytes": 577,
+          "sha256": "109f6d2b1695736d5df37cf8cb436128678ee3b17374e73bab11d17f32c6a65d"
+        },
+        {
+          "name": "skills/hatch-pet/LICENSE.txt",
+          "bytes": 10776,
+          "sha256": "4dd13869245e356246a5b770723247bbb80a8f07a181d1d3d873a1734297cdb9"
+        },
+        {
+          "name": "skills/hatch-pet/NOTICE.txt",
+          "bytes": 428,
+          "sha256": "aa19bddae9d23b5c3b4e7c311fe7276add591af8b441dd1c567e1840086b0cee"
+        },
+        {
+          "name": "skills/hatch-pet/references/animation-rows.md",
+          "bytes": 2583,
+          "sha256": "d27b08d599e73cf6a65a03d2b8ad49e9ad408e18292636164e7b2d2f1815615f"
+        },
+        {
+          "name": "skills/hatch-pet/references/codex-pet-contract.md",
+          "bytes": 1309,
+          "sha256": "5e0926414914dff26f3fd8fda4708d97a1a034b16c976d940fda349cb265c555"
+        },
+        {
+          "name": "skills/hatch-pet/references/qa-rubric.md",
+          "bytes": 2579,
+          "sha256": "46bd447611d101cca0d89692ee566cfd58abfea30d4cfb7749b2c930e0b7deaf"
+        },
+        {
+          "name": "skills/hatch-pet/references/workflow.md",
+          "bytes": 6652,
+          "sha256": "39baac3c403aaa3548501770c9b12b029b9a51dcd787d42fba6169dab41f0fb5"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/assemble_extended_atlas.py",
+          "bytes": 21877,
+          "sha256": "ca50b13d62858a660e1ae2d15649a1ccb565d03ee185539d22df0e121075eadc"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/combine_direction_blind_verdicts.py",
+          "bytes": 1962,
+          "sha256": "4dad56adaad032a4e6d070494b0ab2ca316429cf69363450f9fbf7135d1c2d42"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/compose_atlas.py",
+          "bytes": 5750,
+          "sha256": "a76d7c8b81033353004f5cafab8fa174c314f1d79158b69bc83a2f0bd6047fdf"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/compose_cardinal_anchor_strip.py",
+          "bytes": 1401,
+          "sha256": "e67ac9816a909cad136189bf23eddf8b16e0fcb430ade2262556bbd12db2bca5"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/derive_running_left_from_running_right.py",
+          "bytes": 5183,
+          "sha256": "ae42859720220fe8a407fc0dfff06e8344e535c6c8019220b1f63db7714baa77"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/despill_chroma_edges.py",
+          "bytes": 10839,
+          "sha256": "dc93a5e752f4100e55010205462a8e7272bac451ee7e29b525abd6157a7fe309"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/extract_cardinal_anchors.py",
+          "bytes": 5006,
+          "sha256": "55434d06bc328b1879d98c821f2586963910f89926f4dcbe92682b25555a8cde"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/extract_strip_frames.py",
+          "bytes": 13923,
+          "sha256": "86301292945550c4b2c318815c9bfd97a1f9b3fa4e83aea7b31bcfa2ca20e1f2"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/inspect_frames.py",
+          "bytes": 9454,
+          "sha256": "9ef930151ae845a3c9eb3c10dfc8da95947535d18c72992cff5f65081af4c30a"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/make_contact_sheet.py",
+          "bytes": 3652,
+          "sha256": "51e2085b8acb172dcdd5fff9993bdee413f3851b714229ca095dc99cd551aa96"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/make_direction_blind_qa_sheet.py",
+          "bytes": 5370,
+          "sha256": "52f2a29251872449fed51c7744c3f9f503274ee288eb23efc29a2c568b0d52bd"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/make_direction_qa_sheet.py",
+          "bytes": 4929,
+          "sha256": "823e81e0aece24d1d6537889c9daaa2660208ff52604509b24fd5e24e7302acb"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/measure_direction_continuity.py",
+          "bytes": 6706,
+          "sha256": "e24b7065af82eab5638f1fcdeb627d497391a2f1e9ba19801827d1db3a6d8c2d"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/pet_bridge.py",
+          "bytes": 6753,
+          "sha256": "ea81843220ce3e023be03eeb2d36d8ee99f201a3f86d753217adb34172e01e0a"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/prepare_pet_run.py",
+          "bytes": 51329,
+          "sha256": "6b99787361d71f85ac1e5029c19c26555751e3034fd9e59ea19faaac1315e6ad"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/render_animation_previews.py",
+          "bytes": 2547,
+          "sha256": "911e8813e1b79b7f9da44fae8a667c044818e8c71f41eaa4b280e91c78cde61e"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/validate_atlas.py",
+          "bytes": 10689,
+          "sha256": "ebbbc77cfbd27ef8476ac6fda716e864cf372a2ed4c2beb27ebdb2487e972194"
+        },
+        {
+          "name": "skills/hatch-pet/scripts/validate_direction_blind_verdicts.py",
+          "bytes": 3836,
+          "sha256": "7871667432918e0ffcdbb9beaf88a01c0af4b9e2809c5000f7b533a9ddc6e13d"
+        },
+        {
+          "name": "skills/hatch-pet/SKILL.md",
+          "bytes": 6066,
+          "sha256": "8ea453a2ecd58be68976385e8ceff9af204df1c6f3fceefb9d0a9da8e9154609"
         },
         {
           "name": "styles/hud.css",
-          "bytes": 44707,
-          "sha256": "d58a2e956ba5151581623958666fbe1664c9903c695f5d69fb32027999db5588"
+          "bytes": 44837,
+          "sha256": "906bb1d4a62cda0575309a3600b3be7bb0c9361e387746ab75b7887ea6893553"
+        },
+        {
+          "name": "styles/library.css",
+          "bytes": 4591,
+          "sha256": "b525d3c7b20381992607bc8b77a810b9578b1f81c5ced702192655f765a52942"
         },
         {
           "name": "styles/pet.css",

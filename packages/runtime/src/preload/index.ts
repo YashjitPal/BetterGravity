@@ -91,6 +91,7 @@ const presenceListeners = new Set<(status: PresenceStatus) => void>();
 const geminiListeners = new Set<(status: GeminiStatus) => void>();
 const overlayStatusListeners = new Set<(status: OverlayStatus) => void>();
 const overlayMessageListeners = new Set<(message: unknown) => void>();
+const petsListeners = new Set<() => void>();
 
 const bridge: RuntimeBridge = {
   getState: () => ipcRenderer.invoke(CHANNEL.getState),
@@ -119,6 +120,11 @@ const bridge: RuntimeBridge = {
     geminiListeners.add(listener);
   },
   readAccount: () => ipcRenderer.invoke(CHANNEL.readAccount),
+  petsRead: owner => ipcRenderer.invoke(CHANNEL.petsRead, owner),
+  petsLoad: (owner, id) => ipcRenderer.invoke(CHANNEL.petsLoad, owner, id),
+  petsPrepare: owner => ipcRenderer.invoke(CHANNEL.petsPrepare, owner),
+  petsOpenFolder: owner => ipcRenderer.invoke(CHANNEL.petsOpenFolder, owner),
+  onPetsChanged: listener => { petsListeners.add(listener); },
   overlayOpen: (owner, surface: OverlaySurface) => ipcRenderer.invoke(CHANNEL.overlayOpen, owner, surface),
   overlayClose: (owner) => ipcRenderer.invoke(CHANNEL.overlayClose, owner),
   overlaySend: (message) => ipcRenderer.send(CHANNEL.overlaySend, message),
@@ -194,6 +200,12 @@ if (isOverlayWindow) {
       } catch (error) {
         report(`an overlay listener threw: ${error instanceof Error ? error.message : String(error)}`);
       }
+    }
+  });
+
+  ipcRenderer.on(CHANNEL.petsChanged, () => {
+    for (const listener of petsListeners) {
+      try { listener(); } catch { /* Keep other pet-library subscribers active. */ }
     }
   });
 

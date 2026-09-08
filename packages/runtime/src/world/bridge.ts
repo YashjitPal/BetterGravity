@@ -10,6 +10,8 @@ import type {
   GeminiStatus,
   OverlayStatus,
   OverlaySurface,
+  PetLibraryState,
+  PetSprite,
   PluginStorageSnapshot,
   PresenceActivity,
   PresenceStatus,
@@ -45,6 +47,11 @@ export interface RuntimeBridge {
   geminiTest(): Promise<GeminiKeyTest>;
   onGeminiStatus(listener: (status: GeminiStatus) => void): void;
   readAccount(): Promise<AccountProfile>;
+  petsRead(owner: string): Promise<PetLibraryState>;
+  petsLoad(owner: string, id: string): Promise<PetSprite>;
+  petsPrepare(owner: string): Promise<{ skillPath: string; directory: string }>;
+  petsOpenFolder(owner: string): Promise<void>;
+  onPetsChanged(listener: () => void): void;
   /** `owner` is the plugin id; the main process uses it to police who may close. */
   overlayOpen(owner: string, surface: OverlaySurface): Promise<OverlayStatus>;
   overlayClose(owner: string): Promise<OverlayStatus>;

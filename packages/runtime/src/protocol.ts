@@ -6,6 +6,7 @@
 import type { CatalogEntry } from "@bettergravity/marketplace";
 
 export type { CatalogEntry, CatalogFile } from "@bettergravity/marketplace";
+export type { PetCreationProgress, PetLibraryState, PetRecord, PetSprite } from "@bettergravity/plugin-api";
 
 export const CHANNEL = {
   getState: "bettergravity:get-state",
@@ -31,6 +32,11 @@ export const CHANNEL = {
   geminiTest: "bettergravity:gemini-test",
   geminiStatus: "bettergravity:gemini-status",
   readAccount: "bettergravity:read-account",
+  petsRead: "bettergravity:pets-read",
+  petsLoad: "bettergravity:pets-load",
+  petsPrepare: "bettergravity:pets-prepare",
+  petsOpenFolder: "bettergravity:pets-open-folder",
+  petsChanged: "bettergravity:pets-changed",
   overlayOpen: "bettergravity:overlay-open",
   overlayClose: "bettergravity:overlay-close",
   overlayInteractive: "bettergravity:overlay-interactive",
