@@ -4,9 +4,11 @@ import { SETTING_PREFIX } from "../protocol.js";
 import { createAccountTools } from "./account.js";
 import { createDomUtilities } from "./dom.js";
 import { createGeminiTools } from "./gemini.js";
+import { desugarHas } from "./has.js";
 import { createNetworkTools } from "./hooks/net.js";
 import { createPatcher } from "./hooks/patcher.js";
 import { createReactTools } from "./hooks/react.js";
+import { createOverlayTools } from "./overlay.js";
 import { createPresenceTools } from "./presence.js";
 import { createUiTools } from "./ui/index.js";
 
@@ -129,15 +131,24 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
       },
       styles: {
         add: (css) => {
+          // `:has()` is priced per style invalidation across the whole document,
+          // so a handful of rules using it slow down every class change the app
+          // makes. `desugarHas` swaps each one for an attribute it maintains
+          // itself, at the same specificity, which is invisible in the result
+          // but takes the cost to zero. See world/has.ts.
+          const desugared = desugarHas(css);
           const style = document.createElement("style");
           style.setAttribute(PLUGIN_STYLE_ATTRIBUTE, record.id);
-          style.textContent = css;
+          style.textContent = desugared.css;
           // Plugins now start before the document is parsed, so head may not
           // exist yet.
           const attach = () => (document.head ?? document.documentElement)?.appendChild(style);
           if (document.head ?? document.documentElement) attach();
           else document.addEventListener("DOMContentLoaded", attach, { once: true });
-          const remove = () => style.remove();
+          const remove = () => {
+            style.remove();
+            desugared.release();
+          };
           track(remove);
           return remove;
         }
@@ -150,6 +161,7 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
       presence: createPresenceTools(track),
       gemini: createGeminiTools(track),
       account: createAccountTools(),
+      overlay: createOverlayTools(record.id, track),
       onDispose: track
     },
     dispose: () => {

@@ -105,6 +105,14 @@ Antigravity ships around a hundred `data-testid` attributes, which are far more
 stable than its Tailwind classes. The [theme guide](themes.md#target-components-by-test-id)
 lists the common ones.
 
+Once a plugin starts watching parts of the page and writing to them, how it does
+that decides whether the application still feels native. A `MutationObserver`
+whose callback writes to what it watches will freeze the window outright, and
+measuring an element right after writing to it is what turns a smooth sidebar into
+a stuttering one. Both are short to avoid and unpleasant to find later:
+[keeping it fast](performance.md) covers them, and the two console one-liners that
+tell you which one you have.
+
 ## Going further
 
 Styling and the DOM are the easy surface. Plugins can also intercept

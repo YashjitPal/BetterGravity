@@ -27,20 +27,42 @@
   transition: none !important;
 }
 
-/* The shell carries the surface, so the running-items panel above the editor
- * shares it; the inner card goes transparent. */
+/* The shell acts as a transparent container so the subagent mount and
+ * prompt box card maintain their separate bound surfaces. */
 [data-testid="agent-input-box"] > .rounded-2xl.bg-card-border {
   padding: 0 !important;
   border: 0 !important;
-  border-radius: 32px !important;
-  background: var(--gemini-composer-bg) !important;
-  box-shadow: var(--gemini-composer-shadow) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
   transition: none !important;
 }
 
+/* Running items panel mount: native lighter shade and 16px radius.
+ * Inset horizontally by 16px (width: calc(100% - 32px); margin: 0 auto)
+ * so it mounts cleanly within the flat surface of the 32px pill,
+ * eliminating any corner bleeding. */
+[data-testid="running-items-panel"] {
+  width: calc(100% - 32px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  background: var(--card-border, color-mix(in srgb, #FFFFFF 5%, color-mix(in srgb, #ffffff 5%, #101010))) !important;
+  border-top-left-radius: 16px !important;
+  border-top-right-radius: 16px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+[data-testid="running-items-panel"]:not([style*="0fr"]):not([class*="grid-rows-[0fr]"]) {
+  margin-bottom: -6px !important;
+  padding-bottom: 6px !important;
+}
+
 [data-testid="running-items-panel"] .rounded-t-2xl {
-  border-top-left-radius: 32px !important;
-  border-top-right-radius: 32px !important;
+  border-top-left-radius: 16px !important;
+  border-top-right-radius: 16px !important;
 }
 
 /* Zero-duration snapping on row transition: Willow and Gemini snap composer expansion
@@ -73,7 +95,11 @@
   min-height: 64px;
   padding: 12px 15px 12px 20px !important;
   border-radius: 32px !important;
-  background: transparent !important;
+  border: none !important;
+  background: var(--gemini-composer-bg) !important;
+  box-shadow: none !important;
+  position: relative !important;
+  z-index: 2 !important;
   font-family: var(--gemini-font);
   font-variation-settings: var(--gemini-font-axes);
   transition: none !important;

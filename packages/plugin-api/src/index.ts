@@ -605,6 +605,112 @@ export interface PluginAccount {
   read(): Promise<AccountProfile>;
 }
 
+// ---------------------------------------------------------------------------
+// The desktop overlay
+// ---------------------------------------------------------------------------
+
+/** Where the overlay sits, in screen coordinates. */
+export interface OverlayBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly scaleFactor: number;
+}
+
+export interface OverlayStatus {
+  readonly open: boolean;
+  readonly bounds?: OverlayBounds;
+  /** Why it is not open, phrased for display. */
+  readonly message?: string;
+}
+
+/**
+ * The `Overlay` global an overlay script runs with.
+ *
+ * `setInteractive` is the one to understand. The window covers the whole screen,
+ * so it starts transparent to the pointer — clicks land on whatever is beneath
+ * it. Calling this with `true` while the pointer is over something the script
+ * drew is what makes that thing clickable; calling it with `false` on the way out
+ * gives the desktop back. Forgetting the second call leaves the user unable to
+ * click anything at all, so pair them.
+ */
+export interface OverlayApi {
+  /** The covered rectangle. Undefined only before the first frame. */
+  readonly bounds: OverlayBounds | undefined;
+  setInteractive(interactive: boolean): void;
+  /** Focus the window for text entry; pass false when the editor loses focus. */
+  setFocusable(focusable: boolean): void;
+  /** To the page that opened the overlay. */
+  send(message: unknown): void;
+  onMessage(listener: (message: unknown) => void): () => void;
+  /** Screens are unplugged and resolutions change; this is the new rectangle. */
+  onResize(listener: (bounds: OverlayBounds) => void): () => void;
+  close(): void;
+}
+
+/**
+ * What runs inside the overlay window.
+ *
+ * A function is the usual form: it is stringified and re-evaluated in the
+ * overlay's own world, so it must be self-contained — it keeps no closure over
+ * the page, cannot see the plugin's modules, and reaches nothing it was not
+ * passed. Anything it needs from the page goes through `data`, which is JSON, or
+ * over the message channel afterwards.
+ */
+export type OverlayScript = string | ((overlay: OverlayApi, data: unknown) => void);
+
+export interface OverlaySurface {
+  readonly script: OverlayScript;
+  /** Injected before the script runs, on top of a transparent-body reset. */
+  readonly styles?: string;
+  /** Handed to the script as its second argument. Must survive `JSON.stringify`. */
+  readonly data?: unknown;
+  /** Which screen to cover. `cursor` picks the one the pointer is on. */
+  readonly display?: "primary" | "cursor";
+  /**
+   * Whether the window holds pointer input from the moment it opens. Leave this
+   * alone unless the overlay really does cover the screen with something the
+   * user is meant to click: while it is true, nothing underneath is reachable.
+   */
+  readonly interactive?: boolean;
+}
+
+/**
+ * A running overlay. Always returned, even when the window could not be created,
+ * so `ok` is what to check rather than a rejected promise.
+ */
+export interface OverlayHandle {
+  readonly ok: boolean;
+  /** Why `ok` is false, phrased for display. */
+  readonly message?: string;
+  readonly bounds: OverlayBounds | undefined;
+  /** To the overlay's script. Dropped silently once the overlay has closed. */
+  send(message: unknown): void;
+  onMessage(listener: (message: unknown) => void): Unpatch;
+  onResize(listener: (bounds: OverlayBounds) => void): Unpatch;
+  close(): Promise<void>;
+}
+
+/**
+ * A window on the desktop rather than in the page.
+ *
+ * Everything else a plugin can draw stops at the edge of Antigravity's window.
+ * This is transparent, frameless, always on top and covers a whole screen, which
+ * is what lets a plugin keep something on screen while the user is in another
+ * application — and it survives Antigravity being minimised, because it is not
+ * a child of it.
+ *
+ * There is one overlay for the whole runtime. Opening replaces whatever a
+ * previous call left behind, and a plugin can only close the one it opened
+ * itself. Disabling the plugin closes it.
+ */
+export interface PluginOverlay {
+  open(surface: OverlaySurface): Promise<OverlayHandle>;
+  status(): OverlayStatus;
+  onStatusChanged(listener: (status: OverlayStatus) => void): Unpatch;
+}
+
 export interface PluginContext {
   readonly manifest: PluginManifest;
   readonly log: PluginLogger;
@@ -619,6 +725,7 @@ export interface PluginContext {
   readonly presence: PluginPresence;
   readonly gemini: PluginGemini;
   readonly account: PluginAccount;
+  readonly overlay: PluginOverlay;
   /**
    * Registers cleanup to run when the plugin is disabled. Injected code cannot
    * be truly unloaded, so this is how a plugin undoes its own visible effects.

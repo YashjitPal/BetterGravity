@@ -322,6 +322,235 @@ describe("plugin dom utilities", () => {
     expect(hits[1]).toBe(added);
   });
 
+  it("delivers an element nested inside an added subtree", async () => {
+    const host = createHost();
+    host.sync([plugin("dom", true, "globalThis.__deep = []; plugin.dom.observe('.deep', function(el){ globalThis.__deep.push(el); });")]);
+
+    const branch = document.createElement("div");
+    branch.innerHTML = `<span><em><i class="deep"></i></em></span>`;
+    document.body.appendChild(branch);
+    await nextFrame();
+
+    expect(probe<Element[]>("__deep") ?? []).toEqual([branch.querySelector(".deep")]);
+  });
+
+  it("delivers an element that only starts matching when its class changes", async () => {
+    const element = document.createElement("u");
+    document.body.appendChild(element);
+    const host = createHost();
+    host.sync([plugin("dom", true, "globalThis.__armed = []; plugin.dom.observe('.armed', function(el){ globalThis.__armed.push(el); });")]);
+
+    expect(probe<Element[]>("__armed") ?? []).toHaveLength(0);
+    element.className = "armed";
+    await nextFrame();
+
+    expect(probe<Element[]>("__armed") ?? []).toEqual([element]);
+  });
+
+  it("delivers a match to every watcher of the same selector", async () => {
+    const host = createHost();
+    host.sync([
+      plugin("first", true, "globalThis.__a = 0; plugin.dom.observe('.shared', function(){ globalThis.__a += 1; });"),
+      plugin("second", true, "globalThis.__b = 0; plugin.dom.observe('.shared', function(){ globalThis.__b += 1; });")
+    ]);
+
+    const element = document.createElement("s");
+    element.className = "shared";
+    document.body.appendChild(element);
+    await nextFrame();
+
+    expect(probe<number>("__a")).toBe(1);
+    expect(probe<number>("__b")).toBe(1);
+  });
+
+  it("keeps one watcher running when another plugin's is disposed", async () => {
+    const keeper = "globalThis.__kept = 0; plugin.dom.observe('.both', function(){ globalThis.__kept += 1; });";
+    const host = createHost();
+    host.sync([
+      plugin("keeper", true, keeper),
+      plugin("goer", true, "globalThis.__gone = 0; plugin.dom.observe('.both', function(){ globalThis.__gone += 1; });")
+    ]);
+    // The keeper's source is unchanged, so it is left running rather than restarted.
+    host.sync([plugin("keeper", true, keeper), plugin("goer", false)]);
+
+    const element = document.createElement("q");
+    element.className = "both";
+    document.body.appendChild(element);
+    await nextFrame();
+
+    expect(probe<number>("__kept")).toBe(1);
+    expect(probe<number>("__gone")).toBe(0);
+  });
+
+  it("scans what changed rather than the whole document for every watcher", async () => {
+    const host = createHost();
+    host.sync([
+      ...Array.from({ length: 19 }, (_unused, index) =>
+        plugin(`filler-${index}`, true, `plugin.dom.observe('.filler-${index}', function(){});`)
+      ),
+      plugin("last", true, "globalThis.__last = []; plugin.dom.observe('.last', function(el){ globalThis.__last.push(el); });")
+    ]);
+
+    // Registration scans the document once per watcher, which is the only time it
+    // should have to: from here on a batch is answered from what it changed.
+    let documentScans = 0;
+    const query = Document.prototype.querySelectorAll;
+    Document.prototype.querySelectorAll = function patched(this: Document, ...args: [string]) {
+      documentScans += 1;
+      return query.apply(this, args);
+    } as typeof query;
+
+    const element = document.createElement("div");
+    element.className = "last";
+    try {
+      document.body.appendChild(element);
+      await nextFrame();
+    } finally {
+      Document.prototype.querySelectorAll = query;
+    }
+
+    expect(probe<Element[]>("__last") ?? []).toEqual([element]);
+    expect(documentScans).toBe(0);
+  });
+
+  it("answers a positional selector after a removal", async () => {
+    document.body.innerHTML = `<div id="pen"><p class="solo"></p><p class="spare"></p></div>`;
+    const host = createHost();
+    host.sync([plugin("dom", true, "globalThis.__solo = []; plugin.dom.observe('.solo:only-child', function(el){ globalThis.__solo.push(el); });")]);
+
+    expect(probe<Element[]>("__solo") ?? []).toHaveLength(0);
+    // A removal leaves nothing in the changed set to find the subject from.
+    document.querySelector(".spare")?.remove();
+    await nextFrame();
+
+    expect(probe<Element[]>("__solo") ?? []).toEqual([document.querySelector(".solo")]);
+  });
+
+  it("widens the watched attributes for a watcher registered later", async () => {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const early = "plugin.dom.observe('.early', function(){});";
+    const host = createHost();
+    host.sync([plugin("first", true, early)]);
+    // The first watcher only needs `class`; the second brings a new attribute to
+    // an observer that is already running.
+    host.sync([
+      plugin("first", true, early),
+      plugin("second", true, "globalThis.__flagged = []; plugin.dom.observe('[data-flagged]', function(el){ globalThis.__flagged.push(el); });")
+    ]);
+
+    element.setAttribute("data-flagged", "true");
+    await nextFrame();
+
+    expect(probe<Element[]>("__flagged") ?? []).toEqual([element]);
+  });
+
+  it("answers a sibling selector from the whole document", async () => {
+    document.body.innerHTML = `<p class="follower"></p>`;
+    const host = createHost();
+    host.sync([plugin("dom", true, "globalThis.__after = []; plugin.dom.observe('.leader + .follower', function(el){ globalThis.__after.push(el); });")]);
+
+    // Nothing in the subtree that changed points at the element that starts
+    // matching, so a scoped scan alone would never find it.
+    expect(probe<Element[]>("__after") ?? []).toHaveLength(0);
+    const leader = document.createElement("p");
+    leader.className = "leader";
+    document.body.insertBefore(leader, document.body.firstChild);
+    await nextFrame();
+
+    expect(probe<Element[]>("__after") ?? []).toEqual([document.querySelector(".follower")]);
+  });
+
+  it("costs one match and one query for twenty watchers together", async () => {
+    const host = createHost();
+    host.sync(
+      Array.from({ length: 20 }, (_unused, index) =>
+        plugin(`watcher-${index}`, true, `plugin.dom.observe('.watcher-${index}', function(){});`)
+      )
+    );
+
+    let matched = 0;
+    let scans = 0;
+    const matcher = Element.prototype.matches;
+    const query = Element.prototype.querySelectorAll;
+    Element.prototype.matches = function patched(this: Element, ...args: [string]) {
+      matched += 1;
+      return matcher.apply(this, args);
+    } as typeof matcher;
+    Element.prototype.querySelectorAll = function patched(this: Element, ...args: [string]) {
+      scans += 1;
+      return query.apply(this, args);
+    } as typeof query;
+
+    try {
+      document.body.appendChild(document.createElement("aside"));
+      await nextFrame();
+    } finally {
+      Element.prototype.matches = matcher;
+      Element.prototype.querySelectorAll = query;
+    }
+
+    expect(matched).toBe(1);
+    expect(scans).toBe(1);
+  });
+
+  it("scans an added subtree once when its own descendants change with it", async () => {
+    const host = createHost();
+    host.sync([plugin("dom", true, "globalThis.__nested = []; plugin.dom.observe('.nested', function(el){ globalThis.__nested.push(el); });")]);
+
+    const branch = document.createElement("div");
+    branch.innerHTML = `<span><em></em></span>`;
+    const inner = branch.querySelector("em") as Element;
+
+    let scans = 0;
+    const query = Element.prototype.querySelectorAll;
+    Element.prototype.querySelectorAll = function patched(this: Element, ...args: [string]) {
+      scans += 1;
+      return query.apply(this, args);
+    } as typeof query;
+
+    try {
+      document.body.appendChild(branch);
+      // Same batch: the class lands on a node inside the subtree that arrived.
+      inner.className = "nested";
+      await nextFrame();
+    } finally {
+      Element.prototype.querySelectorAll = query;
+    }
+
+    expect(probe<Element[]>("__nested") ?? []).toEqual([inner]);
+    expect(scans).toBe(1);
+  });
+
+  it("ignores an attribute no selector mentions", async () => {
+    const bystander = document.createElement("div");
+    document.body.appendChild(bystander);
+    const host = createHost();
+    host.sync([plugin("dom", true, "globalThis.__quiet = 0; plugin.dom.observe('.quiet', function(){ globalThis.__quiet += 1; });")]);
+
+    // An app mid animation rewrites `style` every frame and a virtualised list
+    // rewrites the transform of every row it scrolls past. No selector here
+    // mentions it, so none of that traffic should reach a scan at all.
+    let scans = 0;
+    const query = Element.prototype.querySelectorAll;
+    Element.prototype.querySelectorAll = function patched(this: Element, ...args: [string]) {
+      scans += 1;
+      return query.apply(this, args);
+    } as typeof query;
+
+    try {
+      for (let frame = 0; frame < 10; frame += 1) {
+        bystander.setAttribute("style", `transform: translateY(${frame}px)`);
+        await nextFrame();
+      }
+    } finally {
+      Element.prototype.querySelectorAll = query;
+    }
+
+    expect(scans).toBe(0);
+    expect(probe<number>("__quiet")).toBe(0);
+  });
+
   it("stops observing when the plugin is disabled", async () => {
     const host = createHost();
     host.sync([plugin("dom", true, "globalThis.__count = 0; plugin.dom.observe('.watched', function(){ globalThis.__count += 1; });")]);

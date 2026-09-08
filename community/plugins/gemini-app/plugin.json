@@ -5,5 +5,45 @@
   "author": "Yashjit Pal",
   "main": "index.js",
   "styles": "styles/gemini-app.css",
-  "source": "https://github.com/YashjitPal/BetterGravity"
+  "source": "https://github.com/YashjitPal/BetterGravity",
+  "patches": [
+    {
+      "note": "Antigravity's theme table re-reads all 16 CSS variables off the root element on every render of every component that asks for a colour, and the reads are computed-style reads, so each one can force the browser to recalculate style. Cache the table and return the same object until something that could change a colour actually changes: the root's style attribute, the root's class list, the number of stylesheets, or the contents of head. Its own subscription only ever listened to the first two, so the cache is never staler than the value it replaces. The second replacement lets React skip the JSON comparison when the object is the one it already has.",
+      "find": "--sidebar-secondary --sidebar-muted --content --card --border --accent",
+      "replace": [
+        {
+          "match": "function (\\w+)\\(\\)\\{if\\(typeof document===\"undefined\"\\)return\\{\\};var (\\w+)=getComputedStyle\\(document\\.documentElement\\)",
+          "with": "var bgThemeKey=null,bgThemeValue=null,bgThemeGen=0,bgThemeWatch=null;function $1(){if(typeof document===\"undefined\")return{};if(!bgThemeWatch&&document.head){bgThemeWatch=new MutationObserver(function(){bgThemeGen++});bgThemeWatch.observe(document.head,{childList:!0,subtree:!0,characterData:!0})}var r=document.documentElement,k=bgThemeGen+\"|\"+document.styleSheets.length+\"|\"+r.className+\"|\"+r.getAttribute(\"style\");if(k===bgThemeKey)return bgThemeValue;bgThemeKey=k;return bgThemeValue=bgThemeRead()}function bgThemeRead(){var $2=getComputedStyle(document.documentElement)"
+        },
+        {
+          "match": "f=\\(0,(\\w+)\\.useCallback\\)\\(\\(\\)=>\\{var k=(\\w+)\\(\\),l=JSON\\.stringify\\(k\\);(\\w+)\\.current\\.key!==l&&\\(\\3\\.current=\\{key:l,value:k\\}\\);return \\3\\.current\\.value\\},\\[\\]\\)",
+          "with": "f=(0,$1.useCallback)(()=>{var k=$2();if(k===$3.current.value)return $3.current.value;var l=JSON.stringify(k);$3.current.key!==l&&($3.current={key:l,value:k});return $3.current.value},[])"
+        }
+      ]
+    },
+    {
+      "note": "The hook behind the fading edges of every scrolling area watches the scroller and each of its children for resizes, and watches for rows being added or removed. Every one of those notifications measured the scroller immediately, so a chat list swapping rows in and out measured once per batch — the single most expensive thing in a profile of switching chats and collapsing the rail. Coalesce the notifications to one measurement per frame. The browser paints once per frame, so the fades land on exactly the same pixels; the first measurement after mount and the one driven by the scroll event are both left alone.",
+      "find": "startThreshold",
+      "replace": [
+        {
+          "match": "var (\\w+)=new ResizeObserver\\((\\w+)\\);\\1\\.observe\\((\\w+)\\);Array\\.from\\(\\3\\.children\\)\\.forEach\\((\\w+)=>\\1\\.observe\\(\\4\\)\\);",
+          "with": "var bgFrame=0,bgSoon=function(){bgFrame||(bgFrame=requestAnimationFrame(function(){bgFrame=0;$2()}))};var $1=new ResizeObserver(bgSoon);$1.observe($3);Array.from($3.children).forEach($4=>$1.observe($4));"
+        },
+        {
+          "match": "(\\w+) instanceof Element&&(\\w+)\\.unobserve\\(\\1\\)\\}\\);(\\w+)\\(\\)\\}\\);(\\w+)\\.observe\\((\\w+),\\s*\\{childList:!0\\}\\);\\3\\(\\);return\\(\\)=>\\{\\2\\.disconnect\\(\\);\\4\\.disconnect\\(\\)\\}",
+          "with": "$1 instanceof Element&&$2.unobserve($1)});bgSoon()});$4.observe($5,{childList:!0});$3();return()=>{bgFrame&&cancelAnimationFrame(bgFrame);$2.disconnect();$4.disconnect()}"
+        }
+      ]
+    },
+    {
+      "note": "Every label in the sidebar that can be clipped runs a hook that measures whether it is clipped, on mount and on every resize, and writes the answer into React state. Measuring is a scrollWidth read, which has to be answered with the truth, so it forces the browser to lay the page out if anything has been written since the last time it did. One label per row, each measuring and then writing, means one full layout per row: the third most expensive thing in a profile of switching chats and collapsing the rail. Collect the measurements instead, then take all the readings together and write all the answers afterwards, so a rail full of rows costs one layout rather than one each. The reading itself is unchanged and still lands in the same task, before anything is painted.",
+      "find": "isOverflowing",
+      "replace": [
+        {
+          "match": "function (\\w+)\\((\\w+),(\\w+)\\)\\{var \\[(\\w+),(\\w+)\\]=\\(0,(\\w+)\\.useState\\)\\(!1\\),(\\w+)=\\(0,\\6\\.useRef\\)\\(null\\);\\(0,\\6\\.useLayoutEffect\\)\\(\\(\\)=>\\{if\\(\\3\\)\\5\\(!1\\);else\\{var (\\w+)=\\(\\)=>\\{\\7\\.current&&\\5\\(\\7\\.current\\.scrollWidth>\\7\\.current\\.clientWidth\\)\\};\\8\\(\\);var (\\w+)=new ResizeObserver\\(\\8\\);\\7\\.current&&\\9\\.observe\\(\\7\\.current\\);return\\(\\)=>\\{\\9\\.disconnect\\(\\)\\}\\}\\},\\[\\2,\\3\\]\\);return\\{ref:\\7,isOverflowing:\\4\\}\\}",
+          "with": "var bgFitJobs=null;function bgFitRun(){var jobs=bgFitJobs;bgFitJobs=null;var reads=[];jobs.forEach(function(job){var node=job.ref.current;reads.push(node?node.scrollWidth>node.clientWidth:null)});var at=0;jobs.forEach(function(job){var value=reads[at++];value!==null&&job.set(value)})}function bgFit(ref,set){if(!bgFitJobs){bgFitJobs=new Map();queueMicrotask(bgFitRun)}bgFitJobs.set(ref,{ref:ref,set:set})}function $1($2,$3){var [$4,$5]=(0,$6.useState)(!1),$7=(0,$6.useRef)(null);(0,$6.useLayoutEffect)(()=>{if($3)$5(!1);else{var $8=()=>{bgFit($7,$5)};$8();var $9=new ResizeObserver($8);$7.current&&$9.observe($7.current);return()=>{$9.disconnect()}}},[$2,$3]);return{ref:$7,isOverflowing:$4}}"
+        }
+      ]
+    }
+  ]
 }

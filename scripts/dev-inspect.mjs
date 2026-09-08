@@ -11,11 +11,20 @@
 
 import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 // Overridable so the same tool can drive the installer, which serves its UI
 // from a file:// URL on a different port.
-const PORT = Number(process.env["BG_INSPECT_PORT"] ?? 9333);
+let defaultPort = 9333;
+try {
+  const activePortFile = path.join(process.env["APPDATA"] ?? "", "Antigravity", "DevToolsActivePort");
+  const content = readFileSync(activePortFile, "utf8");
+  const parsed = parseInt(content.split("\n")[0].trim(), 10);
+  if (parsed > 0) defaultPort = parsed;
+} catch {}
+
+const PORT = Number(process.env["BG_INSPECT_PORT"] ?? defaultPort);
 const HOST_URL_PREFIX = process.env["BG_INSPECT_URL_PREFIX"] ?? "https://127.0.0.1:";
 const executable = path.join(
   process.env["LOCALAPPDATA"] ?? "",

@@ -17,8 +17,7 @@
 /* ---------------------------------------------------------------------------
  * Sidebar root container, tokens, and surface
  * ------------------------------------------------------------------------- */
-[role="navigation"][aria-label="Sidebar"],
-[role="navigation"][aria-label="Sidebar"] * {
+[role="navigation"][aria-label="Sidebar"] {
   --color-sidebar: #1f1f1f !important;
   --sidebar: #1f1f1f !important;
   --sidebar-background: #1f1f1f !important;
@@ -297,7 +296,7 @@ div.bg-border.flex-shrink-0.w-\[1px\] {
   max-width: 176px !important;
   opacity: 1 !important;
   display: inline-block !important;
-  transition: opacity 150ms ease 100ms, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: opacity 150ms ease 100ms !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .willow-sidenav-text {
@@ -354,8 +353,7 @@ div.bg-border.flex-shrink-0.w-\[1px\] {
 /* Closed, Willow's rail hides the close toggle completely: the collapsed logo
  * button assumes the expand role with `side_nav_expand` on hover. */
 [data-testid="sidebar-toggle"][aria-expanded="false"],
-body:has([role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
-html:has([role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
+html[data-sidebar-collapsed="true"] [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] ~ * [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
 div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"] {
   opacity: 0 !important;
@@ -417,14 +415,16 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
  * The bar is the window's drag region, so the pair has to opt out of it or a
  * click would move the window instead of going back; each menu wrapper carries
  * the same `no-drag`. z-index clears the toolbar's own 50. */
-[data-testid="sidebar-toggle"] + div:has([aria-label="Go Back"]) {
+[data-testid="sidebar-toggle"] + div:has([aria-label="Go Back"]),
+div:has(> button[aria-label="Go Back"]) {
   position: fixed !important;
-  left: 284px !important;
+  left: var(--gemini-history-arrows-left, 284px) !important;
   top: 0 !important;
   height: 35px !important;
   margin: 0 !important;
   z-index: 60 !important;
   -webkit-app-region: no-drag !important;
+  transition: left 150ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* ---------------------------------------------------------------------------
@@ -461,7 +461,8 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   overflow: hidden;
 }
 
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch,
+html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] #gemini-experience-switch {
   padding: 0 10px !important;
   margin: 4px 0 12px !important;
   width: 100% !important;
@@ -482,7 +483,8 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   transition: background-color 300ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch [data-gemini-experience-track] {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch [data-gemini-experience-track],
+html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] #gemini-experience-switch [data-gemini-experience-track] {
   background-color: transparent !important;
   padding: 0 !important;
   justify-content: flex-start !important;
@@ -499,7 +501,8 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   transform-origin: left center;
 }
 
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-experience-tabs-wrap {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-experience-tabs-wrap,
+html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .gemini-experience-tabs-wrap {
   opacity: 0 !important;
   transform: scaleX(0.2) !important;
   pointer-events: none !important;
@@ -520,7 +523,8 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   pointer-events: none;
 }
 
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch [data-gemini-experience-slider] {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-experience-switch [data-gemini-experience-slider],
+html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] #gemini-experience-switch [data-gemini-experience-slider] {
   opacity: 0 !important;
   pointer-events: none !important;
 }
@@ -554,7 +558,8 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   transition: transform 300ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms cubic-bezier(0, 0, 0, 1), background-color 150ms ease !important;
 }
 
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-experience-collapsed-btn {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-experience-collapsed-btn,
+html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .gemini-experience-collapsed-btn {
   opacity: 1 !important;
   transform: scale(1) !important;
   pointer-events: auto !important;
@@ -661,21 +666,32 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
 /* ---------------------------------------------------------------------------
  * Willow Custom Scrollbar (gemini-chat-scrollbar)
  * ------------------------------------------------------------------------- */
-[role="navigation"][aria-label="Sidebar"] *,
-[role="navigation"][aria-label="Sidebar"] .overflow-y-auto {
+[role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"],
+[role="navigation"][aria-label="Sidebar"] .overflow-y-auto,
+[role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"],
+[role="navigation"][aria-label="Sidebar"] {
   scrollbar-width: auto !important;
   scrollbar-color: auto !important;
 }
 
 @media (pointer: fine) {
-  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar,
-  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-corner {
+  [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"]::-webkit-scrollbar,
+  [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"]::-webkit-scrollbar-corner,
+  [role="navigation"][aria-label="Sidebar"] .overflow-y-auto::-webkit-scrollbar,
+  [role="navigation"][aria-label="Sidebar"] .overflow-y-auto::-webkit-scrollbar-corner,
+  [role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"]::-webkit-scrollbar,
+  [role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"]::-webkit-scrollbar-corner,
+  [role="navigation"][aria-label="Sidebar"]::-webkit-scrollbar,
+  [role="navigation"][aria-label="Sidebar"]::-webkit-scrollbar-corner {
     background: transparent !important;
     width: 12px !important;
     height: 12px !important;
   }
 
-  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-thumb {
+  [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"]::-webkit-scrollbar-thumb,
+  [role="navigation"][aria-label="Sidebar"] .overflow-y-auto::-webkit-scrollbar-thumb,
+  [role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"]::-webkit-scrollbar-thumb,
+  [role="navigation"][aria-label="Sidebar"]::-webkit-scrollbar-thumb {
     background: content-box transparent !important;
     border: 2px solid transparent !important;
     border-radius: 9999px !important;
@@ -683,16 +699,28 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
     min-width: 48px !important;
   }
 
-  [role="navigation"][aria-label="Sidebar"] *:hover::-webkit-scrollbar-thumb {
+  [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"]:hover::-webkit-scrollbar-thumb,
+  [role="navigation"][aria-label="Sidebar"] .overflow-y-auto:hover::-webkit-scrollbar-thumb,
+  [role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"]:hover::-webkit-scrollbar-thumb,
+  [role="navigation"][aria-label="Sidebar"]:hover::-webkit-scrollbar-thumb {
     background: content-box rgb(51, 53, 55) !important;
   }
 
-  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-thumb:active,
-  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-thumb:hover {
+  [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"]::-webkit-scrollbar-thumb:active,
+  [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"]::-webkit-scrollbar-thumb:hover,
+  [role="navigation"][aria-label="Sidebar"] .overflow-y-auto::-webkit-scrollbar-thumb:active,
+  [role="navigation"][aria-label="Sidebar"] .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+  [role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"]::-webkit-scrollbar-thumb:active,
+  [role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover,
+  [role="navigation"][aria-label="Sidebar"]::-webkit-scrollbar-thumb:active,
+  [role="navigation"][aria-label="Sidebar"]::-webkit-scrollbar-thumb:hover {
     background: content-box rgb(68, 71, 70) !important;
   }
 
-  [role="navigation"][aria-label="Sidebar"] *::-webkit-scrollbar-button {
+  [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-list-sidebar"]::-webkit-scrollbar-button,
+  [role="navigation"][aria-label="Sidebar"] .overflow-y-auto::-webkit-scrollbar-button,
+  [role="navigation"][aria-label="Sidebar"] [class*="overflow-y-auto"]::-webkit-scrollbar-button,
+  [role="navigation"][aria-label="Sidebar"]::-webkit-scrollbar-button {
     height: 0px !important;
     width: 0px !important;
   }
@@ -809,7 +837,14 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
  * in for the right-hand inset (the rule at the top of this file). So these three
  * end where every conversation row and heading below them ends, 6px short of the
  * two pinned rows above — which is the same step Willow has between its fixed
- * block and its scroller, and for the same reason. */
+ * block and its scroller, and for the same reason.
+ *
+ * Vertically there is no step at all. Willow's fixed block is `pt-0 space-y-0`
+ * and the scroller under it `pt-0`, opening on a plain `space-y-0` group
+ * (Sidebar.tsx:1882, 1923-1925), so Code — its first scrolling row — keeps the
+ * same pitch under Search chats as any two rows have between them. The rows'
+ * own `2px 0` is therefore the whole gap, and a margin here would show up as a
+ * wider space under Conversation History than the rail has anywhere else. */
 [role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scroll-nav {
   width: 100% !important;
@@ -863,6 +898,14 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
 
 [role="navigation"][aria-label="Sidebar"] #gemini-top-fade[data-scrolled="true"] {
   opacity: 1;
+}
+
+/* Under Chat experience, hide New Project button (both plugin custom row and native) */
+[data-gemini-experience="chat"] #gemini-new-project-button,
+[data-gemini-experience="chat"] [data-testid="sidebar-add-project-button"],
+#gemini-experience-switch[data-gemini-experience="chat"] ~ * #gemini-new-project-button,
+#gemini-experience-switch[data-gemini-experience="chat"] ~ * [data-testid="sidebar-add-project-button"] {
+  display: none !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -944,7 +987,7 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 200px;
-  transition: opacity 150ms ease 100ms, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: opacity 150ms ease 100ms !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] span.truncate,
@@ -965,7 +1008,7 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   overflow: hidden !important;
   white-space: nowrap !important;
   pointer-events: none !important;
-  transition: opacity 80ms ease, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: opacity 80ms ease !important;
 }
 
 /* Hide shortcut hints in collapsed mode so icon is not pushed off-center */
@@ -1228,11 +1271,14 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
 /* ---------------------------------------------------------------------------
  * Section headers (Pinned Conversations, Projects, Recents)
  * ------------------------------------------------------------------------- */
-[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"],
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin: 0 !important;
+}
+
 [role="navigation"][aria-label="Sidebar"] .group\/section-header,
-[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"],
-[role="navigation"][aria-label="Sidebar"] h2,
-[role="navigation"][aria-label="Sidebar"] h3 {
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"] {
   font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
   font-size: 13px !important;
   line-height: 17px !important;
@@ -1242,6 +1288,96 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   letter-spacing: normal !important;
   padding-left: 8px !important;
   padding-right: 6px !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/section-header h2,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"] h2,
+[role="navigation"][aria-label="Sidebar"] .group\/section-header h3,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"] h3 {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  font: inherit !important;
+  color: inherit !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] .group\/section-header h2 button,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"] h2 button {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  gap: 0 !important;
+  font: inherit !important;
+  color: inherit !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+/* Hide native SVG arrow */
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"] h2 button > svg,
+[role="navigation"][aria-label="Sidebar"] .group\/section-header h2 button > svg,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"] h2 button > svg {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Lower arrow (keyboard_arrow_down) appearing on hover like project headings */
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"] h2 button::after,
+[role="navigation"][aria-label="Sidebar"] .group\/section-header h2 button::after,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"] h2 button::after {
+  content: "keyboard_arrow_down" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", sans-serif !important;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 14, "ROND" 100 !important;
+  font-size: 14px !important;
+  line-height: 14px !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin-left: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+  opacity: 0 !important;
+  transition: opacity 200ms ease, transform 200ms cubic-bezier(0.2, 0, 0, 1) !important;
+  pointer-events: none !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"]:hover h2 button::after,
+[role="navigation"][aria-label="Sidebar"] .group\/section-header:hover h2 button::after,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"]:hover h2 button::after {
+  opacity: 1 !important;
+  color: var(--gemini-text-dim, rgba(255, 255, 255, 0.55)) !important;
+}
+
+/* Arrow points right when collapsed */
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"][data-collapsed="true"] h2 button::after,
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"] h2 button[aria-expanded="false"]::after,
+[role="navigation"][aria-label="Sidebar"] .group\/section-header[data-collapsed="true"] h2 button::after,
+[role="navigation"][aria-label="Sidebar"] .group\/section-header h2 button[aria-expanded="false"]::after,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"][data-collapsed="true"] h2 button::after,
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"] h2 button[aria-expanded="false"]::after {
+  content: "keyboard_arrow_right" !important;
+}
+
+/* Plus action button: reveal ONLY on hover, matching project headers */
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"]:not(:hover) button[aria-label="New Conversation"],
+[role="navigation"][aria-label="Sidebar"] .group\/section-header:not(:hover) button[aria-label="New Conversation"],
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"]:not(:hover) button[aria-label="New Conversation"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+[role="navigation"][aria-label="Sidebar"] [data-testid="section-header"]:hover button[aria-label="New Conversation"],
+[role="navigation"][aria-label="Sidebar"] .group\/section-header:hover button[aria-label="New Conversation"],
+[role="navigation"][aria-label="Sidebar"] div[class*="group/section-header"]:hover button[aria-label="New Conversation"] {
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1530,6 +1666,19 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   color: #ffffff !important;
 }
 
+/* Keep native inline edit input out of layout so the Willow Rename Dialog handles the interaction */
+[data-testid="inline-edit-input"] {
+  opacity: 0 !important;
+  position: absolute !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+}
+
 /* Hide redundant project name subtitle on conversation rows */
 [data-testid="conversation-row-sidebar"] span.text-xs:has(svg),
 [data-testid="conversation-row-sidebar"] .flex-col > span:nth-child(2),
@@ -1758,6 +1907,46 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
 }
 
 /* ---------------------------------------------------------------------------
+ * Task Completed / Unread Indicator Dot
+ * Clean, single dot with no halo/shadow, styled with the user's Gemini theme color
+ * ------------------------------------------------------------------------- */
+[data-testid="status-unread-dot"] {
+  width: 16px !important;
+  height: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* Hide Antigravity's weird outer halo / blurry shadow layer */
+[data-testid="status-unread-dot"] > div:first-child:not(:only-child),
+[data-testid="status-unread-dot"] .opacity-10,
+[data-testid="status-unread-dot"] [class*="opacity-"],
+[data-testid="status-unread-dot"] [class*="h-3.5"],
+[data-testid="status-unread-dot"] [class*="w-3.5"] {
+  display: none !important;
+}
+
+/* Single crisp dot styled with the active Gemini theme color */
+[data-testid="status-unread-dot"] > div:last-child,
+[data-testid="status-unread-dot"] > div:only-child,
+[data-testid="status-unread-dot"] [class*="h-1.5"] {
+  width: 6px !important;
+  height: 6px !important;
+  min-width: 6px !important;
+  min-height: 6px !important;
+  border-radius: 50% !important;
+  background-color: var(--gemini-unread-dot-color, var(--gemini-theme-accent, #3b82f6)) !important;
+  background: var(--gemini-unread-dot-color, var(--gemini-theme-accent, #3b82f6)) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  border: none !important;
+  transition: background-color 150ms ease, background 150ms ease !important;
+}
+
+/* ---------------------------------------------------------------------------
  * The pinned marker
  * ---------------------------------------------------------------------------
  * Willow's own, measured off Gemini's Recents row and quoted there
@@ -1922,9 +2111,7 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
 }
 
 /* Reset portal wrappers so only the menu card itself has background/radius/padding */
-[data-floating-ui-portal] > div:has(> [role="menu"]:has([data-testid*="conversation-"])),
 [data-floating-ui-portal] > div:has(> [role="menu"][data-gemini-conversation-menu]),
-div:has(> [role="menu"]:has([data-testid*="conversation-"])),
 div:has(> [role="menu"][data-gemini-conversation-menu]) {
   background-color: transparent !important;
   background: transparent !important;
@@ -1934,7 +2121,6 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
 }
 
 /* Willow menu card */
-[role="menu"]:has([data-testid*="conversation-"]),
 [role="menu"][data-gemini-conversation-menu] {
   background-color: #1f1f1f !important;
   background: #1f1f1f !important;
@@ -1956,16 +2142,13 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
 }
 
 /* Enter state via Base UI */
-[role="menu"]:has([data-testid*="conversation-"])[data-starting-style],
 [role="menu"][data-gemini-conversation-menu][data-starting-style] {
   opacity: 0 !important;
   transform: scale(0.8) !important;
 }
 
 /* Exit state via Base UI */
-[role="menu"]:has([data-testid*="conversation-"])[data-ending-style],
 [role="menu"][data-gemini-conversation-menu][data-ending-style],
-[role="menu"]:has([data-testid*="conversation-"])[data-state="closed"],
 [role="menu"][data-gemini-conversation-menu][data-state="closed"] {
   opacity: 0 !important;
   transform: scale(0.8) !important;
@@ -1974,17 +2157,13 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
 }
 
 /* Hide separators inside conversation menu */
-[role="menu"]:has([data-testid*="conversation-"]) [role="separator"],
 [role="menu"][data-gemini-conversation-menu] [role="separator"] {
   display: none !important;
 }
 
 /* All menu items inside the conversation menu (both native and injected) */
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"],
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"],
-[role="menu"]:has([data-testid*="conversation-"]) button[role="menuitem"],
 [role="menu"][data-gemini-conversation-menu] button[role="menuitem"],
-[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item,
 [role="menu"][data-gemini-conversation-menu] .gemini-menu-item {
   height: 36px !important;
   min-height: 36px !important;
@@ -2011,15 +2190,10 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
 }
 
 /* Hover, focus, and highlighted states on menu items */
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:hover,
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:focus,
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:focus-visible,
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"][data-highlighted],
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"]:hover,
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"]:focus,
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"]:focus-visible,
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"][data-highlighted],
-[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item:hover,
 [role="menu"][data-gemini-conversation-menu] .gemini-menu-item:hover {
   background-color: rgba(230, 230, 230, 0.08) !important;
   color: #ffffff !important;
@@ -2027,9 +2201,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
 }
 
 /* Menu Item SVGs (both native and injected) */
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"] svg,
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"] svg,
-[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item svg,
 [role="menu"][data-gemini-conversation-menu] .gemini-menu-item svg,
 .gemini-menu-item-slot svg {
   width: 20px !important;
@@ -2042,9 +2214,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
 }
 
 /* Menu Item Labels */
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"] span,
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"] span,
-[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item span,
 [role="menu"][data-gemini-conversation-menu] .gemini-menu-item span,
 .gemini-menu-item-label {
   font-family: var(--gemini-font, "Google Sans Flex", sans-serif) !important;
@@ -2056,11 +2226,8 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   letter-spacing: normal !important;
 }
 
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:hover span,
-[role="menu"]:has([data-testid*="conversation-"]) [role="menuitem"]:focus span,
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"]:hover span,
 [role="menu"][data-gemini-conversation-menu] [role="menuitem"]:focus span,
-[role="menu"]:has([data-testid*="conversation-"]) .gemini-menu-item:hover span,
 [role="menu"][data-gemini-conversation-menu] .gemini-menu-item:hover span {
   color: #ffffff !important;
 }
@@ -2288,7 +2455,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   max-width: 180px;
   overflow: hidden;
   white-space: nowrap;
-  transition: opacity 200ms ease 100ms, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: opacity 150ms ease 100ms !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill {
@@ -2312,7 +2479,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   overflow: hidden !important;
   pointer-events: none !important;
   display: inline-block !important;
-  transition: opacity 120ms ease, max-width 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  transition: opacity 80ms ease !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-avatar-wrap {

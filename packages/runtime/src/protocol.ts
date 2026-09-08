@@ -31,8 +31,24 @@ export const CHANNEL = {
   geminiTest: "bettergravity:gemini-test",
   geminiStatus: "bettergravity:gemini-status",
   readAccount: "bettergravity:read-account",
+  overlayOpen: "bettergravity:overlay-open",
+  overlayClose: "bettergravity:overlay-close",
+  overlayInteractive: "bettergravity:overlay-interactive",
+  overlayFocusable: "bettergravity:overlay-focusable",
+  overlaySend: "bettergravity:overlay-send",
+  overlayStatus: "bettergravity:overlay-status",
+  overlayMessage: "bettergravity:overlay-message",
+  overlaySurface: "bettergravity:overlay-surface",
+  overlayAttached: "bettergravity:overlay-attached",
   log: "bettergravity:log"
 } as const;
+
+/**
+ * Marker on an overlay window's argv. The runtime registers one preload for the
+ * whole session, so the overlay window receives the same file as an Antigravity
+ * window; this is how that file knows which of the two it is running in.
+ */
+export const OVERLAY_ARGUMENT = "--bettergravity-overlay";
 
 /**
  * Reserved prefix for a plugin's declared settings inside its own storage. The
@@ -159,6 +175,49 @@ export interface AccountProfile {
 
 /** Persisted per-plugin key/value data, keyed by plugin id. */
 export type PluginStorageSnapshot = Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+
+// ---------------------------------------------------------------------------
+// The desktop overlay
+// ---------------------------------------------------------------------------
+
+/**
+ * What a plugin asks the main process to put on the desktop.
+ *
+ * The overlay is a window of its own — transparent, frameless, always on top,
+ * and unaware of Antigravity's layout — so what crosses is source rather than
+ * DOM: the main process cannot carry nodes between renderers, and the overlay's
+ * document is the plugin's to build. `script` is evaluated in the overlay's own
+ * world with an `Overlay` global in scope.
+ */
+export interface OverlaySurface {
+  readonly script: string;
+  readonly styles?: string;
+  /** Which screen to cover. `cursor` picks the one the pointer is on. */
+  readonly display?: "primary" | "cursor";
+  /**
+   * Whether the window should hold pointer input from the moment it opens.
+   * Normally false: an overlay that swallowed clicks across the whole screen
+   * would make the desktop unusable, so it starts transparent to the pointer
+   * and asks for input only while something is under the cursor.
+   */
+  readonly interactive?: boolean;
+}
+
+/** Where the overlay sits, in screen coordinates. */
+export interface OverlayBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly scaleFactor: number;
+}
+
+export interface OverlayStatus {
+  readonly open: boolean;
+  readonly bounds?: OverlayBounds;
+  /** Why it is not open, phrased for display. */
+  readonly message?: string;
+}
 
 export type DirectoryKey = "themes" | "plugins" | "root";
 

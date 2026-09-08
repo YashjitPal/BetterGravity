@@ -48,6 +48,14 @@ Some things are noted for the reviewer rather than rejected: `eval`,
 `new Function`, network requests, dynamic imports, and touching browser storage.
 None are forbidden, but each one needs a reason.
 
+A plugin that watches the page is also read for what the watching costs, because
+a slow one is indistinguishable from a broken Antigravity. Two shapes account for
+almost all of it: an observer whose callback writes to the part of the page it
+watches, which hangs the window outright, and measuring an element straight after
+writing to it, which turns a smooth sidebar into a stuttering one.
+[Keeping it fast](../docs/performance.md) covers both. `:has()` needs no care at
+all in plugin styles — the runtime rewrites it out of those stylesheets.
+
 ## What review is for
 
 A plugin is arbitrary code running in the same page as your source and your

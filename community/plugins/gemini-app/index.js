@@ -263,6 +263,8 @@ function applyWorkspaceTheme(colorId) {
   root.style.setProperty("--gemini-chip-bg", theme.chipBg);
   root.style.setProperty("--gemini-selection-bg", theme.creamyRgba);
   root.style.setProperty("--gemini-logo-filter", theme.logoFilter);
+  root.style.setProperty("--gemini-theme-accent", theme.swatchHex);
+  root.style.setProperty("--gemini-unread-dot-color", theme.swatchHex);
 
   let themeStyle = document.getElementById("gemini-theme-dynamic-styles");
   if (!themeStyle) {
@@ -278,6 +280,8 @@ function applyWorkspaceTheme(colorId) {
       --gemini-chip-bg: ${theme.chipBg} !important;
       --gemini-selection-bg: ${theme.creamyRgba} !important;
       --gemini-logo-filter: ${theme.logoFilter} !important;
+      --gemini-theme-accent: ${theme.swatchHex} !important;
+      --gemini-unread-dot-color: ${theme.swatchHex} !important;
     }
     ::selection {
       background: ${theme.creamyRgba} !important;
@@ -295,6 +299,9 @@ plugin.settings.onChange((key, value) => {
 });
 
 function enhanceWorkspaceColorSettings() {
+  if (!document.querySelector(".settings-modal-container") && !document.querySelector('[role="dialog"]') && !document.querySelector(".py-2.px-3")) {
+    return;
+  }
   const rows = document.querySelectorAll(".py-2.px-3");
   let targetRow = null;
   for (const r of rows) {
@@ -404,12 +411,31 @@ function enhanceWorkspaceColorSettings() {
   }
 }
 
-if (typeof document !== "undefined" && document.body) {
-  enhanceWorkspaceColorSettings();
-  const settingsObserver = new MutationObserver(() => {
+let settingsRafId = null;
+function scheduleEnhanceWorkspaceColorSettings() {
+  if (settingsRafId) return;
+  settingsRafId = requestAnimationFrame(() => {
+    settingsRafId = null;
     enhanceWorkspaceColorSettings();
   });
-  settingsObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+let settingsObserver = null;
+if (typeof document !== "undefined" && document.body) {
+  scheduleEnhanceWorkspaceColorSettings();
+  settingsObserver = new MutationObserver((mutations) => {
+    for (let i = 0; i < mutations.length; i++) {
+      const added = mutations[i].addedNodes;
+      for (let j = 0; j < added.length; j++) {
+        const node = added[j];
+        if (node.nodeType === 1 && (node.matches?.('.settings-modal-container, [role="dialog"]') || node.querySelector?.('.settings-modal-container, [role="dialog"]'))) {
+          scheduleEnhanceWorkspaceColorSettings();
+          return;
+        }
+      }
+    }
+  });
+  settingsObserver.observe(document.body, { childList: true });
 }
 
 
@@ -470,7 +496,49 @@ function apply(pill) {
   node.data = short;
 }
 
-const observers = new Map();
+/* ---------------------------------------------------------------------------
+ * Element-scoped observers, held weakly
+ * ---------------------------------------------------------------------------
+ * This was a `Map` keyed by the element, and the elements kept here are the
+ * short-lived ones: a tooltip for every hover, a language label for every code
+ * block in every reply, a row for every conversation ever scrolled past. A
+ * detached tooltip that nothing can reach is collected together with the
+ * observer watching it; one sitting in a `Map` is reachable forever. So the
+ * renderer's heap only ever grew, and a long session ended in the window dying
+ * outright rather than in anything getting slower first.
+ *
+ * A `WeakMap` cannot be walked, and switching the plugin off has to walk this
+ * to disconnect everything. So the elements are held weakly and one `WeakRef`
+ * per element is kept alongside for that walk: the ref outlives its element,
+ * the element is free to go, and refs whose element has gone are dropped as
+ * they are noticed. What is left growing is a pointer-sized object per element
+ * instead of the element, its subtree and its observer.
+ * ------------------------------------------------------------------------- */
+const observers = new WeakMap();
+const observed = new Set();
+
+/** Refs whose element has been collected, dropped in a batch now and then. */
+function pruneObserved() {
+  if (observed.size < 512) return;
+  for (const ref of observed) {
+    if (!ref.deref()) observed.delete(ref);
+  }
+}
+
+/** Every element still on the heap with its disposer, for the passes below. */
+function rememberedObservers() {
+  const entries = [];
+  for (const ref of observed) {
+    const element = ref.deref();
+    if (!element) {
+      observed.delete(ref);
+      continue;
+    }
+    const disposer = observers.get(element);
+    if (disposer) entries.push([element, disposer]);
+  }
+  return entries;
+}
 
 /**
  * A conversation row is watched by two separate observers, so keying the map by
@@ -479,16 +547,18 @@ const observers = new Map();
  */
 function remember(element, disposer) {
   const existing = observers.get(element);
-  if (!existing) {
-    observers.set(element, disposer);
+  if (existing) {
+    observers.set(element, {
+      disconnect: () => {
+        existing.disconnect();
+        disposer.disconnect();
+      }
+    });
     return;
   }
-  observers.set(element, {
-    disconnect: () => {
-      existing.disconnect();
-      disposer.disconnect();
-    }
-  });
+  observers.set(element, disposer);
+  observed.add(new WeakRef(element));
+  pruneObserved();
 }
 
 plugin.dom.observe(PILL_SELECTOR, (pill) => {
@@ -499,7 +569,7 @@ plugin.dom.observe(PILL_SELECTOR, (pill) => {
   // name shortens to itself, so that pass does nothing and the loop ends.
   const observer = new MutationObserver(() => apply(pill));
   observer.observe(pill, { subtree: true, childList: true, characterData: true });
-  observers.set(pill, observer);
+  remember(pill, observer);
 });
 
 /* ---------------------------------------------------------------------------
@@ -542,7 +612,13 @@ plugin.dom.observe(NEW_CONV_SELECTOR, (btn) => {
   applyNewConv(btn);
   const observer = new MutationObserver(() => applyNewConv(btn));
   observer.observe(btn, { subtree: true, childList: true, characterData: true });
-  observers.set(btn, observer);
+  btn.addEventListener('click', handleNewConversationActivation, true);
+  remember(btn, {
+    disconnect: () => {
+      btn.removeEventListener('click', handleNewConversationActivation, true);
+      observer.disconnect();
+    }
+  });
 });
 
 // Willow's exact sidebar widths (expanded = 288px, collapsed = 52px) and motion curve
@@ -626,7 +702,8 @@ function enforceSidebarGeometry(grandParent, collapsed) {
 }
 
 function ensureSidebarHeader(sidebar, collapsed) {
-  const header = sidebar?.firstElementChild;
+  const header = sidebar?.querySelector(':scope > div.shrink-0.flex.items-center') ||
+                 (sidebar?.firstElementChild?.id === "gemini-experience-switch" ? sidebar?.children[1] : sidebar?.firstElementChild);
   if (!header) return;
 
   let logoBtn = header.querySelector(".gemini-logo-btn");
@@ -715,52 +792,6 @@ function updateSidebarItemsState(sidebar, collapsed) {
       userPill.removeAttribute("data-tooltip-position");
     }
   }
-
-  const rows = sidebar.querySelectorAll('[data-testid="conversation-row-sidebar"]');
-  for (const row of rows) {
-    if (collapsed) {
-      const truncate = row.querySelector("span.truncate");
-      const title = truncate?.textContent?.trim() || "Conversation";
-      if (!row.getAttribute("title") && !row.hasAttribute("data-willow-tooltip")) {
-        row.setAttribute("title", title);
-      }
-      row.setAttribute("data-tooltip-position", "right");
-    } else {
-      if (row.getAttribute("data-tooltip-position") === "right") {
-        row.removeAttribute("data-tooltip-position");
-      }
-    }
-  }
-
-  const projectHeaders = sidebar.querySelectorAll('button[class*="group/headerbtn"]');
-  for (const pHeader of projectHeaders) {
-    if (collapsed) {
-      const truncate = pHeader.querySelector("span.truncate");
-      const title = truncate?.textContent?.trim() || "Project";
-      if (!pHeader.getAttribute("title") && !pHeader.hasAttribute("data-willow-tooltip")) {
-        pHeader.setAttribute("title", title);
-      }
-      pHeader.setAttribute("data-tooltip-position", "right");
-    } else {
-      if (pHeader.getAttribute("data-tooltip-position") === "right") {
-        pHeader.removeAttribute("data-tooltip-position");
-      }
-    }
-  }
-
-  const seeAllBtn = sidebar.querySelector('div[class*="pl-[22px]"] > button');
-  if (seeAllBtn) {
-    if (collapsed) {
-      if (!seeAllBtn.getAttribute("title") && !seeAllBtn.hasAttribute("data-willow-tooltip")) {
-        seeAllBtn.setAttribute("title", "All conversations");
-      }
-      seeAllBtn.setAttribute("data-tooltip-position", "right");
-    } else {
-      if (seeAllBtn.getAttribute("data-tooltip-position") === "right") {
-        seeAllBtn.removeAttribute("data-tooltip-position");
-      }
-    }
-  }
 }
 
 function syncSidebarState(sidebar) {
@@ -772,6 +803,17 @@ function syncSidebarState(sidebar) {
   if (sidebar.getAttribute("data-collapsed") !== String(collapsed)) {
     sidebar.setAttribute("data-collapsed", String(collapsed));
   }
+  if (document.documentElement.getAttribute("data-sidebar-collapsed") !== String(collapsed)) {
+    document.documentElement.setAttribute("data-sidebar-collapsed", String(collapsed));
+  }
+
+  const exp = getStoredExperience();
+  if (sidebar.getAttribute("data-gemini-experience") !== exp) {
+    sidebar.setAttribute("data-gemini-experience", exp);
+  }
+  if (document.documentElement.getAttribute("data-gemini-experience") !== exp) {
+    document.documentElement.setAttribute("data-gemini-experience", exp);
+  }
 
   ensureSidebarHeader(sidebar, collapsed);
   sidebar.querySelector(".gemini-sidebar-expand-rail")?.remove();
@@ -780,44 +822,6 @@ function syncSidebarState(sidebar) {
   updateSidebarItemsState(sidebar, collapsed);
 }
 
-plugin.dom.observe(SIDEBAR_SELECTOR, (sidebar) => {
-  syncSidebarState(sidebar);
-  const grandParent = sidebar.parentElement?.parentElement;
-  if (grandParent) {
-    const observer = new MutationObserver(() => {
-      syncSidebarState(sidebar);
-    });
-    observer.observe(grandParent, { attributes: true, attributeFilter: ["style"] });
-    observers.set(grandParent, observer);
-  }
-  const sidebarObserver = new MutationObserver(() => {
-    ensureSidebarHeader(sidebar, isSidebarCollapsed());
-    ensureExperienceSwitch(sidebar);
-    sidebar.querySelector(".gemini-sidebar-expand-rail")?.remove();
-  });
-  sidebarObserver.observe(sidebar, { childList: true });
-  remember(sidebar, sidebarObserver);
-});
-
-plugin.dom.observe(TOGGLE_SELECTOR, (toggle) => {
-  const sidebar = document.querySelector(SIDEBAR_SELECTOR);
-  if (sidebar) syncSidebarState(sidebar);
-  toggle.addEventListener("click", () => {
-    const sb = document.querySelector(SIDEBAR_SELECTOR);
-    if (sb) {
-      const willCollapse = toggle.getAttribute("aria-expanded") !== "false";
-      sb.setAttribute("data-collapsed", String(willCollapse));
-      const grandParent = sb.parentElement?.parentElement;
-      if (grandParent) enforceSidebarGeometry(grandParent, willCollapse);
-    }
-  });
-  const toggleObserver = new MutationObserver(() => {
-    const sb = document.querySelector(SIDEBAR_SELECTOR);
-    if (sb) syncSidebarState(sb);
-  });
-  toggleObserver.observe(toggle, { attributes: true, attributeFilter: ["aria-expanded", "class"] });
-  remember(toggle, toggleObserver);
-});
 
 /* ---------------------------------------------------------------------------
  * The Chat / Work switch
@@ -828,9 +832,8 @@ plugin.dom.observe(TOGGLE_SELECTOR, (toggle) => {
  * places where there is no host markup to restyle: the pill is built here and
  * drawn by styles/sidebar.css, the same split the added nav rows below use.
  *
- * It selects, and that is all it does. Clicking moves the pill so the control
- * answers the pointer; no route change, no host state — what the two sides
- * should actually switch is still to be decided.
+ * It selects between Chat (standalone conversations) and Work (projects and
+ * their conversations).
  * ------------------------------------------------------------------------- */
 const EXPERIENCES = [
   { id: "chat", label: "Chat" },
@@ -838,7 +841,146 @@ const EXPERIENCES = [
   { id: "work", label: "Work", badge: "beta" }
 ];
 
+const EXPERIENCE_STORAGE_KEY = "bettergravity-experience";
+
+function getStoredExperience() {
+  try {
+    const val = localStorage.getItem(EXPERIENCE_STORAGE_KEY);
+    if (val === "work" || val === "chat") return val;
+  } catch {}
+  return "chat";
+}
+
+try {
+  document.documentElement.setAttribute("data-gemini-experience", getStoredExperience());
+} catch {}
+
+function setStoredExperience(val) {
+  try {
+    localStorage.setItem(EXPERIENCE_STORAGE_KEY, val);
+  } catch {}
+}
+
 const EXPERIENCE_LABELS = new Map(EXPERIENCES.map((experience) => [experience.id, experience.label]));
+
+let activeGoToNewConversation = null;
+let firstDiscoveredProjectId = null;
+const LAST_PROJECT_STORAGE_KEY = 'bettergravity-last-project-id';
+
+function getLastSelectedProjectId() {
+  try {
+    const val = localStorage.getItem(LAST_PROJECT_STORAGE_KEY);
+    if (val && val !== 'outside-of-project') return val;
+  } catch {}
+  return firstDiscoveredProjectId;
+}
+
+function setLastSelectedProjectId(projId) {
+  if (!projId || projId === 'outside-of-project') return;
+  try {
+    localStorage.setItem(LAST_PROJECT_STORAGE_KEY, projId);
+  } catch {}
+}
+
+function getGoToNewConversation() {
+  if (typeof activeGoToNewConversation === 'function') {
+    return activeGoToNewConversation;
+  }
+  const navBtn = document.querySelector('[data-testid="new-conversation-button"]');
+  if (navBtn) {
+    let fiber = null;
+    for (const k in navBtn) {
+      if (k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')) {
+        fiber = navBtn[k];
+        break;
+      }
+    }
+    let curr = fiber;
+    while (curr) {
+      let h = curr.memoizedState;
+      while (h) {
+        const v = h.memoizedState;
+        const fn = typeof v === 'function' ? v : (Array.isArray(v) && typeof v[0] === 'function' ? v[0] : null);
+        if (typeof fn === 'function' && fn.toString().includes('AGENT_MANAGER_HOME')) {
+          activeGoToNewConversation = fn;
+          return fn;
+        }
+        h = h.next;
+      }
+      curr = curr.return;
+    }
+  }
+  return null;
+}
+
+function navigateToExperienceNewConversation(exp) {
+  const fn = getGoToNewConversation();
+  if (exp === 'chat') {
+    if (typeof fn === 'function') {
+      fn('outside-of-project');
+    } else {
+      const secPlusBtn = document.querySelector('[data-testid="section-header"] button[aria-label="New Conversation"]');
+      if (secPlusBtn) {
+        const props = plugin.react.getProps(secPlusBtn);
+        if (typeof props?.onClick === 'function') {
+          props.onClick({ preventDefault: () => {}, stopPropagation: () => {} });
+        } else {
+          secPlusBtn.click();
+        }
+      } else {
+        const url = new URL(window.location.href);
+        url.pathname = '/';
+        url.search = '?section=outside-of-project';
+        window.location.href = url.toString();
+      }
+    }
+    return;
+  }
+
+  if (exp === 'work') {
+    let targetProjId = getLastSelectedProjectId();
+    if (!targetProjId) {
+      const firstCard = document.querySelector('button[data-project-card="true"]');
+      if (firstCard) {
+        let curr = plugin.react.getFiber(firstCard);
+        while (curr) {
+          const pid = curr.memoizedProps?.sectionId || curr.memoizedProps?.projectId || curr.memoizedProps?.item?.id;
+          if (pid) {
+            targetProjId = String(pid).replace(/^header-/, '');
+            setLastSelectedProjectId(targetProjId);
+            break;
+          }
+          curr = curr.return;
+        }
+      }
+    }
+
+    if (typeof fn === 'function') {
+      if (targetProjId) {
+        fn(targetProjId);
+      } else {
+        fn();
+      }
+    } else {
+      const projPlusBtn = document.querySelector('[data-testid="project-group"] button[aria-label="New Conversation"]');
+      if (projPlusBtn) {
+        const props = plugin.react.getProps(projPlusBtn);
+        if (typeof props?.onClick === 'function') {
+          props.onClick({ preventDefault: () => {}, stopPropagation: () => {} });
+        } else {
+          projPlusBtn.click();
+        }
+      } else {
+        const url = new URL(window.location.href);
+        url.pathname = '/';
+        if (targetProjId) {
+          url.search = `?section=${encodeURIComponent(targetProjId)}`;
+        }
+        window.location.href = url.toString();
+      }
+    }
+  }
+}
 
 /**
  * Willow gives the tooltip to the inactive tab only, so it names where you
@@ -852,8 +994,13 @@ const EXPERIENCE_LABELS = new Map(EXPERIENCES.map((experience) => [experience.id
  * once no longer holds the text in `title` — dropping only that would leave the
  * active tab still offering to switch to itself.
  */
-function markExperience(pill, selected) {
+function markExperience(pill, selected, shouldRerender = true) {
+  setStoredExperience(selected);
   pill.dataset.geminiExperience = selected;
+  document.documentElement.setAttribute("data-gemini-experience", selected);
+  const sidebar = pill.closest(SIDEBAR_SELECTOR) || document.querySelector(SIDEBAR_SELECTOR);
+  if (sidebar) sidebar.setAttribute("data-gemini-experience", selected);
+
   for (const tab of pill.querySelectorAll("[data-gemini-experience-tab]")) {
     const isSelected = tab.dataset.geminiExperienceTab === selected;
     tab.setAttribute("aria-pressed", String(isSelected));
@@ -877,6 +1024,18 @@ function markExperience(pill, selected) {
     collapsedBtn.title = `Switch to ${nextTarget}`;
     collapsedBtn.setAttribute("aria-label", `Switch to ${nextTarget}`);
     collapsedBtn.removeAttribute("data-willow-tooltip");
+  }
+
+  // Reset scroll position on switch so the active list starts from the top
+  const scroller = document.querySelector(LIST_SELECTOR);
+  if (scroller) scroller.scrollTop = 0;
+
+  ensureScrollNav();
+  if (typeof reconcileTopChips === "function") {
+    reconcileTopChips();
+  }
+  if (shouldRerender) {
+    triggerListRerender();
   }
 }
 
@@ -908,7 +1067,12 @@ function buildExperienceSwitch() {
       badge.textContent = experience.badge;
       tab.append(badge);
     }
-    tab.addEventListener("click", () => markExperience(pill, experience.id));
+    tab.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      markExperience(pill, experience.id, true);
+      navigateToExperienceNewConversation(experience.id);
+    });
     tabsWrap.append(tab);
   }
   track.append(tabsWrap);
@@ -925,14 +1089,16 @@ function buildExperienceSwitch() {
   `;
   collapsedBtn.addEventListener("click", (e) => {
     e.preventDefault();
-    const current = pill.dataset.geminiExperience || "chat";
+    e.stopPropagation();
+    const current = pill.dataset.geminiExperience || getStoredExperience();
     const next = current === "chat" ? "work" : "chat";
-    markExperience(pill, next);
+    markExperience(pill, next, true);
+    navigateToExperienceNewConversation(next);
   });
   track.append(collapsedBtn);
 
   pill.append(track);
-  markExperience(pill, EXPERIENCES[0].id);
+  markExperience(pill, getStoredExperience(), false);
   return pill;
 }
 
@@ -940,10 +1106,19 @@ function buildExperienceSwitch() {
  * re-render moves it. The selection lives on the element, so a pill that is
  * only re-seated keeps the tab the user chose. */
 function ensureExperienceSwitch(sidebar) {
-  const header = sidebar.firstElementChild;
+  if (!sidebar) return;
+  const header = sidebar.querySelector(':scope > div.shrink-0.flex.items-center') ||
+                 (sidebar.firstElementChild?.id === "gemini-experience-switch" ? null : sidebar.firstElementChild);
   if (!header) return;
-  const pill = sidebar.querySelector("#gemini-experience-switch") ?? buildExperienceSwitch();
+  const pills = document.querySelectorAll("#gemini-experience-switch");
+  const pill = pills[0] ?? buildExperienceSwitch();
+  for (let i = 1; i < pills.length; i++) pills[i].remove();
   if (header.nextElementSibling !== pill) header.after(pill);
+
+  const exp = getStoredExperience();
+  if (pill.dataset.geminiExperience !== exp) {
+    markExperience(pill, exp, false);
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1089,12 +1264,6 @@ function ensureScheduledTasksRow(block) {
   if (row.parentElement !== block) block.appendChild(row);
 }
 
-const SCROLL_NAV_ROWS = [
-  'gemini-scheduled-tasks-button',
-  'gemini-new-project-button',
-  'gemini-display-options-button',
-];
-
 function ensureScrollNav() {
   const collapsed = isSidebarCollapsed();
   const topNav = document.querySelector('[role="navigation"][aria-label="Sidebar"] > .px-2 > div.flex-col') ||
@@ -1108,12 +1277,23 @@ function ensureScrollNav() {
     block.id = 'gemini-scroll-nav';
   }
   ensureScheduledTasksRow(block);
-  ensureNewProjectRow(block);
+
+  const isWork = getStoredExperience() === 'work';
+  if (isWork) {
+    ensureNewProjectRow(block);
+  } else {
+    document.getElementById('gemini-new-project-button')?.remove();
+  }
   ensureDisplayOptionsRow(block);
+
+  const wantedIds = isWork
+    ? ['gemini-scheduled-tasks-button', 'gemini-new-project-button', 'gemini-display-options-button']
+    : ['gemini-scheduled-tasks-button', 'gemini-display-options-button'];
+
   // Every write from here down is guarded, because the observers that call this
   // watch the nodes it writes to, and a `replaceChildren` or an `insertBefore`
   // that changes nothing still reports a mutation. That is a loop.
-  const wanted = SCROLL_NAV_ROWS
+  const wanted = wantedIds
     .map((id) => document.getElementById(id))
     .filter((row) => row && row.parentElement === block);
   const current = [...block.children];
@@ -1161,6 +1341,39 @@ function ensureTopFade(scroller) {
   if (fade.dataset.scrolled !== scrolled) fade.dataset.scrolled = scrolled;
 }
 
+plugin.dom.observe(SIDEBAR_SELECTOR, (sidebar) => {
+  syncSidebarState(sidebar);
+  const sidebarObserver = new MutationObserver(() => {
+    ensureSidebarHeader(sidebar, isSidebarCollapsed());
+    ensureExperienceSwitch(sidebar);
+    sidebar.querySelector(".gemini-sidebar-expand-rail")?.remove();
+  });
+  sidebarObserver.observe(sidebar, { childList: true });
+  remember(sidebar, sidebarObserver);
+});
+
+plugin.dom.observe(TOGGLE_SELECTOR, (toggle) => {
+  const sidebar = document.querySelector(SIDEBAR_SELECTOR);
+  if (sidebar) syncSidebarState(sidebar);
+  toggle.addEventListener("click", () => {
+    const sb = document.querySelector(SIDEBAR_SELECTOR);
+    if (sb) {
+      const willCollapse = toggle.getAttribute("aria-expanded") !== "false";
+      sb.setAttribute("data-collapsed", String(willCollapse));
+      document.documentElement.setAttribute("data-sidebar-collapsed", String(willCollapse));
+      const grandParent = sb.parentElement?.parentElement;
+      if (grandParent) enforceSidebarGeometry(grandParent, willCollapse);
+      ensureExperienceSwitch(sb);
+    }
+  });
+  const toggleObserver = new MutationObserver(() => {
+    const sb = document.querySelector(SIDEBAR_SELECTOR);
+    if (sb) syncSidebarState(sb);
+  });
+  toggleObserver.observe(toggle, { attributes: true, attributeFilter: ["aria-expanded", "class"] });
+  remember(toggle, toggleObserver);
+});
+
 plugin.dom.observe(LIST_SELECTOR, (scroller) => {
   ensureScrollNav();
   ensureTopFade(scroller);
@@ -1176,8 +1389,11 @@ plugin.dom.observe(LIST_SELECTOR, (scroller) => {
     ensureScrollNav();
     ensureTopFade(scroller);
     const sidebar = scroller.closest(SIDEBAR_SELECTOR);
-    if (sidebar && isSidebarCollapsed()) {
-      updateSidebarItemsState(sidebar, true);
+    if (sidebar) {
+      ensureExperienceSwitch(sidebar);
+      if (isSidebarCollapsed()) {
+        updateSidebarItemsState(sidebar, true);
+      }
     }
   });
   children.observe(scroller, { childList: true });
@@ -1212,68 +1428,126 @@ plugin.dom.observe(AUTOMATIONS_SELECTOR, (autoBtn) => {
 
 const HEADERBTN_SELECTOR = '.group\\/headerbtn, button[class*="group/headerbtn"]';
 
+let cachedReferenceLeft = 0;
+let cachedReferenceTime = 0;
+
 function getReferenceLeft(sidebar) {
-  const rows = document.querySelectorAll('[data-testid="conversation-row-sidebar"] span.truncate');
-  for (const row of rows) {
-    const r = row.getBoundingClientRect();
-    if (r.width > 0 && r.left > 0) return r.left;
+  const now = performance.now();
+  if (cachedReferenceLeft > 0 && (now - cachedReferenceTime) < 500) {
+    return cachedReferenceLeft;
   }
-  const headers = document.querySelectorAll('[data-testid="section-header"], .group\\/section-header, [role="navigation"][aria-label="Sidebar"] h2, [role="navigation"][aria-label="Sidebar"] h3');
-  for (const h of headers) {
-    const r = h.getBoundingClientRect();
-    if (r.width > 0 && r.left > 0) return r.left;
+  const row = document.querySelector('[data-testid="conversation-row-sidebar"] span.truncate');
+  if (row) {
+    const r = row.getBoundingClientRect();
+    if (r.width > 0 && r.left > 0) {
+      cachedReferenceLeft = r.left;
+      cachedReferenceTime = now;
+      return r.left;
+    }
+  }
+  const header = document.querySelector('[data-testid="section-header"], .group\\/section-header, [role="navigation"][aria-label="Sidebar"] h2, [role="navigation"][aria-label="Sidebar"] h3');
+  if (header) {
+    const r = header.getBoundingClientRect();
+    if (r.width > 0 && r.left > 0) {
+      cachedReferenceLeft = r.left;
+      cachedReferenceTime = now;
+      return r.left;
+    }
   }
   if (sidebar) {
-    return sidebar.getBoundingClientRect().left + 14;
+    const val = sidebar.getBoundingClientRect().left + 14;
+    cachedReferenceLeft = val;
+    cachedReferenceTime = now;
+    return val;
   }
   return 14;
 }
 
-function alignSubheadingTitle(btn) {
+/**
+ * Steps 1 to 3 of the alignment: everything that only writes. Returns the span
+ * holding the title, which is what step 4 has to measure.
+ */
+function normaliseSubheading(btn) {
   const truncate = btn.querySelector('span.truncate, span[class*="truncate"]');
-  if (!truncate) return;
+  if (!truncate) return null;
 
   // 1. Walk up from truncate to btn, hiding all previous siblings at every layer
   let current = truncate;
   while (current && current !== btn) {
     let prev = current.previousElementSibling;
     while (prev) {
-      prev.style.setProperty('display', 'none', 'important');
-      prev.style.setProperty('width', '0px', 'important');
-      prev.style.setProperty('min-width', '0px', 'important');
-      prev.style.setProperty('max-width', '0px', 'important');
-      prev.style.setProperty('margin', '0px', 'important');
-      prev.style.setProperty('padding', '0px', 'important');
+      if (prev.style.display !== 'none') {
+        prev.style.setProperty('display', 'none', 'important');
+        prev.style.setProperty('width', '0px', 'important');
+        prev.style.setProperty('min-width', '0px', 'important');
+        prev.style.setProperty('max-width', '0px', 'important');
+        prev.style.setProperty('margin', '0px', 'important');
+        prev.style.setProperty('padding', '0px', 'important');
+      }
       prev = prev.previousElementSibling;
     }
     if (current.parentElement && current.parentElement !== btn) {
-      current.parentElement.style.setProperty('padding-left', '0px', 'important');
-      current.parentElement.style.setProperty('margin-left', '0px', 'important');
-      current.parentElement.style.setProperty('gap', '0px', 'important');
+      if (current.parentElement.style.paddingLeft !== '0px') {
+        current.parentElement.style.setProperty('padding-left', '0px', 'important');
+        current.parentElement.style.setProperty('margin-left', '0px', 'important');
+        current.parentElement.style.setProperty('gap', '0px', 'important');
+      }
     }
     current = current.parentElement;
   }
 
   // 2. Normalize btn padding
-  btn.style.setProperty('padding-left', '8px', 'important');
-  btn.style.setProperty('margin-left', '0px', 'important');
+  if (btn.style.paddingLeft !== '8px') {
+    btn.style.setProperty('padding-left', '8px', 'important');
+    btn.style.setProperty('margin-left', '0px', 'important');
+  }
 
   // 3. Normalize parent wrapper if present
-  if (btn.parentElement) {
+  if (btn.parentElement && btn.parentElement.style.paddingLeft !== '0px') {
     btn.parentElement.style.setProperty('padding-left', '0px', 'important');
     btn.parentElement.style.setProperty('margin-left', '0px', 'important');
   }
 
-  // 4. Pixel-perfect alignment matching conversation row title
-  const sidebar = btn.closest('[role="navigation"][aria-label="Sidebar"]') || document.querySelector('[role="navigation"][aria-label="Sidebar"]');
+  return truncate;
+}
+
+/** Step 4: the correction itself, from a measurement taken by the caller. */
+function applySubheadingOffset(truncate, headingLeft, targetLeft) {
+  if (!(headingLeft > 0) || !(targetLeft > 0)) return;
+  const diff = headingLeft - targetLeft;
+  if (Math.abs(diff) <= 0.5 || Math.abs(diff) >= 80) return;
+  const currentMargin = parseFloat(truncate.style.marginLeft || '0');
+  const targetMargin = `${currentMargin - diff}px`;
+  if (truncate.style.marginLeft !== targetMargin) {
+    truncate.style.setProperty('margin-left', targetMargin, 'important');
+  }
+}
+
+/*
+ * The same alignment for a whole list of headings, with every measurement taken
+ * together. Reading a rect after a style write makes the browser lay the page
+ * out there and then, so heading-by-heading this cost one layout of the sidebar
+ * per heading, on every frame of a scroll; batched it costs one in total. There
+ * is deliberately no single-heading version to reach for.
+ */
+function alignSubheadings(buttons) {
+  const pending = [];
+  for (const btn of buttons) {
+    const truncate = normaliseSubheading(btn);
+    if (truncate) pending.push({ btn, truncate, left: 0, width: 0 });
+  }
+  if (pending.length === 0) return;
+
+  const first = pending[0].btn;
+  const sidebar = first.closest('[role="navigation"][aria-label="Sidebar"]') || document.querySelector('[role="navigation"][aria-label="Sidebar"]');
   const targetLeft = getReferenceLeft(sidebar);
-  const headingRect = truncate.getBoundingClientRect();
-  if (headingRect.width > 0 && headingRect.left > 0 && targetLeft > 0) {
-    const diff = headingRect.left - targetLeft;
-    if (Math.abs(diff) > 0.5 && Math.abs(diff) < 80) {
-      const currentMargin = parseFloat(truncate.style.marginLeft || '0');
-      truncate.style.setProperty('margin-left', `${currentMargin - diff}px`, 'important');
-    }
+  for (const item of pending) {
+    const rect = item.truncate.getBoundingClientRect();
+    item.left = rect.left;
+    item.width = rect.width;
+  }
+  for (const item of pending) {
+    if (item.width > 0) applySubheadingOffset(item.truncate, item.left, targetLeft);
   }
 }
 
@@ -1309,22 +1583,26 @@ function cleanHeaderActions(btn) {
       const label = ((b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '')).toLowerCase();
       const isPlus = hasPlus || /new|add|chat|conv|plus/.test(label);
       if (!isPlus) {
-        b.style.setProperty('display', 'none', 'important');
-        b.style.setProperty('width', '0px', 'important');
-        b.style.setProperty('min-width', '0px', 'important');
-        b.style.setProperty('max-width', '0px', 'important');
-        b.style.setProperty('margin', '0px', 'important');
-        b.style.setProperty('padding', '0px', 'important');
-        b.style.setProperty('pointer-events', 'none', 'important');
-        b.style.setProperty('opacity', '0', 'important');
-        b.style.setProperty('visibility', 'hidden', 'important');
+        if (b.style.display !== 'none') {
+          b.style.setProperty('display', 'none', 'important');
+          b.style.setProperty('width', '0px', 'important');
+          b.style.setProperty('min-width', '0px', 'important');
+          b.style.setProperty('max-width', '0px', 'important');
+          b.style.setProperty('margin', '0px', 'important');
+          b.style.setProperty('padding', '0px', 'important');
+          b.style.setProperty('pointer-events', 'none', 'important');
+          b.style.setProperty('opacity', '0', 'important');
+          b.style.setProperty('visibility', 'hidden', 'important');
+        }
 
         if (b.parentElement && b.parentElement !== row && b.parentElement.children.length === 1) {
-          b.parentElement.style.setProperty('display', 'none', 'important');
-          b.parentElement.style.setProperty('width', '0px', 'important');
-          b.parentElement.style.setProperty('min-width', '0px', 'important');
-          b.parentElement.style.setProperty('margin', '0px', 'important');
-          b.parentElement.style.setProperty('padding', '0px', 'important');
+          if (b.parentElement.style.display !== 'none') {
+            b.parentElement.style.setProperty('display', 'none', 'important');
+            b.parentElement.style.setProperty('width', '0px', 'important');
+            b.parentElement.style.setProperty('min-width', '0px', 'important');
+            b.parentElement.style.setProperty('margin', '0px', 'important');
+            b.parentElement.style.setProperty('padding', '0px', 'important');
+          }
         }
       }
     }
@@ -1333,9 +1611,9 @@ function cleanHeaderActions(btn) {
   hideThreeDots();
   if (!row.dataset.geminiCleaned) {
     row.dataset.geminiCleaned = "true";
-    row.addEventListener('mouseenter', hideThreeDots);
+    row.addEventListener('mouseenter', hideThreeDots, { passive: true });
     const obs = new MutationObserver(hideThreeDots);
-    obs.observe(row, { childList: true, subtree: true });
+    obs.observe(row, { childList: true });
     remember(row, obs);
   }
 }
@@ -1409,39 +1687,68 @@ function isProjectExpanded(btn) {
   return btn.dataset.projectExpanded !== 'false';
 }
 
-function updateProjectExpandedState(btn) {
-  const expanded = isProjectExpanded(btn);
+function writeProjectExpandedState(btn, expanded) {
   btn.dataset.projectExpanded = expanded ? 'true' : 'false';
   btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
 }
 
-plugin.dom.observe(HEADERBTN_SELECTOR, (btn) => {
-  updateProjectExpandedState(btn);
-  alignSubheadingTitle(btn);
-  cleanHeaderActions(btn);
-  requestAnimationFrame(() => {
-    updateProjectExpandedState(btn);
-    alignSubheadingTitle(btn);
-    cleanHeaderActions(btn);
-  });
-  setTimeout(() => {
-    updateProjectExpandedState(btn);
-    alignSubheadingTitle(btn);
-    cleanHeaderActions(btn);
-  }, 50);
-  setTimeout(() => {
-    updateProjectExpandedState(btn);
-    alignSubheadingTitle(btn);
-    cleanHeaderActions(btn);
-  }, 200);
+function updateProjectExpandedState(btn) {
+  writeProjectExpandedState(btn, isProjectExpanded(btn));
+}
 
-  const observer = new MutationObserver(() => {
-    updateProjectExpandedState(btn);
-    alignSubheadingTitle(btn);
-    cleanHeaderActions(btn);
+/*
+ * The whole heading pass for a group of headings, with every question asked
+ * before any of the answers are written down.
+ *
+ * `isProjectExpanded` sometimes has to measure a row's height, and a written
+ * attribute makes the browser lay the sidebar out again before the next
+ * measurement — so heading by heading this cost one layout per heading. Asking
+ * for all of them first costs one for the group. `alignSubheadings` already
+ * works this way for the titles, and this puts the two halves in the right
+ * order: read, read, write, write.
+ */
+function headingPass(buttons, clean) {
+  if (buttons.length === 0) return;
+  const expanded = buttons.map((btn) => isProjectExpanded(btn));
+  buttons.forEach((btn, index) => writeProjectExpandedState(btn, expanded[index]));
+  alignSubheadings(buttons);
+  if (clean) for (const btn of buttons) cleanHeaderActions(btn);
+}
+
+/*
+ * Collects the headings that have asked for a pass and gives them one pass
+ * between them.
+ *
+ * Each heading watches itself, so one re-render of the list wakes all of them and
+ * the requests arrive in a burst. A microtask ends the task that burst arrived in
+ * and still runs before the frame is drawn, so the batch lands in the same frame
+ * the separate passes would have — at one measurement of the sidebar instead of
+ * one per heading.
+ */
+const pendingHeadings = new Set();
+let headingPassQueued = false;
+
+function scheduleHeadingPass(btn) {
+  pendingHeadings.add(btn);
+  if (headingPassQueued) return;
+  headingPassQueued = true;
+  queueMicrotask(() => {
+    headingPassQueued = false;
+    const buttons = [...pendingHeadings].filter((candidate) => candidate.isConnected);
+    pendingHeadings.clear();
+    headingPass(buttons, true);
   });
-  observer.observe(btn, { childList: true, subtree: true });
-  observers.set(btn, observer);
+}
+
+plugin.dom.observe(HEADERBTN_SELECTOR, (btn) => {
+  scheduleHeadingPass(btn);
+  // Antigravity fills the heading in a moment after it appears, so the pass is
+  // asked for again once the first frame is out.
+  requestAnimationFrame(() => scheduleHeadingPass(btn));
+
+  const observer = new MutationObserver(() => scheduleHeadingPass(btn));
+  observer.observe(btn, { childList: true });
+  remember(btn, observer);
 
   btn.addEventListener('click', () => {
     // Blur immediately on click to prevent focus from keeping the plus button visible
@@ -1450,9 +1757,7 @@ plugin.dom.observe(HEADERBTN_SELECTOR, (btn) => {
 
     setTimeout(() => {
       btn.blur();
-      updateProjectExpandedState(btn);
-      alignSubheadingTitle(btn);
-      cleanHeaderActions(btn);
+      scheduleHeadingPass(btn);
       if (scroller) reorganizePinnedItems(scroller);
     }, 60);
 
@@ -1477,7 +1782,7 @@ plugin.dom.observe('[role="navigation"][aria-label="Sidebar"]', (sidebar) => {
     }
   };
   sidebar.addEventListener('mouseover', onHover, { passive: true });
-  observers.set(sidebar, { disconnect: () => sidebar.removeEventListener('mouseover', onHover) });
+  remember(sidebar, { disconnect: () => sidebar.removeEventListener('mouseover', onHover) });
 });
 
 /* ---------------------------------------------------------------------------
@@ -1508,6 +1813,51 @@ plugin.dom.observe('[role="navigation"][aria-label="Sidebar"]', (sidebar) => {
  * instead of feeding themselves.
  * ------------------------------------------------------------------------- */
 const conversationProjectMap = new Map();
+
+function handleNewConversationActivation(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  // A pet quick chat belongs to Conversations even while Work is selected.
+  // React carries the explicit DOM event marker on nativeEvent.
+  const projectless = (e?.nativeEvent ?? e)?.betterGravityProjectless === true;
+  if (projectless) {
+    const pill = document.querySelector('#gemini-experience-switch');
+    if (pill) markExperience(pill, 'chat', true);
+    else {
+      setStoredExperience('chat');
+      document.documentElement.setAttribute('data-gemini-experience', 'chat');
+    }
+  }
+  navigateToExperienceNewConversation(projectless ? 'chat' : getStoredExperience());
+}
+
+function checkUrlForProjectSwitch() {
+  const params = new URLSearchParams(window.location.search);
+  const section = params.get('section');
+  if (section && section !== 'outside-of-project') {
+    setLastSelectedProjectId(section);
+    if (getStoredExperience() === 'chat') {
+      const pill = document.querySelector('#gemini-experience-switch');
+      if (pill) markExperience(pill, 'work', true);
+    }
+    return;
+  }
+
+  const m = window.location.pathname.match(/\/c\/([a-zA-Z0-9_-]+)/);
+  if (m && m[1]) {
+    const cid = m[1];
+    const gid = conversationProjectMap.get(cid + ':groupId');
+    if (gid) {
+      setLastSelectedProjectId(gid);
+      if (getStoredExperience() === 'chat') {
+        const pill = document.querySelector('#gemini-experience-switch');
+        if (pill) markExperience(pill, 'work', true);
+      }
+    }
+  }
+}
 
 /**
  * The component holding the pinned and project state is found by its own source
@@ -1554,6 +1904,10 @@ function readProjectMap(cJb) {
   let h = cJb.memoizedState;
   while (h) {
     const val = h.memoizedState;
+    const fn = typeof val === 'function' ? val : (Array.isArray(val) && typeof val[0] === 'function' ? val[0] : null);
+    if (typeof fn === 'function' && fn.toString().includes('AGENT_MANAGER_HOME')) {
+      activeGoToNewConversation = fn;
+    }
     if (Array.isArray(val)) {
       if (val.length > 0 && val[0]?.cascadeId) {
         for (const c of val) {
@@ -1569,6 +1923,9 @@ function readProjectMap(cJb) {
         for (const g of val) {
           const projName = g.label || g.title;
           const projId = g.id;
+          if (projId && !firstDiscoveredProjectId) {
+            firstDiscoveredProjectId = projId;
+          }
           if (Array.isArray(g.items)) {
             for (const it of g.items) {
               const id = typeof it === 'string' ? it : (it?.cascadeId || it?.id);
@@ -1585,119 +1942,215 @@ function readProjectMap(cJb) {
   }
 }
 
+let listRerenderDispatcher = null;
+
+function triggerListRerender() {
+  if (typeof listRerenderDispatcher === 'function') {
+    listRerenderDispatcher();
+    return;
+  }
+  const scroller = document.querySelector(LIST_SELECTOR);
+  if (!scroller) return;
+  reorganizePinnedItems(scroller);
+  if (typeof listRerenderDispatcher === 'function') {
+    listRerenderDispatcher();
+    return;
+  }
+  scroller.dispatchEvent(new Event('scroll'));
+}
+
 function transformItems(items, fiber) {
   if (!Array.isArray(items) || items.length === 0) return items;
 
-  const hasPinned = items.some(it => it && (it.id === 'section-pinned' || it.groupId === 'pinned'));
-  if (!hasPinned) return items;
-
   if (fiber) updateProjectMapFromFiber(fiber);
 
+  const exp = getStoredExperience();
+
+  if (exp === 'chat') {
+    // Chat mode: Show "Conversations" (standalone) and any standalone pinned chats.
+    // Exclude Projects section header, project headers, project rows, project show-mores.
+    const pinnedRows = [];
+    const chatItems = [];
+
+    for (const it of items) {
+      if (!it) continue;
+      if (it.id === 'section-pinned' || it.id === 'spacer-section-pinned' || it.id === 'spacer-pinned-header') continue;
+      if (it.id === 'main-section-header' || it.id === 'spacer-section-standalone') continue;
+      if (it.type === 'header' && it.id?.startsWith('header-')) continue;
+
+      if (it.type === 'row') {
+        const cid = it.cascadeId || it.id;
+        const isProjectChat = conversationProjectMap.has(cid) || conversationProjectMap.has(cid + ':groupId');
+        if (it.groupId === 'pinned') {
+          if (!isProjectChat) pinnedRows.push(it);
+          continue;
+        }
+        if (it.groupId === 'standalone' && !isProjectChat) {
+          chatItems.push(it);
+          continue;
+        }
+        // Project chat -> skip in chat mode
+        continue;
+      }
+
+      if (it.type === 'show-more') {
+        if (it.groupId === 'standalone') chatItems.push(it);
+        continue;
+      }
+
+      if (it.id === 'section-standalone') {
+        chatItems.push({
+          ...it,
+          title: 'Recents'
+        });
+        continue;
+      }
+    }
+
+    const result = [];
+    if (pinnedRows.length > 0) {
+      result.push({
+        type: 'section-header',
+        id: 'section-pinned',
+        title: 'Pinned Conversations',
+        isCollapsible: true,
+        isCollapsed: false,
+        collapseId: 'pinned'
+      });
+      result.push(...pinnedRows);
+      result.push({
+        type: 'spacer',
+        id: 'spacer-section-pinned',
+        height: 16
+      });
+    } else {
+      result.push({
+        type: 'spacer',
+        id: 'spacer-section-standalone',
+        height: 14
+      });
+    }
+    result.push(...chatItems);
+    return result;
+  }
+
+  // Work mode: Show "Projects" and all project headers, project rows, and project show-mores.
+  // Exclude "Conversations" (standalone) and standalone rows.
   const pinnedRows = [];
-  const baseItems = [];
+  const workItems = [];
 
   for (const it of items) {
     if (!it) continue;
-    if (it.id === 'section-pinned' || it.id === 'spacer-section-pinned' || it.id === 'spacer-pinned-header') {
+    if (it.id === 'section-pinned' || it.id === 'spacer-section-pinned' || it.id === 'spacer-pinned-header') continue;
+    if (it.id === 'section-standalone' || it.id === 'spacer-section-standalone') continue;
+
+    if (it.type === 'header') {
+      const pid = (it.id || '').replace(/^header-/, '');
+      if (pid && !firstDiscoveredProjectId) firstDiscoveredProjectId = pid;
+    }
+
+    if (it.type === 'row') {
+      const cid = it.cascadeId || it.id;
+      const isProjectChat = conversationProjectMap.has(cid) || conversationProjectMap.has(cid + ':groupId');
+      if (it.groupId === 'pinned') {
+        if (isProjectChat) pinnedRows.push(it);
+        continue;
+      }
+      if (it.groupId === 'standalone') {
+        continue; // Exclude standalone row in work mode
+      }
+      workItems.push(it);
       continue;
     }
-    if (it.type === 'row' && it.groupId === 'pinned') {
-      pinnedRows.push(it);
-      const cid = it.cascadeId || it.id;
-      if (cid) conversationProjectMap.set(cid + ':pinned', true);
-    } else {
-      baseItems.push(it);
+
+    if (it.type === 'show-more') {
+      if (it.groupId === 'standalone') continue;
+      workItems.push(it);
+      continue;
     }
+
+    workItems.push(it);
   }
 
-  if (pinnedRows.length === 0) return baseItems;
-
-  const pinnedIds = new Set(pinnedRows.map(r => r.cascadeId || r.id));
-  const cleanBase = baseItems.filter(it => !(it.type === 'row' && pinnedIds.has(it.cascadeId || it.id)));
-
-  for (const it of cleanBase) {
-    if (it && it.type === 'row') {
-      const cid = it.cascadeId || it.id;
-      if (cid && !pinnedIds.has(cid)) {
-        conversationProjectMap.delete(cid + ':pinned');
+  // If any project chats were pinned, insert them under their respective project headers
+  if (pinnedRows.length > 0) {
+    const projectHeaders = new Map();
+    for (let i = 0; i < workItems.length; i++) {
+      const it = workItems[i];
+      if (it && it.type === 'header') {
+        const projId = (it.id || '').replace(/^header-/, '');
+        if (it.label) projectHeaders.set(it.label.toLowerCase(), { index: i, header: it, projId });
+        if (projId) projectHeaders.set(projId.toLowerCase(), { index: i, header: it, projId });
       }
     }
-  }
 
-  const projectHeaders = new Map();
-  for (let i = 0; i < cleanBase.length; i++) {
-    const it = cleanBase[i];
-    if (it && it.type === 'header') {
-      const projId = (it.id || '').replace(/^header-/, '');
-      if (it.label) projectHeaders.set(it.label.toLowerCase(), { index: i, header: it, projId });
-      if (projId) projectHeaders.set(projId.toLowerCase(), { index: i, header: it, projId });
+    const pinnedByHeaderIndex = new Map();
+    const unassignedPinned = [];
+
+    for (const pRow of pinnedRows) {
+      const cid = pRow.cascadeId || pRow.id;
+      const projName = conversationProjectMap.get(cid);
+      const directGroupId = conversationProjectMap.get(cid + ':groupId');
+
+      let matched = null;
+      if (directGroupId && projectHeaders.has(directGroupId.toLowerCase())) {
+        matched = projectHeaders.get(directGroupId.toLowerCase());
+      } else if (projName && projectHeaders.has(projName.toLowerCase())) {
+        matched = projectHeaders.get(projName.toLowerCase());
+      } else if (projName) {
+        for (const [key, entry] of projectHeaders) {
+          if (key.includes(projName.toLowerCase()) || projName.toLowerCase().includes(key)) {
+            matched = entry;
+            break;
+          }
+        }
+      }
+
+      if (matched) {
+        if (!pinnedByHeaderIndex.has(matched.index)) {
+          pinnedByHeaderIndex.set(matched.index, []);
+        }
+        pinnedByHeaderIndex.get(matched.index).push({
+          ...pRow,
+          groupId: matched.projId,
+          isIndented: false
+        });
+      } else {
+        unassignedPinned.push(pRow);
+      }
     }
-  }
 
-  const pinnedByHeaderIndex = new Map();
-  const unassignedPinned = [];
+    const result = [];
+    if (unassignedPinned.length > 0) {
+      result.push({
+        type: 'section-header',
+        id: 'section-pinned',
+        title: 'Pinned Conversations',
+        isCollapsible: true,
+        isCollapsed: false,
+        collapseId: 'pinned'
+      });
+      result.push(...unassignedPinned);
+      result.push({
+        type: 'spacer',
+        id: 'spacer-section-pinned',
+        height: 16
+      });
+    }
 
-  for (const pRow of pinnedRows) {
-    const cid = pRow.cascadeId || pRow.id;
-    const projName = conversationProjectMap.get(cid);
-    const directGroupId = conversationProjectMap.get(cid + ':groupId');
-
-    let matched = null;
-    if (directGroupId && projectHeaders.has(directGroupId.toLowerCase())) {
-      matched = projectHeaders.get(directGroupId.toLowerCase());
-    } else if (projName && projectHeaders.has(projName.toLowerCase())) {
-      matched = projectHeaders.get(projName.toLowerCase());
-    } else if (projName) {
-      for (const [key, entry] of projectHeaders) {
-        if (key.includes(projName.toLowerCase()) || projName.toLowerCase().includes(key)) {
-          matched = entry;
-          break;
+    for (let i = 0; i < workItems.length; i++) {
+      const it = workItems[i];
+      result.push(it);
+      if (pinnedByHeaderIndex.has(i)) {
+        if (!it.isCollapsed) {
+          result.push(...pinnedByHeaderIndex.get(i));
         }
       }
     }
-
-    if (matched) {
-      if (!pinnedByHeaderIndex.has(matched.index)) {
-        pinnedByHeaderIndex.set(matched.index, []);
-      }
-      pinnedByHeaderIndex.get(matched.index).push({
-        ...pRow,
-        groupId: matched.projId,
-        isIndented: false
-      });
-    } else {
-      unassignedPinned.push({
-        ...pRow,
-        groupId: 'default',
-        isIndented: false
-      });
-    }
+    return result;
   }
 
-  const result = [];
-  for (let i = 0; i < cleanBase.length; i++) {
-    const it = cleanBase[i];
-    result.push(it);
-
-    if (pinnedByHeaderIndex.has(i)) {
-      if (!it.isCollapsed) {
-        result.push(...pinnedByHeaderIndex.get(i));
-      }
-    }
-
-    if (unassignedPinned.length > 0 && it && it.type === 'section-header' && (it.id === 'section-recents' || (it.title || '').toLowerCase() === 'recents')) {
-      if (!it.isCollapsed) {
-        result.push(...unassignedPinned);
-        unassignedPinned.length = 0;
-      }
-    }
-  }
-
-  if (unassignedPinned.length > 0) {
-    result.unshift(...unassignedPinned);
-  }
-
-  return result;
+  return workItems;
 }
 
 /**
@@ -1723,6 +2176,16 @@ function wrapItems(fiber) {
   if (typeof original !== 'function' || original[ORIGINAL]) return;
 
   const wrapper = function (props, secondArg) {
+    if (typeof props?.onHoverGroupId === 'function') {
+      listRerenderDispatcher = () => {
+        try {
+          props.onHoverGroupId('__gemini_refresh__');
+          setTimeout(() => {
+            try { props.onHoverGroupId(null); } catch {}
+          }, 0);
+        } catch {}
+      };
+    }
     const items = props && Array.isArray(props.items) ? transformItems(props.items, fiber) : null;
     // transformItems hands back the array it was given when nothing is pinned,
     // and then the component is called with the props object it would have had.
@@ -1769,11 +2232,18 @@ let sidebarPassScheduled = false;
 
 function sidebarPass(scroller) {
   reorganizePinnedItems(scroller);
-  document.querySelectorAll(HEADERBTN_SELECTOR).forEach((btn) => {
-    updateProjectExpandedState(btn);
-    alignSubheadingTitle(btn);
-  });
-  document.querySelectorAll('[data-testid="conversation-row-sidebar"]').forEach(hideConversationTime);
+  // Scoped to the sidebar rather than the document: every heading and row below
+  // lives inside it, and the substring class match in HEADERBTN_SELECTOR is a
+  // walk over every element it is handed — which on a scroll was the whole
+  // document, once a frame.
+  const root = scroller.closest('[role="navigation"][aria-label="Sidebar"]') || scroller;
+  if (root && root.getAttribute('role') === 'navigation') {
+    ensureExperienceSwitch(root);
+  }
+  const buttons = [...root.querySelectorAll(HEADERBTN_SELECTOR)];
+  headingPass(buttons, false);
+  for (const row of root.querySelectorAll('[data-testid="conversation-row-sidebar"]')) hideConversationTime(row);
+  checkUrlForProjectSwitch();
 }
 
 function scheduleSidebarPass(scroller) {
@@ -1800,19 +2270,97 @@ plugin.dom.observe('[data-testid="conversation-list-sidebar"]', (scroller) => {
   sidebarPass(scroller);
 });
 
+document.addEventListener('click', (e) => {
+  const projCard = e.target.closest('button[data-project-card="true"], .group\\/headerbtn');
+  if (projCard) {
+    const fiber = plugin.react.getFiber(projCard);
+    let curr = fiber;
+    while (curr) {
+      const pid = curr.memoizedProps?.sectionId || curr.memoizedProps?.projectId || curr.memoizedProps?.item?.id;
+      if (pid) {
+        const cleanId = String(pid).replace(/^header-/, '');
+        setLastSelectedProjectId(cleanId);
+        if (getStoredExperience() === 'chat') {
+          const pill = document.querySelector('#gemini-experience-switch');
+          if (pill) markExperience(pill, 'work', true);
+        }
+        break;
+      }
+      curr = curr.return;
+    }
+  }
+
+  const convRow = e.target.closest('[data-testid="conversation-row-sidebar"]');
+  if (convRow) {
+    const fiber = plugin.react.getFiber(convRow);
+    let curr = fiber;
+    while (curr) {
+      const cid = curr.memoizedProps?.conversation?.cascadeId || curr.memoizedProps?.cascadeId || curr.memoizedProps?.id;
+      if (cid) {
+        const gid = conversationProjectMap.get(cid + ':groupId');
+        if (gid) {
+          setLastSelectedProjectId(gid);
+          if (getStoredExperience() === 'chat') {
+            const pill = document.querySelector('#gemini-experience-switch');
+            if (pill) markExperience(pill, 'work', true);
+          }
+        }
+        break;
+      }
+      curr = curr.return;
+    }
+  }
+}, true);
+
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'O' || e.key === 'o')) {
+    handleNewConversationActivation(e);
+  }
+}, true);
+
+window.addEventListener('popstate', checkUrlForProjectSwitch);
+window.addEventListener('hashchange', checkUrlForProjectSwitch);
+
+let lastCheckedUrl = '';
+const urlTicker = window.setInterval(() => {
+  if (window.location.href !== lastCheckedUrl) {
+    lastCheckedUrl = window.location.href;
+    checkUrlForProjectSwitch();
+  }
+}, 300);
+
 function hideConversationTime(row) {
   if (!row) return;
   const resting = row.querySelector('.pointer-events-auto > div > div:last-child, [class*="group-hover:opacity-0"]');
   if (!resting) return;
 
-  const isPinned = row.getAttribute('data-pinned') === 'true' || row.closest('[data-title="Pinned Conversations"]') !== null;
+  const pinBtn = row.querySelector('[data-testid="conversation-pin-button"]');
+  const isPinBtnPinned = pinBtn ? !!pinBtn.getAttribute('aria-label')?.toLowerCase()?.includes('unpin') : null;
+  const isPinned = isPinBtnPinned !== null
+    ? isPinBtnPinned
+    : (row.getAttribute('data-pinned') === 'true' || row.closest('[data-title="Pinned Conversations"]') !== null);
+
+  if (isPinned) {
+    if (row.getAttribute('data-pinned') !== 'true') {
+      row.setAttribute('data-pinned', 'true');
+    }
+  } else {
+    if (row.getAttribute('data-pinned') === 'true') {
+      row.removeAttribute('data-pinned');
+    }
+  }
+
   const hasUnread = !!resting.querySelector('[data-testid="status-unread-dot"]');
   const hasSpinner = !!resting.querySelector('svg, [class*="animate-spin"]');
 
   if (!isPinned && !hasUnread && !hasSpinner) {
-    resting.style.setProperty('display', 'none', 'important');
+    if (resting.style.display !== 'none') {
+      resting.style.setProperty('display', 'none', 'important');
+    }
   } else {
-    resting.style.removeProperty('display');
+    if (resting.style.display === 'none') {
+      resting.style.removeProperty('display');
+    }
     for (const child of Array.from(resting.children)) {
       if (!child.matches('[data-testid="status-unread-dot"]') &&
           !child.querySelector('[data-testid="status-unread-dot"]') &&
@@ -1820,7 +2368,9 @@ function hideConversationTime(row) {
           !child.querySelector('svg') &&
           !child.matches('[class*="animate-spin"]') &&
           !child.querySelector('[class*="animate-spin"]')) {
-        child.style.setProperty('display', 'none', 'important');
+        if (child.style.display !== 'none') {
+          child.style.setProperty('display', 'none', 'important');
+        }
       }
     }
     for (const node of Array.from(resting.childNodes)) {
@@ -1834,7 +2384,7 @@ function hideConversationTime(row) {
 plugin.dom.observe('[data-testid="conversation-row-sidebar"]', (row) => {
   hideConversationTime(row);
   const obs = new MutationObserver(() => hideConversationTime(row));
-  obs.observe(row, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-pinned'] });
+  obs.observe(row, { childList: true });
   remember(row, obs);
 });
 
@@ -1853,43 +2403,38 @@ plugin.dom.observe('[data-testid="conversation-kebab"]', (kebab) => {
 let activeConversationRow = null;
 
 // Track the row whose kebab, context menu, or mouseover was activated
-document.addEventListener('pointerdown', (e) => {
-  const kebab = e.target.closest('[data-testid="conversation-kebab"]');
+function updateActiveConversationRow(e) {
+  const target = e.target;
+  if (!target || !target.closest) return;
+  if (e.type === 'mouseover' && !target.closest('[role="navigation"]')) return;
+  const kebab = target.closest('[data-testid="conversation-kebab"]');
   if (kebab) {
     activeConversationRow = kebab.closest('[data-testid="conversation-row-sidebar"]');
+    if (e.type === 'click' || e.type === 'pointerdown') {
+      requestAnimationFrame(() => {
+        const menu = document.querySelector('[role="menu"]');
+        if (menu) enhanceConversationMenu(menu);
+      });
+      setTimeout(() => {
+        const menu = document.querySelector('[role="menu"]');
+        if (menu) enhanceConversationMenu(menu);
+      }, 50);
+    }
+    return;
   }
-  const row = e.target.closest('[data-testid="conversation-row-sidebar"]');
+  const row = target.closest('[data-testid="conversation-row-sidebar"]');
   if (row) {
     activeConversationRow = row;
   }
-}, true);
+}
 
-document.addEventListener('click', (e) => {
-  const kebab = e.target.closest('[data-testid="conversation-kebab"]');
-  if (kebab) {
-    activeConversationRow = kebab.closest('[data-testid="conversation-row-sidebar"]');
-  }
-  const row = e.target.closest('[data-testid="conversation-row-sidebar"]');
-  if (row) {
-    activeConversationRow = row;
-  }
-}, true);
-
-document.addEventListener('mouseover', (e) => {
-  const row = e.target.closest('[data-testid="conversation-row-sidebar"]');
-  if (row) {
-    activeConversationRow = row;
-  }
-}, { passive: true, capture: true });
-
-document.addEventListener('contextmenu', (e) => {
-  const row = e.target.closest('[data-testid="conversation-row-sidebar"]');
-  if (row) {
-    activeConversationRow = row;
-  }
-}, true);
+document.addEventListener('pointerdown', updateActiveConversationRow, true);
+document.addEventListener('click', updateActiveConversationRow, true);
+document.addEventListener('mouseover', updateActiveConversationRow, { passive: true, capture: true });
+document.addEventListener('contextmenu', updateActiveConversationRow, true);
 
 function closeActiveMenu(menu) {
+  activeConversationRow = null;
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
   setTimeout(() => {
     if (menu?.isConnected) {
@@ -1919,6 +2464,46 @@ function createConvMenuItem(id, iconSvg, text, onClick) {
   return item;
 }
 
+/** The first thing in the menu the host put there, rather than one of ours. */
+function firstHostMenuItem(menu) {
+  for (let node = menu.firstElementChild; node; node = node.nextElementSibling) {
+    if (node.id !== 'gemini-menu-item-pin' && node.id !== 'gemini-menu-item-archive') return node;
+  }
+  return null;
+}
+
+/**
+ * Puts one of our actions in the menu, and leaves the menu alone when it is
+ * already right.
+ *
+ * The menu is watched for changes, because the host fills it in a moment after
+ * it opens, so this runs again on every change. Taking the item out and
+ * building it again each time would itself be a change, which wakes the
+ * watcher, which builds it again - a loop with no end, which is a window that
+ * never comes back. So every write below first asks whether it would change
+ * anything at all.
+ *
+ * `anchor` is the item to sit in front of, or null to sit last.
+ */
+function syncConvMenuItem(menu, id, label, iconSvg, action, anchor) {
+  let item = menu.querySelector('#' + id);
+  // The label picks the icon, so a different label is a different item.
+  if (item && item.getAttribute('data-gemini-item-label') !== label) {
+    item.remove();
+    item = null;
+  }
+  if (!item) {
+    const made = createConvMenuItem(id, iconSvg, label, (event) => made.geminiAction?.(event));
+    made.setAttribute('data-gemini-item-label', label);
+    item = made;
+  }
+  // What the click does depends on the row, and a menu can outlive a row.
+  item.geminiAction = action;
+  const placed = anchor ? item.nextElementSibling === anchor : item === menu.lastElementChild;
+  if (!placed) menu.insertBefore(item, anchor ?? null);
+  return item;
+}
+
 function enhanceConversationMenu(menu) {
   // Ignore model selector, plus menu, or nested submenus that are not conversation actions
   if (menu.hasAttribute('data-gemini-plus-menu') || 
@@ -1932,19 +2517,20 @@ function enhanceConversationMenu(menu) {
   }
 
   const isConvTrigger = document.querySelector('[data-testid="conversation-kebab"][aria-expanded="true"]');
+  const isTitlebarTrigger = document.querySelector('[data-testid="titlebar-more-actions"][aria-expanded="true"]');
   const hasConvItems = !!menu.querySelector('[data-testid*="conversation-"]') ||
                        Array.from(menu.querySelectorAll('[role="menuitem"]')).some(el => {
                          const t = (el.textContent || '').trim().toLowerCase();
                          return t === 'rename' || t === 'delete' || t.startsWith('pin') || t.startsWith('unpin');
                        });
 
-  if (!hasConvItems && !isConvTrigger) return;
+  if (!hasConvItems && !isConvTrigger && !isTitlebarTrigger) return;
 
-  const row = activeConversationRow || 
-              isConvTrigger?.closest('[data-testid="conversation-row-sidebar"]') ||
+  const row = isConvTrigger?.closest('[data-testid="conversation-row-sidebar"]') ||
+              activeConversationRow ||
               document.querySelector('[data-testid="conversation-row-sidebar"]:hover');
 
-  if (!row) return;
+  if (!row && !isTitlebarTrigger) return;
 
   menu.setAttribute('data-gemini-conversation-menu', 'true');
   menu.classList.remove('animate-slideIn');
@@ -1959,68 +2545,69 @@ function enhanceConversationMenu(menu) {
                    row.closest('[data-title="Pinned Conversations"]') !== null;
 
   // 1. Injected Pin item
-  let pinItem = menu.querySelector('#gemini-menu-item-pin');
-  if (!pinItem && pinBtn) {
-    pinItem = createConvMenuItem(
+  if (pinBtn) {
+    const label = isPinned ? 'Unpin' : 'Pin';
+    const renameItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el =>
+      el.id !== 'gemini-menu-item-pin' && el.id !== 'gemini-menu-item-archive' && el.textContent?.toLowerCase()?.includes('rename')
+    );
+    syncConvMenuItem(
+      menu,
       'gemini-menu-item-pin',
+      label,
       isPinned ? UNPIN_SVG : PIN_SVG,
-      isPinned ? 'Unpin' : 'Pin',
       (e) => {
         e.preventDefault();
         e.stopPropagation();
         pinBtn.click();
         closeActiveMenu(menu);
-        // The host's own click handler re-renders the list, and the wrapper is
-        // already installed by then, so there is nothing to chase here.
-      }
+      },
+      renameItem ?? firstHostMenuItem(menu) ?? menu.querySelector('#gemini-menu-item-archive')
     );
-
-    const renameItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el => 
-      el.id !== 'gemini-menu-item-pin' && el.id !== 'gemini-menu-item-archive' && el.textContent?.toLowerCase()?.includes('rename')
-    );
-    if (renameItem) {
-      menu.insertBefore(pinItem, renameItem);
-    } else {
-      menu.insertBefore(pinItem, menu.firstElementChild);
-    }
-  } else if (pinItem) {
-    const slot = pinItem.querySelector('.gemini-menu-item-slot');
-    const label = pinItem.querySelector('.gemini-menu-item-label');
-    if (slot) slot.innerHTML = isPinned ? UNPIN_SVG : PIN_SVG;
-    if (label) label.textContent = isPinned ? 'Unpin' : 'Pin';
+  } else {
+    menu.querySelector('#gemini-menu-item-pin')?.remove();
   }
 
   // 2. Injected Archive item
-  let archiveItem = menu.querySelector('#gemini-menu-item-archive');
-  if (!archiveItem && archiveBtn) {
-    archiveItem = createConvMenuItem(
+  if (archiveBtn) {
+    const deleteItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el =>
+      el.id !== 'gemini-menu-item-pin' && el.id !== 'gemini-menu-item-archive' && el.textContent?.toLowerCase()?.includes('delete')
+    );
+    syncConvMenuItem(
+      menu,
       'gemini-menu-item-archive',
-      ARCHIVE_SVG,
       'Archive',
+      ARCHIVE_SVG,
       (e) => {
         e.preventDefault();
         e.stopPropagation();
         archiveBtn.click();
         closeActiveMenu(menu);
-      }
+      },
+      deleteItem ?? null
     );
-
-    const deleteItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el => 
-      el.id !== 'gemini-menu-item-pin' && el.id !== 'gemini-menu-item-archive' && el.textContent?.toLowerCase()?.includes('delete')
-    );
-    if (deleteItem) {
-      menu.insertBefore(archiveItem, deleteItem);
-    } else {
-      menu.appendChild(archiveItem);
-    }
+  } else {
+    menu.querySelector('#gemini-menu-item-archive')?.remove();
   }
 }
 
 plugin.dom.observe('[role="menu"]', (menu) => {
+  /*
+   * The pass reads the whole menu as it stands, so the changes it just made
+   * need no second look - and dropping them is what stops a change from asking
+   * for another one for as long as the menu is open.
+   */
+  const observer = new MutationObserver(() => {
+    enhanceConversationMenu(menu);
+    observer.takeRecords();
+  });
   enhanceConversationMenu(menu);
-  const observer = new MutationObserver(() => enhanceConversationMenu(menu));
   observer.observe(menu, { childList: true });
-  observers.set(menu, observer);
+  remember(menu, {
+    disconnect: () => {
+      observer.disconnect();
+      activeConversationRow = null;
+    }
+  });
 });
 
 function onGlobalKeyDown(e) {
@@ -2038,6 +2625,11 @@ window.addEventListener("keydown", onGlobalKeyDown);
 
 plugin.onDispose(() => {
   window.removeEventListener("keydown", onGlobalKeyDown);
+  document.removeEventListener('pointerdown', updateActiveConversationRow, true);
+  document.removeEventListener('click', updateActiveConversationRow, true);
+  document.removeEventListener('mouseover', updateActiveConversationRow, { capture: true });
+  document.removeEventListener('contextmenu', updateActiveConversationRow, true);
+  activeConversationRow = null;
 
   // The three rows and the block that holds them inside the conversation list,
   // and the fade drawn over the top of it.
@@ -2048,8 +2640,17 @@ plugin.onDispose(() => {
   document.getElementById("gemini-top-fade")?.remove();
   document.querySelectorAll(".gemini-logo-btn, .willow-sidenav-text, .gemini-sidebar-expand-rail, #gemini-experience-switch").forEach((el) => el.remove());
   document.querySelectorAll('[role="navigation"][aria-label="Sidebar"]').forEach((el) => el.removeAttribute("data-collapsed"));
+  document.documentElement.removeAttribute("data-sidebar-collapsed");
+  if (settingsObserver) {
+    settingsObserver.disconnect();
+    settingsObserver = null;
+  }
+  if (settingsRafId) {
+    cancelAnimationFrame(settingsRafId);
+    settingsRafId = null;
+  }
 
-  for (const [element, observer] of observers) {
+  for (const [element, observer] of rememberedObservers()) {
     observer.disconnect();
     if (element.matches && element.matches(NEW_CONV_SELECTOR)) {
       element.removeAttribute("data-shortcut");
@@ -2064,7 +2665,7 @@ plugin.onDispose(() => {
       delete element.dataset.fullModelName;
     }
   }
-  observers.clear();
+  observed.clear();
   unwrapItems();
 });
 
@@ -2635,13 +3236,24 @@ function getEditorTextRange(editor) {
   return range;
 }
 
+function setBoxExpanded(box, expanded) {
+  const isExpanded = box.getAttribute("data-expanded") === "true";
+  if (isExpanded !== expanded) {
+    if (expanded) {
+      box.setAttribute("data-expanded", "true");
+    } else {
+      box.removeAttribute("data-expanded");
+    }
+  }
+}
+
 function checkPromptExpansion(box) {
   if (!box || !box.isConnected) return;
 
   const currentTool = getSelectedTool();
   // 1. If a tool is selected, always expand and mount tool chip
   if (currentTool) {
-    box.setAttribute("data-expanded", "true");
+    setBoxExpanded(box, true);
     mountToolChip(box, currentTool);
     return;
   } else {
@@ -2650,40 +3262,50 @@ function checkPromptExpansion(box) {
 
   // 2. If an image or media attachment is present, always expand
   if (hasAttachments(box)) {
-    box.setAttribute("data-expanded", "true");
+    setBoxExpanded(box, true);
     return;
   }
 
   // 3. Check editor and draft text
   const editor = box.querySelector('[role="combobox"][contenteditable]');
   if (!editor) {
-    box.removeAttribute("data-expanded");
+    setBoxExpanded(box, false);
     return;
-  }
-  if (editor.style.transition !== "none") {
-    editor.style.transition = "none";
   }
 
   const text = (editor.textContent || "").replace(/[\uFEFF\u200B]/g, "");
   if (!text.trim()) {
-    box.removeAttribute("data-expanded");
+    setBoxExpanded(box, false);
+    return;
+  }
+
+  const isAlreadyExpanded = box.getAttribute("data-expanded") === "true";
+
+  // Fast exit: short single-line draft cannot wrap or collide with right-side controls
+  if (!isAlreadyExpanded && text.length < 20 && !text.includes("\n")) {
+    setBoxExpanded(box, false);
     return;
   }
 
   // Explicit multiline (newlines or multiple paragraphs or non-only-child br)
   if (text.includes("\n") || editor.querySelector("p + p, div + div, p > br:not(:only-child)")) {
-    box.setAttribute("data-expanded", "true");
+    setBoxExpanded(box, true);
+    return;
+  }
+
+  // If editor content height has already wrapped past single-row threshold (~24px)
+  if (!isAlreadyExpanded && editor.scrollHeight > 28) {
+    setBoxExpanded(box, true);
     return;
   }
 
   const range = getEditorTextRange(editor);
   if (!range) {
-    box.removeAttribute("data-expanded");
+    setBoxExpanded(box, false);
     return;
   }
 
   const card = box.querySelector(".bg-card");
-  const isAlreadyExpanded = box.getAttribute("data-expanded") === "true";
 
   if (!isAlreadyExpanded) {
     // In single-row mode:
@@ -2691,9 +3313,8 @@ function checkPromptExpansion(box) {
     let hasWrapped = false;
     let rangeRect = null;
     try {
-      const rects = range.getClientRects();
       rangeRect = range.getBoundingClientRect();
-
+      const rects = range.getClientRects();
       if (rects.length > 1) {
         const firstTop = rects[0].top;
         for (let i = 1; i < rects.length; i++) {
@@ -2706,7 +3327,7 @@ function checkPromptExpansion(box) {
     } catch (_) {}
 
     if (hasWrapped) {
-      box.setAttribute("data-expanded", "true");
+      setBoxExpanded(box, true);
       return;
     }
 
@@ -2716,23 +3337,27 @@ function checkPromptExpansion(box) {
       if (pill) {
         const pillRect = pill.getBoundingClientRect();
         if (pillRect.left > 0 && rangeRect.right >= pillRect.left - 6) {
-          box.setAttribute("data-expanded", "true");
+          setBoxExpanded(box, true);
           return;
         }
       }
     }
 
-    box.removeAttribute("data-expanded");
+    setBoxExpanded(box, false);
   } else {
     // In 2-row mode:
-    // Check if text wrapped across multiple lines
+    // If text is clearly multiline by height, stay expanded without measuring rects
+    if (editor.scrollHeight > 36) {
+      setBoxExpanded(box, true);
+      return;
+    }
+
     let hasWrapped = false;
     let textWidth = 0;
     try {
-      const rects = range.getClientRects();
       const rangeRect = range.getBoundingClientRect();
       textWidth = rangeRect.width;
-
+      const rects = range.getClientRects();
       if (rects.length > 1) {
         const firstTop = rects[0].top;
         for (let i = 1; i < rects.length; i++) {
@@ -2745,21 +3370,17 @@ function checkPromptExpansion(box) {
     } catch (_) {}
 
     if (hasWrapped) {
-      box.setAttribute("data-expanded", "true");
+      setBoxExpanded(box, true);
       return;
     }
 
     if (card && card.clientWidth > 100) {
       const cardWidth = card.clientWidth;
       const pill = card.querySelector('[data-testid="model-selector-trigger"]');
-      const mic = card.querySelector('button[aria-label="Record voice memo"]');
-      const send = card.querySelector('[data-testid="send-button"], [data-tooltip-id="input-send-button-cancel-tooltip"], button[aria-label^="Cancel"]');
-      const plus = card.querySelector('button[aria-label="Add context"]');
-
-      const plusWidth = plus ? plus.offsetWidth : 32;
       const pillWidth = pill ? pill.offsetWidth : 85;
-      const micWidth = mic ? mic.offsetWidth : 32;
-      const sendWidth = (send && (send.offsetWidth > 0 || !send.disabled)) ? (send.offsetWidth || 32) : 32;
+      const plusWidth = 32;
+      const micWidth = 32;
+      const sendWidth = 32;
 
       const leftSpace = 20 + plusWidth + 4 + 4;
       const rightSpace = 8 + 4 + pillWidth + 4 + micWidth + 4 + sendWidth + 15;
@@ -2767,12 +3388,12 @@ function checkPromptExpansion(box) {
 
       // Collapse back to single row only when text width easily fits before model selector
       if (textWidth <= availableSingleRowWidth - 8) {
-        box.removeAttribute("data-expanded");
+        setBoxExpanded(box, false);
         return;
       }
     }
 
-    box.setAttribute("data-expanded", "true");
+    setBoxExpanded(box, true);
   }
 }
 
@@ -3095,12 +3716,33 @@ const stopMenus = plugin.dom.observe('[role="menu"]', (popup) => {
 /* ---------------------------------------------------------------------------
  * Prompt Box Multiline & Tool Expansion Observer
  * ------------------------------------------------------------------------- */
+const DISCLAIMER_TEXT = "Antigravity is AI and can make mistakes.";
+
+function ensureAiDisclaimer(box) {
+  if (!box || !box.isConnected) return;
+
+  let disclaimer = box.querySelector(".gemini-ai-disclaimer");
+  if (!disclaimer) {
+    disclaimer = document.createElement("p");
+    disclaimer.className = "gemini-ai-disclaimer";
+    disclaimer.textContent = DISCLAIMER_TEXT;
+    box.appendChild(disclaimer);
+  } else {
+    if (disclaimer.textContent !== DISCLAIMER_TEXT) {
+      disclaimer.textContent = DISCLAIMER_TEXT;
+    }
+    if (box.lastElementChild !== disclaimer) {
+      box.appendChild(disclaimer);
+    }
+  }
+}
+
 plugin.dom.observe(INPUT_BOX, (box) => {
+  ensureAiDisclaimer(box);
   checkPromptExpansion(box);
 
-  const onInputOrKey = () => requestPromptExpansionCheck();
-  box.addEventListener("input", onInputOrKey);
-  box.addEventListener("keyup", onInputOrKey);
+  const onInput = () => requestPromptExpansionCheck();
+  box.addEventListener("input", onInput);
 
   const onPasteOrDrop = () => {
     requestAnimationFrame(() => requestPromptExpansionCheck());
@@ -3123,13 +3765,15 @@ plugin.dom.observe(INPUT_BOX, (box) => {
   const boxRo = new ResizeObserver(() => requestPromptExpansionCheck());
   boxRo.observe(box);
 
-  const boxMo = new MutationObserver(() => requestPromptExpansionCheck());
-  boxMo.observe(box, { childList: true, subtree: true });
+  const boxMo = new MutationObserver(() => {
+    ensureAiDisclaimer(box);
+    requestPromptExpansionCheck();
+  });
+  boxMo.observe(box, { childList: true });
 
   remember(box, {
     disconnect: () => {
-      box.removeEventListener("input", onInputOrKey);
-      box.removeEventListener("keyup", onInputOrKey);
+      box.removeEventListener("input", onInput);
       box.removeEventListener("paste", onPasteOrDrop);
       box.removeEventListener("drop", onPasteOrDrop);
       if (ro) ro.disconnect();
@@ -3369,9 +4013,11 @@ function openTooltipFor(el) {
 
 function setupGlobalTooltips() {
   const onOver = (e) => {
-    const el = e.target?.closest?.('[title]');
+    const target = e.target;
+    if (!target || !(target instanceof Element)) return;
+    const el = target.closest('[title]');
     if (el) openTooltipFor(el);
-    else if (activeTooltipAnchor && !activeTooltipAnchor.contains(e.target)) closeTooltip();
+    else if (activeTooltipAnchor && !activeTooltipAnchor.contains(target)) closeTooltip();
   };
 
   const onOut = (e) => {
@@ -3410,8 +4056,14 @@ function setupGlobalTooltips() {
     });
   };
 
+  let tooltipRafId = null;
   const onScrollOrResize = () => {
-    if (activeTooltipAnchor) repositionTooltip();
+    if (!activeTooltipAnchor) return;
+    if (tooltipRafId !== null) return;
+    tooltipRafId = requestAnimationFrame(() => {
+      tooltipRafId = null;
+      if (activeTooltipAnchor) repositionTooltip();
+    });
   };
 
   document.addEventListener('mouseover', onOver, true);
@@ -3425,6 +4077,10 @@ function setupGlobalTooltips() {
   window.addEventListener('blur', closeTooltip);
 
   return () => {
+    if (tooltipRafId !== null) {
+      cancelAnimationFrame(tooltipRafId);
+      tooltipRafId = null;
+    }
     document.removeEventListener('mouseover', onOver, true);
     document.removeEventListener('mouseout', onOut, true);
     document.removeEventListener('focusin', onFocusIn, true);
@@ -3463,7 +4119,7 @@ plugin.dom.observe('[role="tooltip"]', (tooltip) => {
 
   const obs = new MutationObserver(checkMultiline);
   obs.observe(tooltip, { childList: true, subtree: true, characterData: true });
-  observers.set(tooltip, {
+  remember(tooltip, {
     disconnect: () => obs.disconnect()
   });
 });
@@ -3478,68 +4134,141 @@ function applyConversationScrollbar(view) {
 
   const innerScrollers = view.querySelectorAll('.overflow-y-auto');
   if (innerScrollers.length > 0) {
-    if (view.style.overflowY !== 'hidden') view.style.overflowY = 'hidden';
-    if (view.style.scrollbarGutter !== 'auto') view.style.scrollbarGutter = 'auto';
-    if (view.style.scrollbarWidth !== 'none') view.style.scrollbarWidth = 'none';
-
-    for (const scroller of innerScrollers) {
+    for (let i = 0; i < innerScrollers.length; i++) {
+      const scroller = innerScrollers[i];
       if (!scroller.classList.contains('gemini-chat-scrollbar')) {
         scroller.classList.add('gemini-chat-scrollbar');
-      }
-      if (scroller.style.scrollbarWidth !== 'auto') {
-        scroller.style.removeProperty('scrollbar-width');
-        scroller.style.scrollbarWidth = 'auto';
-      }
-      if (scroller.style.scrollbarColor !== 'auto') {
-        scroller.style.removeProperty('scrollbar-color');
-        scroller.style.scrollbarColor = 'auto';
-      }
-      if (scroller.style.scrollbarGutter !== 'stable') {
-        scroller.style.scrollbarGutter = 'stable';
       }
     }
   } else {
     if (!view.classList.contains('gemini-chat-scrollbar')) {
       view.classList.add('gemini-chat-scrollbar');
     }
-    if (view.style.scrollbarWidth !== 'auto') {
-      view.style.removeProperty('scrollbar-width');
-      view.style.scrollbarWidth = 'auto';
-    }
-    if (view.style.scrollbarColor !== 'auto') {
-      view.style.removeProperty('scrollbar-color');
-      view.style.scrollbarColor = 'auto';
-    }
-    if (view.style.scrollbarGutter !== 'stable') {
-      view.style.scrollbarGutter = 'stable';
-    }
   }
 }
 
 function updateTurnFooters(view) {
   if (!view || !view.isConnected) return;
-  const turns = Array.from(view.querySelectorAll('.flex.items-start:has([role="article"][aria-label="Agent response"])'));
-  if (turns.length === 0) return;
+  const articles = view.querySelectorAll('[role="article"][aria-label="Agent response"]');
+  if (articles.length === 0) return;
 
-  for (let i = 0; i < turns.length; i++) {
-    const turn = turns[i];
-    const isLatest = (i === turns.length - 1);
-    const attr = isLatest ? "true" : "false";
-    if (turn.getAttribute("data-gemini-latest-turn") !== attr) {
-      turn.setAttribute("data-gemini-latest-turn", attr);
+  const latestArticle = articles[articles.length - 1];
+  const latestTurn = latestArticle ? latestArticle.closest('.flex.items-start') : null;
+  if (!latestTurn) return;
+
+  const prev = view.querySelector('[data-gemini-latest-turn="true"]');
+  if (prev && prev !== latestTurn) {
+    prev.setAttribute("data-gemini-latest-turn", "false");
+  }
+  if (latestTurn.getAttribute("data-gemini-latest-turn") !== "true") {
+    latestTurn.setAttribute("data-gemini-latest-turn", "true");
+  }
+}
+
+/*
+ * The row that carries the feedback buttons.
+ *
+ * conversation.css used to find it 23 times over with
+ * `:has(button[aria-label="Good response"], button[aria-label="Copy"])`. That
+ * reads as a cheap question but Chromium does not charge it at match time: it
+ * charges it at invalidation time, document-wide, so every class change anywhere
+ * in Antigravity re-asked all 23. Measured, the sheet's `:has()` rules turned a
+ * 0.6 ms style recalculation into 122 ms. So the question is asked here once,
+ * and `data-gemini-turn-actions` is the answer the stylesheet reads.
+ *
+ * `closest` is the exact inverse of the selector it replaces, checked live on a
+ * five-turn conversation: the selector matched three rows, walking up from all
+ * eight buttons produced the same three, and none of them nested inside another
+ * (which would have made the two sets differ). Marks are set synchronously, in
+ * the same task as the mutation that brought the buttons in, never from a frame
+ * callback - a mark that stands in for a selector cannot be one frame late or
+ * the row paints unstyled first.
+ */
+const TURN_ACTION_BUTTONS = 'button[aria-label="Good response"], button[aria-label="Copy"]';
+const TURN_ACTION_BAR = '.flex.w-full.items-start';
+
+function markTurnActionBar(button) {
+  const bar = button.closest(TURN_ACTION_BAR);
+  if (bar && bar.getAttribute("data-gemini-turn-actions") !== "true") {
+    bar.setAttribute("data-gemini-turn-actions", "true");
+  }
+}
+
+function markTurnActions(root) {
+  if (!root || root.nodeType !== Node.ELEMENT_NODE) return;
+  if (root.matches(TURN_ACTION_BUTTONS)) markTurnActionBar(root);
+  const buttons = root.querySelectorAll(TURN_ACTION_BUTTONS);
+  for (let i = 0; i < buttons.length; i++) markTurnActionBar(buttons[i]);
+}
+
+
+/*
+ * What the two passes above actually read: a turn, one of the view's scrollers,
+ * and the action bar that lands when a turn finishes.
+ */
+const TURN_LANDMARKS = '[role="article"], .overflow-y-auto, button[aria-label="Good response"], button[aria-label="Copy"]';
+
+/*
+ * A streaming reply changes this subtree continuously — every word arriving is a
+ * mutation — and both passes walk the whole conversation. So a batch only earns
+ * a pass when it brings in or takes away something they read; text landing
+ * inside a turn that is already marked does not. The caller still forces a pass
+ * once a second, so a landmark that appears some other way is not missed.
+ *
+ * The same walk sets the action-bar marks, because those cannot wait for the
+ * frame callback. It cannot stop at the first landmark the way it used to: an
+ * early return would leave a later row in the same batch unmarked.
+ */
+function scanTurnMutations(records) {
+  let touched = false;
+  for (const record of records) {
+    for (const node of record.addedNodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      markTurnActions(node);
+      if (!touched && (node.matches(TURN_LANDMARKS) || node.querySelector(TURN_LANDMARKS))) touched = true;
+    }
+    if (touched) continue;
+    for (const node of record.removedNodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      if (node.matches(TURN_LANDMARKS) || node.querySelector(TURN_LANDMARKS)) {
+        touched = true;
+        break;
+      }
     }
   }
+  return touched;
 }
 
 plugin.dom.observe(CONV_VIEW_SELECTOR, (view) => {
   applyConversationScrollbar(view);
   updateTurnFooters(view);
-  const obs = new MutationObserver(() => {
-    applyConversationScrollbar(view);
-    updateTurnFooters(view);
+  markTurnActions(view);
+  let convRafId = null;
+  let lastPass = performance.now();
+  const scheduleUpdate = () => {
+    if (convRafId !== null) return;
+    convRafId = requestAnimationFrame(() => {
+      convRafId = null;
+      if (!view.isConnected) return;
+      lastPass = performance.now();
+      applyConversationScrollbar(view);
+      updateTurnFooters(view);
+      markTurnActions(view);
+    });
+  };
+  const obs = new MutationObserver((records) => {
+    if (scanTurnMutations(records) || performance.now() - lastPass > 1000) scheduleUpdate();
   });
-  obs.observe(view, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
-  remember(view, obs);
+  obs.observe(view, { childList: true, subtree: true });
+  remember(view, {
+    disconnect: () => {
+      if (convRafId !== null) {
+        cancelAnimationFrame(convRafId);
+        convRafId = null;
+      }
+      obs.disconnect();
+    }
+  });
 });
 
 
@@ -3631,49 +4360,17 @@ plugin.dom.observe(".files-changed-header", (header) => {
   remember(header, obs);
 });
 
-/* ---------------------------------------------------------------------------
- * Prompt box AI disclaimer: "Antigravity is AI and can make mistakes."
- * Willow (Composer.tsx:1108-1114, SparkTaskDetail.css:3245-3255):
- * 13px/17px weight 400 in #c4c7c5, centered beneath the prompt box.
- * ------------------------------------------------------------------------- */
-const PROMPT_BOX_SELECTOR = '[data-testid="agent-input-box"]';
-const DISCLAIMER_TEXT = "Antigravity is AI and can make mistakes.";
 
-function ensureAiDisclaimer(box) {
-  if (!box || !box.isConnected) return;
-
-  let disclaimer = box.querySelector(".gemini-ai-disclaimer");
-  if (!disclaimer) {
-    disclaimer = document.createElement("p");
-    disclaimer.className = "gemini-ai-disclaimer";
-    disclaimer.textContent = DISCLAIMER_TEXT;
-    box.appendChild(disclaimer);
-  } else {
-    if (disclaimer.textContent !== DISCLAIMER_TEXT) {
-      disclaimer.textContent = DISCLAIMER_TEXT;
-    }
-    if (box.lastElementChild !== disclaimer) {
-      box.appendChild(disclaimer);
-    }
-  }
-}
-
-plugin.dom.observe(PROMPT_BOX_SELECTOR, (box) => {
-  ensureAiDisclaimer(box);
-  const obs = new MutationObserver(() => ensureAiDisclaimer(box));
-  obs.observe(box, { childList: true });
-  remember(box, obs);
-});
 
 plugin.onDispose(() => {
   stopMenus();
   stopGlobalTooltips();
   for (const watcher of menuWatchers) watcher.disconnect();
   menuWatchers.clear();
-  for (const [, obs] of observers) {
+  for (const [, obs] of rememberedObservers()) {
     if (typeof obs?.disconnect === 'function') obs.disconnect();
   }
-  observers.clear();
+  observed.clear();
   // The added rows go first, so what is left to unmark is only Antigravity's own.
   for (const added of document.querySelectorAll("#gemini-experience-switch, [data-gemini-tools], [data-gemini-submenu], .spark-file-card-subtitle, .gemini-ai-disclaimer")) added.remove();
   for (const popup of document.querySelectorAll("[data-gemini-plus-menu]")) {
@@ -4043,9 +4740,13 @@ function ensureSidebarUserCard(footer) {
     footer.insertBefore(pill, settingsBtn);
   }
   if (isSidebarCollapsed()) {
-    pill.setAttribute("data-tooltip-position", "right");
+    if (pill.getAttribute("data-tooltip-position") !== "right") {
+      pill.setAttribute("data-tooltip-position", "right");
+    }
   } else {
-    pill.removeAttribute("data-tooltip-position");
+    if (pill.hasAttribute("data-tooltip-position")) {
+      pill.removeAttribute("data-tooltip-position");
+    }
   }
 }
 
@@ -4100,11 +4801,13 @@ function formatCodeBlockLanguage(el) {
     if (node.nodeType === Node.TEXT_NODE) {
       const raw = node.data.trim();
       if (!raw) continue;
+      if (el.dataset.geminiFormatted === raw) return;
       const lower = raw.toLowerCase();
       const mapped = WILLOW_LANGUAGE_LABELS[lower] || (raw.length <= 4 ? raw.toUpperCase() : raw.charAt(0).toUpperCase() + raw.slice(1));
       if (node.data !== mapped) {
         node.data = mapped;
       }
+      el.dataset.geminiFormatted = mapped;
     }
   }
 }
@@ -4120,10 +4823,10 @@ plugin.onDispose(() => {
   document.removeEventListener("keydown", onComposerSubmitKey, true);
   document.removeEventListener("click", onComposerSubmitClick, true);
   if (typeof cancelComposerSlide === "function") cancelComposerSlide();
-  for (const [, obs] of observers) {
+  for (const [, obs] of rememberedObservers()) {
     if (typeof obs?.disconnect === "function") obs.disconnect();
   }
-  observers.clear();
+  observed.clear();
   for (const added of document.querySelectorAll("[data-gemini-greeting]")) added.remove();
   for (const pill of document.querySelectorAll("#gemini-sidebar-user-pill")) pill.remove();
   if (!window.BetterGravity?.plugins?.isRunning?.("gemini-app")) {
@@ -4251,6 +4954,14 @@ function ensureTopChip(spec, host) {
   const row = trigger.closest(spec.row);
   if (row && !("geminiParkedRow" in row.dataset) && !row.querySelector('[contenteditable="true"], [data-testid="send-button"]')) {
     row.dataset.geminiParkedRow = "";
+  }
+
+  // In Chat mode, the workspace/project chip is completely omitted so that chat mode
+  // only creates standalone conversations without any workspace/project selection.
+  if (spec.id === "workspace" && getStoredExperience() === "chat") {
+    if (parkedTrigger && parkedTrigger.chip === existing) releaseParkedTrigger();
+    existing?.remove();
+    return;
   }
 
   const label = topChipLabel(trigger);
@@ -4381,15 +5092,27 @@ function reconcileTopChips() {
   if (parkedTrigger && !parkedTrigger.trigger.isConnected) releaseParkedTrigger();
 
   // Top chips only appear on screens where live triggers exist (e.g. home screen),
-  // and do not appear when already inside a session.
-  const live = TOP_CHIPS.some((spec) => document.querySelector(spec.trigger));
+  // and do not appear when already inside a session. In Chat mode, workspace trigger is excluded.
+  const isChat = getStoredExperience() === "chat";
+  const activeSpecs = TOP_CHIPS.filter((spec) => !(isChat && spec.id === "workspace"));
+  const live = activeSpecs.some((spec) => document.querySelector(spec.trigger));
   const host = live ? topChipHost() : null;
   for (const stray of document.querySelectorAll("[data-gemini-top-chips]")) {
     if (stray !== host) stray.remove();
   }
   topChipHostEl = host;
-  if (!host) return;
+  if (!host) {
+    if (isChat) {
+      const strayWorkspaceChip = document.querySelector('[data-gemini-top-chip="workspace"]');
+      if (strayWorkspaceChip) strayWorkspaceChip.remove();
+    }
+    return;
+  }
   for (const spec of TOP_CHIPS) ensureTopChip(spec, host);
+  if (host.children.length === 0) {
+    host.remove();
+    topChipHostEl = null;
+  }
 }
 
 /* Arrivals are caught as they happen, by the observer the runtime already runs
@@ -4413,18 +5136,426 @@ plugin.dom.observe(TOP_BAR_MORE, () => reconcileTopChips());
 for (const spec of TOP_CHIPS) plugin.dom.observe(spec.trigger, () => reconcileTopChips());
 
 const topChipsTicker = window.setInterval(() => {
-  if (location.pathname !== HOME_ROUTE && !topChipHostEl) return;
+  if (!document.querySelector(HOME_SCROLLER) && !topChipHostEl) return;
   reconcileTopChips();
-}, 250);
+}, 1000);
 reconcileTopChips();
 
+/* ---------------------------------------------------------------------------
+ * Willow Rename Dialog ("Rename this chat")
+ * Willow (apps/studio/src/shell/sidebar/Sidebar.tsx:2455-2496 &
+ * platform/ui/src/GeminiDialog.tsx / GeminiDialog.css):
+ * Modal 512px wide, 32px radius, #1f1f1f (#1f1f1f / rgb(31,31,31)),
+ * H2 "Rename this chat" (20px/24px 470 in Google Sans Flex),
+ * 56px outlined field (at rest 0.8px rgb(142,145,143), focus 1.6px rgb(230,230,230)),
+ * Cancel / Rename pills. Rename pill disabled until text differs from current name.
+ * ------------------------------------------------------------------------- */
+plugin.dom.observe('input[data-testid="inline-edit-input"]', (nativeInput) => {
+  if (!nativeInput || !nativeInput.isConnected || nativeInput._willowRenameDialog) return;
+
+  const initialName = (nativeInput.value || '').trim();
+  let isClosing = false;
+
+  const host = document.createElement('div');
+  host.className = 'willow-gdlg-host';
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'willow-gdlg-backdrop';
+  backdrop.setAttribute('aria-hidden', 'true');
+
+  const surface = document.createElement('div');
+  surface.className = 'willow-gdlg-surface';
+  surface.setAttribute('role', 'dialog');
+  surface.setAttribute('aria-modal', 'true');
+  surface.setAttribute('aria-label', 'Rename this chat');
+  surface.tabIndex = -1;
+
+  const title = document.createElement('h2');
+  title.className = 'willow-gdlg-title';
+  title.textContent = 'Rename this chat';
+
+  const content = document.createElement('div');
+  content.className = 'willow-gdlg-content';
+  content.style.paddingTop = '24px';
+
+  const field = document.createElement('div');
+  field.className = 'willow-gdlg-field';
+
+  const input = document.createElement('input');
+  input.className = 'willow-gdlg-field__input';
+  input.setAttribute('aria-label', 'Chat name');
+  input.value = initialName;
+
+  const outline = document.createElement('div');
+  outline.className = 'willow-gdlg-field__outline';
+  outline.setAttribute('aria-hidden', 'true');
+
+  field.appendChild(input);
+  field.appendChild(outline);
+  content.appendChild(field);
+
+  const actions = document.createElement('div');
+  actions.className = 'willow-gdlg-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'willow-gdlg-pill';
+  cancelBtn.innerHTML = '<span class="willow-gdlg-pill__label">Cancel</span>';
+
+  const renameBtn = document.createElement('button');
+  renameBtn.type = 'button';
+  renameBtn.className = 'willow-gdlg-pill';
+  renameBtn.disabled = true;
+  renameBtn.innerHTML = '<span class="willow-gdlg-pill__label">Rename</span>';
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(renameBtn);
+
+  surface.appendChild(title);
+  surface.appendChild(content);
+  surface.appendChild(actions);
+
+  host.appendChild(backdrop);
+  host.appendChild(surface);
+  document.body.appendChild(host);
+
+  nativeInput._willowRenameDialog = host;
+
+  const getReactProps = (el) => {
+    if (!el) return null;
+    const key = Object.keys(el).find(k => k.startsWith('__reactProps$'));
+    return key ? el[key] : null;
+  };
+
+  const getReactFiber = (el) => {
+    if (!el) return null;
+    const key = Object.keys(el).find(k => k.startsWith('__reactFiber$'));
+    return key ? el[key] : null;
+  };
+
+  let onRenameFn = null;
+  let onCancelFn = null;
+  let kXProps = null;
+
+  let currFiber = getReactFiber(nativeInput);
+  while (currFiber) {
+    if (!kXProps && (typeof currFiber.memoizedProps?.setEditValue === 'function' || typeof currFiber.memoizedProps?.handleBlur === 'function')) {
+      kXProps = currFiber.memoizedProps;
+    }
+    if (!onRenameFn && typeof currFiber.memoizedProps?.onRename === 'function') {
+      onRenameFn = currFiber.memoizedProps.onRename;
+    }
+    if (!onCancelFn && typeof currFiber.memoizedProps?.onCancel === 'function') {
+      onCancelFn = currFiber.memoizedProps.onCancel;
+    }
+    currFiber = currFiber.return;
+  }
+
+  let isDialogActive = true;
+
+  const blockBlur = (e) => {
+    if (isDialogActive) {
+      e.stopImmediatePropagation();
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  };
+  nativeInput.addEventListener('blur', blockBlur, true);
+  nativeInput.addEventListener('focusout', blockBlur, true);
+
+  const nativeProps = getReactProps(nativeInput);
+  const origOnBlur = nativeProps?.onBlur;
+  if (nativeProps && typeof origOnBlur === 'function') {
+    nativeProps.onBlur = (e) => {
+      if (isDialogActive) return;
+      return origOnBlur(e);
+    };
+  }
+
+  requestAnimationFrame(() => {
+    backdrop.classList.add('willow-gdlg-backdrop--shown');
+    surface.classList.add('willow-gdlg-surface--shown');
+    input.focus();
+    input.select();
+  });
+
+  const syncToNative = (val) => {
+    if (!nativeInput) return;
+    try {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      if (setter) {
+        setter.call(nativeInput, val);
+      } else {
+        nativeInput.value = val;
+      }
+      if (nativeInput._valueTracker) {
+        nativeInput._valueTracker.setValue('');
+      }
+      const props = getReactProps(nativeInput);
+      if (typeof props?.onChange === 'function') {
+        props.onChange({
+          target: { value: val },
+          currentTarget: { value: val },
+          bubbles: true,
+          preventDefault: () => {},
+          stopPropagation: () => {}
+        });
+      }
+      if (typeof kXProps?.setEditValue === 'function') {
+        kXProps.setEditValue(val);
+      }
+      nativeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (_) {}
+  };
+
+  const updateButtons = () => {
+    const trimmed = input.value.trim();
+    const isUnchanged = !trimmed || trimmed === initialName;
+    renameBtn.disabled = isUnchanged;
+    syncToNative(trimmed);
+  };
+
+  input.addEventListener('input', updateButtons);
+
+  const closeDialog = (callback) => {
+    if (isClosing) return;
+    isClosing = true;
+    backdrop.classList.add('willow-gdlg-backdrop--closing');
+    backdrop.classList.remove('willow-gdlg-backdrop--shown');
+    setTimeout(() => {
+      host.remove();
+      if (nativeInput._willowRenameDialog === host) {
+        delete nativeInput._willowRenameDialog;
+      }
+      if (callback) callback();
+    }, 75);
+  };
+
+  const commit = async () => {
+    const trimmed = input.value.trim();
+    if (!trimmed || trimmed === initialName) {
+      cancel();
+      return;
+    }
+    isDialogActive = false;
+    syncToNative(trimmed);
+
+    // Strategy 1: Direct onRename callback from fiber if available (e.g. header breadcrumb)
+    if (typeof onRenameFn === 'function') {
+      try {
+        await onRenameFn(trimmed);
+      } catch (_) {}
+      closeDialog(() => {
+        if (typeof onCancelFn === 'function') {
+          onCancelFn();
+        } else {
+          const props = getReactProps(nativeInput);
+          props?.onKeyDown?.({
+            key: 'Escape',
+            code: 'Escape',
+            keyCode: 27,
+            which: 27,
+            bubbles: true,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+          });
+        }
+      });
+      return;
+    }
+
+    // Strategy 2: Call origOnBlur / kXProps.handleBlur / props.onKeyDown Enter (sidebar items etc.)
+    closeDialog(() => {
+      setTimeout(() => {
+        if (nativeInput && nativeInput.isConnected) {
+          const props = getReactProps(nativeInput);
+          if (typeof props?.onKeyDown === 'function') {
+            props.onKeyDown({
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              preventDefault: () => {},
+              stopPropagation: () => {}
+            });
+          }
+          if (typeof origOnBlur === 'function') {
+            origOnBlur({ bubbles: true, preventDefault: () => {}, stopPropagation: () => {} });
+          } else if (typeof kXProps?.handleBlur === 'function') {
+            kXProps.handleBlur();
+          } else if (typeof props?.onBlur === 'function') {
+            props.onBlur({ bubbles: true, preventDefault: () => {}, stopPropagation: () => {} });
+          }
+          nativeInput.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Enter',
+            code: 'Enter',
+            keyCode: 13,
+            which: 13,
+            bubbles: true
+          }));
+          nativeInput.blur();
+        }
+      }, 50);
+    });
+  };
+
+  const cancel = () => {
+    isDialogActive = false;
+    closeDialog(() => {
+      if (typeof onCancelFn === 'function') {
+        onCancelFn();
+      } else if (nativeInput && nativeInput.isConnected) {
+        const props = getReactProps(nativeInput);
+        if (typeof props?.onKeyDown === 'function') {
+          props.onKeyDown({
+            key: 'Escape',
+            code: 'Escape',
+            keyCode: 27,
+            which: 27,
+            bubbles: true,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+          });
+        }
+        nativeInput.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Escape',
+          code: 'Escape',
+          keyCode: 27,
+          which: 27,
+          bubbles: true
+        }));
+        nativeInput.blur();
+      }
+    });
+  };
+
+  renameBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    commit();
+  });
+
+  cancelBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    cancel();
+  });
+
+  backdrop.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    cancel();
+  });
+
+  host.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cancel();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!renameBtn.disabled) {
+        commit();
+      }
+    }
+  });
+
+  remember(nativeInput, {
+    disconnect: () => {
+      isDialogActive = false;
+      nativeInput.removeEventListener('blur', blockBlur, true);
+      nativeInput.removeEventListener('focusout', blockBlur, true);
+      if (host.isConnected) host.remove();
+      if (nativeInput._willowRenameDialog === host) {
+        delete nativeInput._willowRenameDialog;
+      }
+    }
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * Responsive Toolbar Navigation Arrows ("Go Back" / "Go Forward")
+ * ------------------------------------------------------------------------- */
+let titleBarObserver = null;
+let titleBarResizeObserver = null;
+
+function updateHistoryArrowsPosition() {
+  const titleBar = document.querySelector('[data-testid="title-menu-bar"]');
+  if (!titleBar) return;
+
+  let rightmost = 0;
+  for (const child of titleBar.children) {
+    if (titleBarResizeObserver && !child._geminiObserved) {
+      child._geminiObserved = true;
+      titleBarResizeObserver.observe(child);
+    }
+    const rect = child.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth * 0.75) {
+      if (rect.right > rightmost) {
+        rightmost = rect.right;
+      }
+    }
+  }
+
+  if (rightmost > 0) {
+    const targetLeft = Math.round(rightmost + 8);
+    document.documentElement.style.setProperty('--gemini-history-arrows-left', `${targetLeft}px`);
+
+    const arrowsContainer = document.querySelector('[data-testid="sidebar-toggle"] + div:has([aria-label="Go Back"])') ||
+                            document.querySelector('div:has(> button[aria-label="Go Back"])');
+    if (arrowsContainer) {
+      arrowsContainer.style.setProperty('left', `${targetLeft}px`, 'important');
+    }
+  }
+}
+
+plugin.dom.observe('[data-testid="title-menu-bar"]', (titleBar) => {
+  updateHistoryArrowsPosition();
+
+  if (titleBarObserver) titleBarObserver.disconnect();
+  titleBarObserver = new MutationObserver(() => updateHistoryArrowsPosition());
+  titleBarObserver.observe(titleBar, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+
+  if (typeof ResizeObserver !== 'undefined') {
+    if (titleBarResizeObserver) titleBarResizeObserver.disconnect();
+    titleBarResizeObserver = new ResizeObserver(() => updateHistoryArrowsPosition());
+    titleBarResizeObserver.observe(titleBar);
+    for (const child of titleBar.children) {
+      child._geminiObserved = true;
+      titleBarResizeObserver.observe(child);
+    }
+  }
+
+  remember(titleBar, {
+    disconnect: () => {
+      if (titleBarObserver) titleBarObserver.disconnect();
+      if (titleBarResizeObserver) titleBarResizeObserver.disconnect();
+    }
+  });
+});
+
+plugin.dom.observe('[aria-label="Go Back"]', () => {
+  updateHistoryArrowsPosition();
+});
+
+window.addEventListener('resize', updateHistoryArrowsPosition);
+updateHistoryArrowsPosition();
+
 plugin.onDispose(() => {
+  window.removeEventListener('resize', updateHistoryArrowsPosition);
+  if (titleBarObserver) titleBarObserver.disconnect();
+  if (titleBarResizeObserver) titleBarResizeObserver.disconnect();
+  document.documentElement.style.removeProperty('--gemini-history-arrows-left');
+  document.documentElement.style.removeProperty('--gemini-theme-accent');
+  document.documentElement.style.removeProperty('--gemini-unread-dot-color');
   window.clearInterval(topChipsTicker);
+  window.clearInterval(urlTicker);
   releaseParkedTrigger();
   for (const host of document.querySelectorAll("[data-gemini-top-chips]")) host.remove();
   for (const row of document.querySelectorAll("[data-gemini-parked-row]")) row.removeAttribute("data-gemini-parked-row");
+  for (const dlg of document.querySelectorAll(".willow-gdlg-host")) dlg.remove();
   const s = document.getElementById("gemini-theme-dynamic-styles");
   if (s) s.remove();
 });
-
-

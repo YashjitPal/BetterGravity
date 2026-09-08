@@ -125,6 +125,24 @@ wins, because the last definition in document order applies:
 Its keyframes are `fade-in`, `unread-ping`, `blobEntrance`, `parentFade`,
 `logoEntrance`, `textEntrance`, `spin`, and `pulse`.
 
+### Select by what is inside an element
+
+`:has()` tells two identical-looking wrappers apart by their contents, which is
+often the only handle a theme has:
+
+```css
+[data-testid="lifted-context-menu-trigger"]:has(img[alt*="User uploaded media" i]) > .bg-card {
+  background: transparent !important;
+}
+```
+
+Broad `:has()` selectors can make frequent updates expensive on a page as large
+as Antigravity's. Keep their subjects specific and profile theme changes while
+a conversation is streaming. The runtime rewrites `:has()` in plugin stylesheets;
+standalone theme stylesheets still use the browser's native selectors. See
+[keeping it fast](performance.md#use-has-freely--the-runtime-rewrites-it) for the
+plugin optimization and the unsupported nested form (`:has()` inside `:has()`).
+
 ## What a theme cannot do
 
 A theme is styling. It can change how something looks, never what it does.

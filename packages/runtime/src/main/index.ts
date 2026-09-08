@@ -10,6 +10,8 @@ import {
   type DirectoryKey,
   type GeminiConfig,
   type GeminiStatus,
+  type OverlayStatus,
+  type OverlaySurface,
   type PresenceActivity,
   type PresenceStatus,
   type RuntimeContext,
@@ -28,6 +30,7 @@ import { attachPreload, relaxContentSecurityPolicy } from "./session.js";
 import { PluginStorageStore } from "./storage.js";
 import { spawnGuardian } from "./guardian.js";
 import { installSourceInterceptor } from "./intercept.js";
+import { OverlayWindow } from "./overlay.js";
 import { PresenceConnection } from "./presence.js";
 
 const WATCH_DEBOUNCE_MS = 150;
@@ -91,6 +94,38 @@ function registerPresenceChannels(presence: PresenceConnection): void {
     presence.update(activity ?? undefined)
   );
   ipcMain.handle(CHANNEL.presenceClose, () => presence.close());
+}
+
+/**
+ * The overlay is a single window shared by every plugin, so which one owns it is
+ * checked on the way in: a plugin can only close or draw into an overlay it
+ * opened itself, and cannot take over one already on screen.
+ */
+function registerOverlayChannels(overlay: OverlayWindow): void {
+  overlay.onStatusChanged((status: OverlayStatus) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      const contents = window.webContents;
+      if (!contents.isDestroyed()) contents.send(CHANNEL.overlayStatus, status);
+    }
+  });
+
+  ipcMain.handle(CHANNEL.overlayOpen, (event, owner: string, surface: OverlaySurface) =>
+    overlay.open(event.sender, String(owner ?? ""), surface)
+  );
+  ipcMain.handle(CHANNEL.overlayClose, (_event, owner: string) => {
+    if (!overlay.ownedBy(String(owner ?? ""))) return overlay.status();
+    return overlay.close();
+  });
+  ipcMain.on(CHANNEL.overlayInteractive, (_event, interactive: boolean) => overlay.setInteractive(interactive === true));
+  ipcMain.on(CHANNEL.overlayFocusable, (event, focusable: boolean) => {
+    if (overlay.isOverlay(event.sender)) overlay.setFocusable(focusable === true);
+  });
+  ipcMain.on(CHANNEL.overlaySend, (event, message: unknown) => {
+    // Direction is taken from the sender rather than the payload, so neither
+    // side can address the other's listeners by claiming to be it.
+    if (overlay.isOverlay(event.sender)) overlay.toPage(message);
+    else overlay.toOverlay(message);
+  });
 }
 
 function registerGeminiChannels(gemini: GeminiTranslator): void {
@@ -228,9 +263,11 @@ export function activate(context: RuntimeContext): void {
 
   const storage = new PluginStorageStore(paths.storage);
   const presence = new PresenceConnection();
+  const overlay = new OverlayWindow();
   const gemini = new GeminiTranslator(paths.gemini);
   registerChannels(paths, context, storage, gemini);
   registerPresenceChannels(presence);
+  registerOverlayChannels(overlay);
   registerGeminiChannels(gemini);
 
   // Armed here rather than after app.whenReady() because Antigravity spawns its
@@ -260,6 +297,7 @@ export function activate(context: RuntimeContext): void {
     // Storage writes are debounced, so a quit has to force the last one out.
     storage.flush();
     presence.dispose();
+    overlay.dispose();
     void gemini.dispose();
     if (readSettings(paths.settings).reapplyAfterHostUpdate) {
       spawnGuardian(path.join(context.runtimeDirectory, "runtime"), paths.log);

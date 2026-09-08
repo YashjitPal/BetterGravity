@@ -1,10 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
   CHANNEL,
+  OVERLAY_ARGUMENT,
   type ContentKind,
   type DirectoryKey,
   type GeminiConfig,
   type GeminiStatus,
+  type OverlayStatus,
+  type OverlaySurface,
   type PresenceActivity,
   type PresenceStatus,
   type RuntimeState,
@@ -12,6 +15,7 @@ import {
 } from "../protocol.js";
 import { BRIDGE_GLOBAL, type RuntimeBridge } from "../world/bridge.js";
 import { applyThemes } from "./themes.js";
+import { attachOverlaySurface } from "./overlay.js";
 
 /** The bundled page-world runtime, inlined at build time by build.mjs. */
 declare const __WORLD_SOURCE__: string;
@@ -24,6 +28,14 @@ const isTopFrame = (() => {
     return false;
   }
 })();
+
+/**
+ * One preload is registered for the whole session, so this same file is what the
+ * overlay window loads. The marker on its argv is how the two are told apart:
+ * the overlay has no host application to theme and no plugins to host, and the
+ * bridge it needs is a different one entirely.
+ */
+const isOverlayWindow = process.argv.includes(OVERLAY_ARGUMENT);
 
 /** The renderer console is unreachable in a packaged build. */
 function report(message: string): void {
@@ -77,6 +89,8 @@ function injectWorldRuntime(): void {
 const stateListeners = new Set<(state: RuntimeState) => void>();
 const presenceListeners = new Set<(status: PresenceStatus) => void>();
 const geminiListeners = new Set<(status: GeminiStatus) => void>();
+const overlayStatusListeners = new Set<(status: OverlayStatus) => void>();
+const overlayMessageListeners = new Set<(message: unknown) => void>();
 
 const bridge: RuntimeBridge = {
   getState: () => ipcRenderer.invoke(CHANNEL.getState),
@@ -105,6 +119,15 @@ const bridge: RuntimeBridge = {
     geminiListeners.add(listener);
   },
   readAccount: () => ipcRenderer.invoke(CHANNEL.readAccount),
+  overlayOpen: (owner, surface: OverlaySurface) => ipcRenderer.invoke(CHANNEL.overlayOpen, owner, surface),
+  overlayClose: (owner) => ipcRenderer.invoke(CHANNEL.overlayClose, owner),
+  overlaySend: (message) => ipcRenderer.send(CHANNEL.overlaySend, message),
+  onOverlayStatus: (listener) => {
+    overlayStatusListeners.add(listener);
+  },
+  onOverlayMessage: (listener) => {
+    overlayMessageListeners.add(listener);
+  },
   log: (message) => report(message),
   onStateChanged: (listener) => {
     stateListeners.add(listener);
@@ -125,13 +148,14 @@ async function applyThemesWhenReady(): Promise<void> {
   for (const diagnostic of state.diagnostics) report(`diagnostic — ${diagnostic.source}: ${diagnostic.message}`);
 }
 
-if (isTopFrame) {
+if (isOverlayWindow) {
+  attachOverlaySurface();
+} else if (isTopFrame) {
   try {
     contextBridge.exposeInMainWorld(BRIDGE_GLOBAL, bridge);
   } catch (error) {
     report(`could not expose the runtime bridge: ${error instanceof Error ? error.message : String(error)}`);
   }
-
   ipcRenderer.on(CHANNEL.stateChanged, (_event, state: RuntimeState) => {
     applyThemes(state.themes);
     for (const listener of stateListeners) {
@@ -159,6 +183,26 @@ if (isTopFrame) {
         listener(status);
       } catch (error) {
         report(`a Gemini listener threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  });
+
+  ipcRenderer.on(CHANNEL.overlayStatus, (_event, status: OverlayStatus) => {
+    for (const listener of overlayStatusListeners) {
+      try {
+        listener(status);
+      } catch (error) {
+        report(`an overlay listener threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  });
+
+  ipcRenderer.on(CHANNEL.overlayMessage, (_event, message: unknown) => {
+    for (const listener of overlayMessageListeners) {
+      try {
+        listener(message);
+      } catch (error) {
+        report(`an overlay message listener threw: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   });

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-05T12:12:26.078Z",
+  "generatedAt": "2026-09-08T13:44:17.409Z",
   "entries": [
     {
       "id": "discord-rich-presence",
@@ -57,7 +57,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 541469,
+      "bytes": 605075,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -76,23 +76,28 @@
         },
         {
           "name": "index.js",
-          "bytes": 167889,
-          "sha256": "56c08db07cd565590f6ee7abe75881d55ef1b6573aa6ebcb85ed59111a80d84f"
+          "bytes": 206465,
+          "sha256": "03e67182c501ef3c0f57e4b5e2e91cbac4c50e8b34b982e2bf40381b524d3fea"
         },
         {
           "name": "plugin.json",
-          "bytes": 419,
-          "sha256": "84015e747907cf8a3dda7397405fb673a4eb85434ec0ede54128ce0629591f60"
+          "bytes": 6170,
+          "sha256": "224c0c23ecf251e0ffc7740c4fd50477b934f621af81b5934137981dbeb875c4"
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 59701,
-          "sha256": "acf52404d293f84ebc181950444bb61b37f0c10a4ff6957258126088adaee61a"
+          "bytes": 63744,
+          "sha256": "7bcb61cc9393ae183c2c02cee72cb37c525f627c67d4a1667ffb03fc96f4155f"
+        },
+        {
+          "name": "styles/dialog.css",
+          "bytes": 5773,
+          "sha256": "1bd5038f61e99c5ab6b57451d28173bb8bf68d82f5e88b663e8642c62a8a6f7f"
         },
         {
           "name": "styles/gemini-app.css",
-          "bytes": 2453,
-          "sha256": "18362e15df9a4fc316bfa580038e074f5158f76489555919437c0c328170ce66"
+          "bytes": 2475,
+          "sha256": "e95d974d0eeee8ffb3ca16db984470fa7a2a61a768b3004e64587be5ac628d36"
         },
         {
           "name": "styles/home-composer.css",
@@ -101,8 +106,8 @@
         },
         {
           "name": "styles/home-glow.css",
-          "bytes": 3780,
-          "sha256": "7948352b12582f66c08db8e7f0228ff97e304c0f56701ba79b567bc3c0d2a237"
+          "bytes": 3830,
+          "sha256": "0f10e32b01a5b1e88a0e9d57dce3e745a4f412f362a069f2d9abeeee6cf167a1"
         },
         {
           "name": "styles/model-selector.css",
@@ -116,13 +121,13 @@
         },
         {
           "name": "styles/prompt-box.css",
-          "bytes": 32187,
-          "sha256": "173e447ce354cf6e00818c04ee72437897e1a8a14cd26af4be9b5c4d99c58c5f"
+          "bytes": 33182,
+          "sha256": "58292ae88f6b0e57f1d53f007b073021d8f851248975516931852e0e48f0b27a"
         },
         {
           "name": "styles/sidebar.css",
-          "bytes": 106433,
-          "sha256": "ed5c5735a4d4839fc9a32a0f35141853a8d23b3b66eb41f5f8a3b9f8fbb34c60"
+          "bytes": 114829,
+          "sha256": "2e6f30bd7b22919280e36515815eb7fb86618a5ebb4412e10ca03ec71e09341d"
         },
         {
           "name": "styles/tokens.css",
@@ -133,6 +138,44 @@
           "name": "styles/tooltip.css",
           "bytes": 6727,
           "sha256": "de930a2e37493ba4d2c84fddde9f9a3d9267c5e4024cec912dee7dbb500e5f20"
+        }
+      ]
+    },
+    {
+      "id": "pets",
+      "kind": "plugin",
+      "name": "Pets",
+      "description": "The Codex desktop pet, rebuilt for Antigravity. It lives on your desktop rather than inside the window, so it stays with you when the editor is behind something else. It shows what the agent is doing: a coloured indicator under its feet, and a stack of cards naming every thread that is running, waiting, blocked, or has something unread. Drag it anywhere, throw it and watch it bounce off the edges of the screen.",
+      "version": "2.9.0",
+      "author": "Yashjit Pal",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/pets",
+      "bytes": 1196681,
+      "files": [
+        {
+          "name": "assets/rocky.webp",
+          "bytes": 978516,
+          "sha256": "81970d728fb0a024385298c47dd9128ee18e9eb9d1db84ccacd42edea9f3bd6a"
+        },
+        {
+          "name": "index.js",
+          "bytes": 168277,
+          "sha256": "043ea13672ce94d5a79efc5cb678f1f80a4a2c501a99142c6fffa0c0203e38fb"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 648,
+          "sha256": "32ac771a9716f23f8fc8f5e1228fb42c5d28533be5277a8fe2fed482be3ac989"
+        },
+        {
+          "name": "styles/hud.css",
+          "bytes": 43887,
+          "sha256": "a6d6ca8012a830b48851eca68c1b5eff5e2fa87b38bfb9971ca375d720997c60"
+        },
+        {
+          "name": "styles/pet.css",
+          "bytes": 5353,
+          "sha256": "1ed0d879ab53e60d33766335cf803bf0a9bf3893839603687233eee32b62e163"
         }
       ]
     },

@@ -16,6 +16,9 @@
   toolbar buttons, dialogs, and a settings screen of your own.
 - **[Reaching into Antigravity](advanced.md)** — patching its functions, reading
   its React tree, watching its language server, and rewriting its bundle.
+- **[Keeping it fast](performance.md)** — what actually makes a theme or plugin
+  slow, why `:has()` is free here, and the handful of habits that keep a big
+  plugin feeling native.
 - **[Discord Rich Presence](presence.md)** — showing what the agent is doing on
   your Discord profile, and setting up the application it needs.
 - **[A Gemini key of your own](gemini-key.md)** — sending Antigravity's chat

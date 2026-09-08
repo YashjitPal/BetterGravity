@@ -1,0 +1,1126 @@
+/*
+ * Pets — the heads-up display: the indicator under the pet's feet, the stack of
+ * cards naming what the agent is doing, the controls that appear on those cards,
+ * and the quick-chat pill.
+ *
+ * Every number here is Codex's. The comments name where each came from:
+ * `initial` is app-initial's petControlsAppearance defaults and stack ladder,
+ * `frame` is avatar-overlay-native-frame's stylesheet, `js` is the markup in the
+ * script of the same name, and `mascot-button` is avatar-mascot-button.
+ *
+ * COLOURS. This sheet is loaded into two documents: Antigravity's window, where
+ * the editor's own theme variables exist, and the transparent desktop window,
+ * where nothing exists at all. So every colour is written as an Antigravity
+ * variable with a literal fallback — and the literal is Codex's own palette
+ * value, so the desktop half looks like Codex rather than like a guess. Codex
+ * does exactly this in its own VS Code host build, mapping --color-text-warning
+ * to --vscode-editorWarning-foreground; these are the same mappings, and the
+ * literals are the raw scale those tokens fall back to in the dark theme.
+ *
+ * FOCUS. Nothing in here is focusable. The overlay sits over an editor, and a
+ * card that could take the caret would be worse than a card you have to click.
+ * Everything is a div with a title, and the tray is aria-hidden.
+ */
+
+.bettergravity-pet,
+.bettergravity-pet-tray,
+.bettergravity-pet-chat {
+  /* app-BWltMWCm 305-360: the token mapping, with the dark scale as literals —
+     --gray-100 #ededed, --gray-900 #181818, --blue-900 #00284d,
+     --orange-300 #ff8549, --red-300 #ff6764, --green-300 #40c977. */
+  --pet-text: var(--vscode-foreground, #ededed);
+  --pet-text-secondary: color-mix(in srgb, var(--vscode-foreground, #ededed) 65%, transparent);
+  --pet-surface: var(--vscode-editor-background, #181818);
+  --pet-surface-secondary: var(--vscode-sideBar-background, #181818);
+  --pet-info-soft: var(--vscode-editor-selectionBackground, #00284d);
+  --pet-warning: var(--vscode-editorWarning-foreground, #ff8549);
+  --pet-danger: var(--vscode-errorForeground, #ff6764);
+  --pet-success: var(--vscode-charts-green, #40c977);
+  --pet-info: var(--vscode-charts-blue, #339cff);
+  --pet-border-strong: #ffffff33;
+
+  /* frame 2-139: _Material_ in .electron-dark, non-native, with a surface id. */
+  --pet-material-background: #202020e6;
+  --pet-material-border: #ffffff1f;
+  --pet-material-shadow: inset 0 1px 1px #fff3, inset 0 -1px 2px #ffffff14, 0 3px 16px #00000059;
+
+  /* initial 22117: the petControlsAppearance defaults. compactControlWidth 17
+     and compactControlGap -10.5 give Kt() = 17 * 2 - 10.5 for the collapsed
+     pill's width; js 3778 gives the rest of its box, and hoverControlSize 24 is
+     the expanded one. */
+  --pet-badge-compact-width: 23.5px;
+  --pet-badge-compact-height: 6px;
+  --pet-badge-compact-radius: 6.5px;
+  --pet-badge-hover-size: 24px;
+
+  /* initial 22117: contentHiddenBlurRadiusPx / contentHiddenScale. */
+  --pet-content-hidden-blur: 14px;
+  --pet-content-hidden-scale: 0.75;
+
+  /* ── Motion ───────────────────────────────────────────────────────────────
+   *
+   * Codex animates the badge with framer-motion, so the shipped values are
+   * springs and not durations. Two of them are already curves and go across
+   * verbatim; the other four are physical springs, and each one becomes the
+   * duration it takes to settle within 1% paired with a back-out curve holding
+   * its overshoot.
+   *
+   * For a spring, w0 = sqrt(k / m) and z = c / (2 * sqrt(k * m)). An
+   * underdamped one overshoots by exp(-z * pi / sqrt(1 - z^2)) and is within 1%
+   * after ln(100) / (z * w0); a critically damped one never overshoots and is
+   * within 1% at 6.638 / w0. The one approximation is the mapping from
+   * overshoot to the curve's second control point, which is linear against
+   * cubic-bezier(.34, 1.56, .64, 1) — the curve Codex itself uses for a 10%
+   * overshoot, so the two families agree where they overlap.
+   *
+   * mascot-button 26 (m): the geometry curve while the content is showing.
+   * mascot-button 27 (h): the same, while it is hidden. Both 0.3s, verbatim.
+   * mascot-button 515 (se): d20 m0.7 k420   -> z 0.583, 10.5%, 0.32s.
+   * mascot-button 28 (g): d26.18 m1 k685.39 -> z 0.5,   16.3%, 0.35s,
+   *                       and its filter track d52.36   -> z 1, none, 0.25s.
+   * mascot-button 31 (v): d32.67 m1 k631.65 -> z 0.65,   6.8%, 0.28s,
+   *                       and its filter track 2*sqrt(k) -> z 1, none, 0.26s.
+   * initial 22033  (hbe): d18.85 m1 k180    -> z 0.703,  4.5%, 0.49s.
+   */
+  --pet-ease-geometry-shown: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --pet-ease-geometry-hidden: 0.3s cubic-bezier(0.22, 1.35, 0.36, 1);
+  --pet-spring-badge: 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --pet-spring-reveal: 0.35s cubic-bezier(0.34, 1.87, 0.64, 1);
+  --pet-spring-reveal-blur: 0.25s cubic-bezier(0.33, 1, 0.68, 1);
+  --pet-spring-conceal: 0.28s cubic-bezier(0.34, 1.36, 0.64, 1);
+  --pet-spring-conceal-blur: 0.26s cubic-bezier(0.33, 1, 0.68, 1);
+  --pet-spring-stack: 0.49s cubic-bezier(0.34, 1.24, 0.64, 1);
+
+  /* frame 392-424: the _activityPill_ variables, verbatim. */
+  --pet-pill-control-size: 28px;
+  --pet-pill-control-gap: 10.25px;
+  --pet-pill-edge-inset: 13px;
+  --pet-pill-status-width: 31px;
+  --pet-pill-control-right-inset: 14.5px;
+  --pet-pill-content-padding-right: 58px;
+  --pet-pill-fade-transparent-inset: 84.75px;
+  --pet-pill-fade-opaque-inset: 140.75px;
+
+  /* frame 2-139 and initial 21924: the activity surface and the stack it sits
+     in. gbe is the gap between expanded cards, _be the overscan, and 208 is the
+     viewport height the page hands fbe(). */
+  --pet-card-height: 54px;
+  --pet-card-width: 315px;
+  --pet-card-radius: 27px;
+  --pet-stack-gap: 8px;
+  --pet-stack-viewport-height: 208px;
+  --pet-stack-mask-alpha: 0;
+  --pet-stack-bottom-clip-headroom: 0px;
+}
+
+/* ── The indicator ───────────────────────────────────────────────────────────
+ *
+ * Codex positions this with $t({surfaceId: "mascot-badge"}). Collapsed it uses
+ * the row layout with controlGap set to the negative of the control width, so
+ * n = max(0, size + gap) is 0 and every slot piles onto the mascot's centre
+ * line: x = 0, y = mascot.height + compactOffsetY. The pill therefore sits
+ * exactly on the sprite's bottom edge. (compactGlassSpacing 14 is a liquid-glass
+ * parameter for the native material and has no business moving the pill.)
+ *
+ * Expanded it moves onto the arc $t() lays the hover controls out along:
+ * d = mascot.width / 2 + hoverControlSize / 2, f = 2 * asin((size + gap) / 2d),
+ * p = (slot - (count - 1) / 2) * f. index.js runs that arithmetic and writes the
+ * result, because both terms depend on how wide the pet is.
+ *
+ * With the indicator alone in the cluster — see BADGE_SLOT_COUNT for why the
+ * count is one and not Codex's four — p is 0 and so is x, and the only thing
+ * left of the arc is y = mascot.height / 2 + d - hoverControlSize / 2 +
+ * hoverOffsetY. At the default 112px pet that is 127 against the collapsed 121,
+ * which is not a coincidence: the six pixels are the collapsed pill's height, so
+ * the disc's top edge lands on the bar's bottom edge and it grows downwards out
+ * of it rather than jumping.
+ */
+
+.bettergravity-pet__badge {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: var(--pet-badge-compact-width);
+  height: var(--pet-badge-compact-height);
+  border-radius: var(--pet-badge-compact-radius);
+  translate: -50% 0;
+
+  background: var(--pet-badge-background, var(--pet-info-soft));
+  color: var(--pet-badge-foreground, var(--pet-text));
+
+  /* mascot-button 311: the glassy variant. Dark drops the border to white/20. */
+  border: 1px solid #ffffff33;
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.2);
+  backdrop-filter: blur(24px);
+
+  /* Collapsed it is part of the pet: a press here picks the pet up. Expanded it
+     is Codex's "Show activity" button. */
+  pointer-events: none;
+  overflow: hidden;
+
+  /* mascot-button 259: the box animates on `z = p ? m : h`, unconditionally and
+     in both directions — this rule is the content-hidden end, so it gets h.
+     transitionDurationMs and collapseTransitionDurationMs are not this element's
+     to spend: main 13006 passes them to prepareSurfaces as animationDurationMs,
+     which times the OS glass Codex composites behind the DOM and which we draw
+     in CSS instead. What is left here is the badge's own arrival, and
+     mascot-button 307 animates to {opacity: 1, scale: 1, y: 0} on se. The 0.16s
+     easeOut in the shipped code is the exit only, so it lives on the hidden rule
+     below rather than here. */
+  transition: width var(--pet-ease-geometry-hidden), height var(--pet-ease-geometry-hidden),
+    border-radius var(--pet-ease-geometry-hidden), top var(--pet-ease-geometry-hidden),
+    left var(--pet-ease-geometry-hidden), opacity var(--pet-spring-badge),
+    scale var(--pet-spring-badge), translate var(--pet-spring-badge);
+}
+
+/* mascot-button 311: before:inset-0 before:rounded-full, empty until pressed. */
+.bettergravity-pet__badge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: transparent;
+  pointer-events: none;
+}
+
+.bettergravity-pet__badge[data-pet-pressed="true"]::before {
+  background: color-mix(in srgb, var(--pet-text) 15%, transparent);
+}
+
+/*
+ * js 3935: the badge is mounted only while there is something to count
+ * (Ve = notifications.length > 0), and mounts from {opacity: 0, scale: 0.7,
+ * y: 3} with a 0.16s easeOut exit.
+ */
+.bettergravity-pet[data-pet-badge="hidden"] .bettergravity-pet__badge {
+  opacity: 0;
+  scale: 0.7;
+  translate: -50% 3px;
+
+  /* mascot-button 362, the exit transition: 0.16s easeOut, and only leaving. */
+  transition: opacity 0.16s ease-out, scale 0.16s ease-out, translate 0.16s ease-out;
+}
+
+/* mascot-button 356: text-xs leading-none font-medium, inside a size-6 box. */
+.bettergravity-pet__badge-count {
+  font: 500 12px / 1 var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+  color: inherit;
+
+  /* initial 22117: contentVisibilityAnimation hides the count rather than
+     shrinking the type — there is no room for twelve pixels of text in a pill
+     six pixels tall. mascot-button 187 picks the transition by direction:
+     `p ? a.revealTransition : y`. This rule is the hidden end, so it is the one
+     that runs on the way out — y, whose filter track is critically damped and
+     therefore has to be timed apart from the rest. */
+  opacity: 0;
+  filter: blur(var(--pet-content-hidden-blur));
+  scale: var(--pet-content-hidden-scale);
+  transition: opacity var(--pet-spring-conceal), scale var(--pet-spring-conceal),
+    filter var(--pet-spring-conceal-blur);
+}
+
+.bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge {
+  top: var(--pet-badge-arc-y, 100%);
+  left: calc(50% + var(--pet-badge-arc-x, 0px));
+  width: var(--pet-badge-hover-size);
+  height: var(--pet-badge-hover-size);
+  border-radius: calc(var(--pet-badge-hover-size) / 2);
+
+  pointer-events: auto;
+  cursor: pointer;
+
+  /* mascot-button 259 and 275: with the content showing, the box animates on m
+     and everything else on the default spring. */
+  transition: width var(--pet-ease-geometry-shown), height var(--pet-ease-geometry-shown),
+    border-radius var(--pet-ease-geometry-shown), top var(--pet-ease-geometry-shown),
+    left var(--pet-ease-geometry-shown), opacity var(--pet-spring-badge),
+    scale var(--pet-spring-badge), translate var(--pet-spring-badge);
+}
+
+.bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge-count {
+  opacity: 1;
+  filter: none;
+  scale: 1;
+
+  /* The other half of mascot-button 187: coming in, it is the revealTransition
+     the frame hands down, and js 4492 passes the 16% spring. */
+  transition: opacity var(--pet-spring-reveal), scale var(--pet-spring-reveal),
+    filter var(--pet-spring-reveal-blur);
+}
+
+/*
+ * The chevron, which is what the disc holds while the pills are out.
+ *
+ * js 3897 makes that branch `backgroundColor: transparent, foregroundColor:
+ * currentColor, isIconOnly: !0` — glass and an icon and no tone at all. Only the
+ * stashed branch paints Le.badgeBackgroundColor, so the coloured disc with a
+ * number on it is the exception rather than the resting state.
+ */
+.bettergravity-pet[data-pet-badge-kind="chevron"] .bettergravity-pet__badge {
+  background: transparent;
+  color: var(--pet-text);
+}
+
+.bettergravity-pet__badge-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Same contentVisibilityAnimation as the count: eighteen pixels of icon has no
+     more room in a six-pixel pill than twelve pixels of text. The rotate is the
+     tray flip rather than the reveal, so it keeps the badge's own spring. */
+  opacity: 0;
+  filter: blur(var(--pet-content-hidden-blur));
+  scale: var(--pet-content-hidden-scale);
+  transition: opacity var(--pet-spring-conceal), scale var(--pet-spring-conceal),
+    filter var(--pet-spring-conceal-blur), rotate var(--pet-spring-badge);
+}
+
+.bettergravity-pet__badge-chevron svg {
+  display: block;
+}
+
+/* `f.placement.startsWith("bottom") && "rotate-180"` — it points at the mascot. */
+.bettergravity-pet[data-pet-tray-above="false"] .bettergravity-pet__badge-chevron {
+  rotate: 180deg;
+}
+
+.bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge-chevron {
+  opacity: 1;
+  filter: none;
+  scale: 1;
+
+  transition: opacity var(--pet-spring-reveal), scale var(--pet-spring-reveal),
+    filter var(--pet-spring-reveal-blur), rotate var(--pet-spring-badge);
+}
+
+.bettergravity-pet[data-pet-badge-kind="chevron"] .bettergravity-pet__badge-count,
+.bettergravity-pet[data-pet-badge-kind="count"] .bettergravity-pet__badge-chevron {
+  display: none;
+}
+
+/*
+ * The five levels, and what each one paints. rr() in avatar-overlay-native-frame
+ * (js 1720-1815) is the whole table: a badge background, a badge foreground, and
+ * the tint on the card's status icon. Running and idle are the same pale info
+ * wash under ordinary text; the three that want attention are a solid tone with
+ * the surface colour punched out of them.
+ */
+.bettergravity-pet[data-pet-tone="info"],
+.bettergravity-pet-card[data-pet-tone="info"] {
+  --pet-badge-background: var(--pet-info-soft);
+  --pet-badge-foreground: var(--pet-text);
+  --pet-status-color: var(--pet-text-secondary);
+}
+
+.bettergravity-pet[data-pet-tone="warning"],
+.bettergravity-pet-card[data-pet-tone="warning"] {
+  --pet-badge-background: var(--pet-warning);
+  --pet-badge-foreground: var(--pet-surface-secondary);
+  --pet-status-color: var(--pet-warning);
+}
+
+.bettergravity-pet[data-pet-tone="danger"],
+.bettergravity-pet-card[data-pet-tone="danger"] {
+  --pet-badge-background: var(--pet-danger);
+  --pet-badge-foreground: var(--pet-surface-secondary);
+  --pet-status-color: var(--pet-danger);
+}
+
+.bettergravity-pet[data-pet-tone="success"],
+.bettergravity-pet-card[data-pet-tone="success"] {
+  --pet-badge-background: var(--pet-success);
+  --pet-badge-foreground: var(--pet-surface-secondary);
+  --pet-status-color: var(--pet-success);
+}
+
+.bettergravity-pet[data-pet-tone="idle"],
+.bettergravity-pet-card[data-pet-tone="idle"] {
+  --pet-badge-background: var(--pet-info-soft);
+  --pet-badge-foreground: var(--pet-text);
+  --pet-status-color: var(--pet-text-secondary);
+}
+
+/* ── The activity stack ──────────────────────────────────────────────────────
+ *
+ * fbe() (initial 21924) has two branches, and the page picks between them with
+ * `expanded: isExpanded || isNotificationTrayOpen`. The tray starts closed
+ * (native-page 2050: useState(!1)), so the pile is what you see first and the
+ * list is what a click on it gets you.
+ *
+ * COLLAPSED. The viewport is one card tall and the cards behind the front one
+ * are drawn on Kl's ladder — offset 0/10/20 down, scaled 1/0.94/0.86, at most
+ * three of them. lbe()/ube() reduce, for a 54px card, to exactly
+ * `transform-origin: 50% 0; translateY(offsetY) scale(sx, sy)`. Because the
+ * origin is the top edge a scaled backing peeks out below the card in front
+ * rather than around it, which is what makes it read as a pile — and fbe() gives
+ * those backings a zero-height content rect, so they are genuinely empty.
+ *
+ * EXPANDED. A 208px viewport the cards scroll inside, laid out top to bottom
+ * `height + gbe(8)` apart and shifted by -scrollOffset, with 56px of overscan
+ * either side and zIndex = items.length - index. index.js does that arithmetic
+ * and writes each card's top and z; a card's height is its own, measured, and
+ * never written from here.
+ */
+
+.bettergravity-pet-tray {
+  position: fixed;
+  /* Under the pet, so a card can never cover the thing it belongs to. */
+  z-index: 2147482999;
+
+  left: var(--pet-tray-x, 50%);
+  top: var(--pet-tray-y, 0px);
+  width: var(--pet-tray-width, var(--pet-card-width));
+  height: var(--pet-tray-height, var(--pet-card-height));
+  translate: -50% 0;
+
+  /* Only the cards take the pointer; see the slot rules below. */
+  pointer-events: none;
+
+  opacity: 0;
+  visibility: hidden;
+  /* The box moves with the cards it holds, on initial 22033's stack spring, or
+     the pile would settle on a different curve from the frame around it. The
+     fade is the surface's own: initial 22117 transitionDurationMs, which main
+     13006 spends on the glass rather than on any of this geometry. */
+  transition: opacity 0.2s ease, visibility 0.2s, top var(--pet-spring-stack),
+    height var(--pet-spring-stack);
+}
+
+.bettergravity-pet-tray[data-pet-tray="open"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+/*
+ * frame 296-391: _ActivityStackViewport_. The mask box is inset by -24px on
+ * every side that is not overflowing, so a card's shadow and the dismiss button
+ * hanging off its top-left corner are never clipped; the side that *is*
+ * overflowing has the mask box flush with the viewport edge, and 24px of fade
+ * there. Written here as one mask whose box is grown horizontally by 48px and
+ * positioned back by 24px, which is the same thing with fewer elements.
+ */
+.bettergravity-pet-tray[data-pet-stack="expanded"] {
+  overflow: clip;
+  overflow-clip-margin: 24px;
+
+  mask-repeat: no-repeat;
+  mask-size: calc(100% + 48px) calc(100% + 48px);
+  mask-position: -24px -24px;
+}
+
+.bettergravity-pet-tray[data-pet-stack="expanded"][data-pet-overflow="top"] {
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / var(--pet-stack-mask-alpha)),
+    black 24px,
+    black 100%
+  );
+  mask-size: calc(100% + 48px) calc(100% + 24px);
+  mask-position: -24px 0;
+}
+
+.bettergravity-pet-tray[data-pet-stack="expanded"][data-pet-overflow="bottom"] {
+  mask-image: linear-gradient(
+    to top,
+    transparent,
+    rgb(0 0 0 / var(--pet-stack-mask-alpha)) var(--pet-stack-bottom-clip-headroom),
+    black calc(var(--pet-stack-bottom-clip-headroom) + 24px),
+    black 100%
+  );
+  mask-size: calc(100% + 48px) calc(100% + 24px);
+  mask-position: -24px -24px;
+}
+
+.bettergravity-pet-tray[data-pet-stack="expanded"][data-pet-overflow="both"] {
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / var(--pet-stack-mask-alpha)),
+    black 24px,
+    black calc(100% - var(--pet-stack-bottom-clip-headroom) - 24px),
+    rgb(0 0 0 / var(--pet-stack-mask-alpha)) calc(100% - var(--pet-stack-bottom-clip-headroom)),
+    transparent
+  );
+  mask-size: calc(100% + 48px) 100%;
+  mask-position: -24px 0;
+}
+
+/* frame 2-139: _ActivityBacking_ is the 27px pill, and js 6052 is the pill root
+   — `relative flow-root min-h-[54px] rounded-[27px]`. min-height and no height at
+   all, which is the whole of it: a card is 54px tall because its content is, and a
+   card whose content needs more takes more. The stack then measures what each one
+   came out at, the way Codex measures its own rows, so a taller card is laid out
+   rather than left to paint over the card behind it. */
+.bettergravity-pet-card {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  min-height: var(--pet-card-height);
+
+  border-radius: var(--pet-card-radius);
+  background: var(--pet-material-background);
+  border: 1px solid var(--pet-material-border);
+  box-shadow: var(--pet-material-shadow);
+
+  /* Codex marks its own notification card root `no-drag`, and for the same reason
+     it needs it: a press that lands inside one of the host window's drag regions
+     goes to the window manager, so without this a click on a card in Antigravity's
+     own window would move the window instead of opening the thread. */
+  -webkit-app-region: no-drag;
+
+  transform-origin: 50% 0;
+  /* initial 22033: the stack's own spring, d18.85 m1 k180 -> z 0.703, 4.5%,
+     0.49s, read the same way as the badge's springs above. It is a good deal
+     slower and far less bouncy than it looks like it should be, which is what
+     makes a pile of cards settle rather than snap. */
+  transition: transform var(--pet-spring-stack), height var(--pet-spring-stack);
+}
+
+.bettergravity-pet-card[data-pet-slot="0"] {
+  z-index: 3;
+  transform: translateY(0) scale(1);
+  /* The only part of a collapsed pile a click can land on. */
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* lbe() (initial 21909) with fbe()'s collapsed branch (21929): all three rungs are
+   built out of `{...viewport, height: items[0].height}` — the *front* card's own
+   height — so a backing is that card scaled about its top edge and pushed down by
+   ube(). index.js writes the front height and the two offsets; the scales are
+   Kl's own and never change. At a 54px card the offsets come out at Kl's 10 and
+   20, which is what the fallbacks say. */
+.bettergravity-pet-card[data-pet-slot="1"] {
+  z-index: 2;
+  height: var(--pet-pile-front, var(--pet-card-height));
+  transform: translateY(var(--pet-pile-y-1, 10px)) scale(0.94);
+}
+
+.bettergravity-pet-card[data-pet-slot="2"] {
+  z-index: 1;
+  height: var(--pet-pile-front, var(--pet-card-height));
+  transform: translateY(var(--pet-pile-y-2, 20px)) scale(0.86);
+}
+
+/* Expanded, every card is real, sits where fbe() put it, and can be clicked. */
+.bettergravity-pet-tray[data-pet-stack="expanded"] .bettergravity-pet-card {
+  z-index: var(--pet-card-z, 1);
+  transform: translateY(var(--pet-card-y, 0px));
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* ── What a card says ────────────────────────────────────────────────────────
+ *
+ * js 6146: the content is one block, `min-h-[54px] w-full min-w-0 px-[22px]
+ * py-[10px] text-start select-none`, with its trailing padding reserving room
+ * for the status icon and the controls. frame 392-424 sets that reserve to 58px
+ * normally and collapses it to 13px when the card is loading — a running card
+ * has no status icon, because na() returns null for the spinner and the shimmer
+ * is the whole of the loading indication.
+ *
+ * Kr() (js 2774) is worth being clear about: the level's label — Running, Needs
+ * input, Blocked, Ready — is *never* card text. It exists only in the aria
+ * labels. What a card shows is the notification's title, and its subtitle when
+ * qr() says there is room for one.
+ */
+
+.bettergravity-pet-card__content {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--pet-card-height);
+  padding: 10px 22px;
+  padding-inline-end: var(--pet-pill-content-padding-right);
+  text-align: start;
+  user-select: none;
+
+  /* The last line of defence against a bleed. Every run of text in here is either
+     ellipsised on one line or clamped to two, so this should never have anything
+     to do — but the pill's rounded background is painted by the card and the text
+     is painted by this box, and clipping is what makes the second of those unable
+     to escape the first. `clip` rather than `hidden`, so it stays a plain box and
+     not a scroll container: the status icon, the controls and the dismiss X are
+     the card's children, not this one's, so none of them are clipped. */
+  overflow: clip;
+
+  transition: padding-inline-end 0.18s ease-out;
+}
+
+/* frame 400-410: _activityPillLoading_ and _activityPillWaitingRequest_. */
+.bettergravity-pet-card[data-pet-pill="loading"] {
+  --pet-pill-content-padding-right: 13px;
+}
+
+/*
+ * frame 392-399: the fade that keeps long text from running under the controls.
+ * The mask is measured from the right edge — transparent for the first 84.75px,
+ * fully opaque by 140.75px. A loading card has nothing over there to hide
+ * behind, so it is not masked at all; nor is a card with no controls, whose
+ * `data-pet-pill` is `none` — Ui() puts the fade behind `ke`, and `ke` wants a
+ * control target. Both keep the base padding, because the status box is over
+ * there either way.
+ */
+.bettergravity-pet-card[data-pet-pill="default"] .bettergravity-pet-card__content {
+  mask-image: linear-gradient(
+    to left,
+    transparent var(--pet-pill-fade-transparent-inset),
+    black var(--pet-pill-fade-opaque-inset)
+  );
+}
+
+/*
+ * frame css 226-260: _ActivityText_[data-avatar-overlay-activity-text="title"].
+ * Three shapes, and the card picks one — and which one is decided by the *card*,
+ * never by whether the stack is open:
+ *
+ *   :not([inline-subtitle]):not([expanded-waiting-request])
+ *       { text-overflow: ellipsis; white-space: nowrap; overflow: hidden }
+ *   [inline-subtitle]
+ *       { display: -webkit-box; -webkit-line-clamp: 2; overflow: hidden;
+ *         font-weight: 400; color: secondary }
+ *   [expanded-waiting-request]
+ *       { overflow-wrap: break-word; white-space: pre-wrap }
+ *
+ * So a plain title is one ellipsised line whether the pile is a pile or a list,
+ * and the only run that wraps freely is an expanded *waiting request* — the
+ * question text of an MCP elicitation, which is also the one thing that grows a
+ * card past 54px, and which Antigravity has no way to produce. An earlier version
+ * of this file dropped the nowrap for the whole expanded stack, which is what let
+ * a two-line title paint out through the bottom of its own 54px pill.
+ *
+ * Two lines of 17px inside 10px of padding is 54 exactly, which is where the card
+ * height comes from — the clamped inline form fills the pill and stops.
+ */
+
+.bettergravity-pet-card__text {
+  font: 700 13px / 17px var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+  color: var(--pet-text);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bettergravity-pet-card[data-pet-inline="true"] .bettergravity-pet-card__text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+
+  font-weight: 400;
+  color: var(--pet-text-secondary);
+}
+
+/* js 6220: the three spans inside an inline-subtitle run. mx-1.5 is 6px. */
+.bettergravity-pet-card__title {
+  font-weight: 700;
+  color: var(--pet-text);
+}
+
+.bettergravity-pet-card__separator {
+  margin-inline: 6px;
+  font-weight: 400;
+  color: var(--pet-text-secondary);
+}
+
+.bettergravity-pet-card__subtitle {
+  font-weight: 400;
+  color: var(--pet-text-secondary);
+}
+
+/* js 6254: the separate body line, `text-[13px] leading-[17px] text-secondary`
+   with `truncate`, hidden the moment the subtitle goes inline instead. */
+.bettergravity-pet-card__body {
+  font: 400 13px / 17px var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+  color: var(--pet-text-secondary);
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bettergravity-pet-card[data-pet-inline="true"] .bettergravity-pet-card__body {
+  display: none;
+}
+
+/* ── The trailing status icon ────────────────────────────────────────────────
+ *
+ * js 6403: `pointer-events-none absolute top-3 right-[edge-inset] flex h-8
+ * w-[status-width] items-center justify-center`, with the glyph tinted by the
+ * level. It is trailing, not leading — the text starts at the pill's left edge
+ * and the state is read off the right.
+ *
+ * na() (js 7282) switches on the icon type. clock and warning are one glyph at
+ * icon-xs. check-circle is two layers: a 27.890625px display-p3 green circle at
+ * 0.18 over mix-blend-darken, and a 17px tick scaled 1.1 in the same green, its
+ * paths stroked 0.65px with the stroke painted under the fill so the shape
+ * thickens without spilling. And spinner returns null: a running card shows
+ * nothing here at all, which is why its text reserve collapses to 13px.
+ */
+
+.bettergravity-pet-card__status {
+  position: absolute;
+  top: 12px;
+  right: var(--pet-pill-edge-inset);
+  z-index: 10;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: var(--pet-pill-status-width);
+  height: 32px;
+
+  pointer-events: none;
+  color: var(--pet-status-color, var(--pet-text-secondary));
+}
+
+/* icon-xs. */
+.bettergravity-pet-card__status svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.bettergravity-pet-card__status-disc {
+  position: absolute;
+  width: 27.890625px;
+  height: 27.890625px;
+  border-radius: 9999px;
+  background: color(display-p3 0.149 0.749 0.302 / 0.18);
+  mix-blend-mode: darken;
+}
+
+.bettergravity-pet-card__status[data-pet-status="check-circle"] svg {
+  position: relative;
+  width: 17px;
+  height: 17px;
+  scale: 1.1;
+  color: color(display-p3 0.149 0.749 0.302);
+  mix-blend-mode: darken;
+}
+
+.bettergravity-pet-card__status[data-pet-status="check-circle"] svg path {
+  stroke: currentColor;
+  stroke-width: 0.65px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+
+/* ── The controls ────────────────────────────────────────────────────────────
+ *
+ * Ui() (js 5875) decides which of these exist, and the answer is narrower than
+ * it looks. `ke = De && (Te || (!u && Y))` puts the reply/stop row on screen only
+ * when the stack is *expanded* and the card is hovered, so a collapsed pile never
+ * shows a button; `Oe = he && …` enables stop only on a card that is loading; and
+ * the expand chevron (`be = V != null && ye`) needs a waitingRequest, which is a
+ * realtime-voice thing Antigravity never produces — so there is no chevron here.
+ *
+ * frame 455-518: _ReplyStopControl_ is a 28px circle with no background of its
+ * own. What you see is a ::before at opacity .2 in #727272 over multiply, going
+ * to .47 in #4c4c4c on hover with the glyph flipping to white over plus-lighter.
+ */
+
+.bettergravity-pet-card__controls {
+  position: absolute;
+  top: 12px;
+  right: var(--pet-pill-control-right-inset);
+  z-index: 20;
+
+  display: flex;
+  align-items: center;
+  height: 32px;
+  gap: var(--pet-pill-control-gap);
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+}
+
+/* Expanded plus hovered — Ui()'s `ke`. Never a card with nothing to press: `ke`
+   is `De && …` and `De` wants a control target, so a greeting's controls are not
+   rendered at all over there rather than rendered empty. */
+.bettergravity-pet-tray[data-pet-stack="expanded"]
+  .bettergravity-pet-card[data-pet-hovered="true"]
+  .bettergravity-pet-card__controls:not([data-pet-controls="none"]) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bettergravity-pet-card__control {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: var(--pet-pill-control-size);
+  height: var(--pet-pill-control-size);
+  /* frame 459: the control never gives up width to a long title. */
+  flex-shrink: 0;
+
+  background: transparent;
+  border: 0;
+  border-radius: 9999px;
+  padding: 0;
+
+  color: #727272;
+  cursor: pointer;
+}
+
+.bettergravity-pet-card__control::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+
+  background: #727272;
+  opacity: 0.2;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* frame 487: every hover branch of _ReplyStopControl_ is behind this query, and
+   it matters rather than tidies — on a touch screen :hover latches after a tap,
+   so an unguarded rule would leave the last card you touched lit up. */
+@media (hover: hover) and (pointer: fine) {
+  .bettergravity-pet-card__control:hover::before {
+    background: #4c4c4c;
+    opacity: 0.47;
+  }
+
+  .bettergravity-pet-card__control:hover svg {
+    color: #ffffff;
+    mix-blend-mode: plus-lighter;
+  }
+}
+
+.bettergravity-pet-card__control:active::before {
+  opacity: 0.55;
+}
+
+.bettergravity-pet-card__control svg {
+  position: relative;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+/* js 6470: the reply glyph is size-7, the stop glyph size-6 and tilted a degree
+   off square. */
+.bettergravity-pet-card__control[data-pet-control="reply"] svg {
+  width: 28px;
+  height: 28px;
+}
+
+.bettergravity-pet-card__control[data-pet-control="stop"] svg {
+  width: 24px;
+  height: 24px;
+  rotate: -1deg;
+}
+
+/* js 6494: stop exists on every controllable card but is only enabled while one
+   is actually running. Kept in the flow so that reply does not slide sideways
+   the moment a run ends. */
+.bettergravity-pet-card__control[aria-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A control that is not part of this card's row at all, as opposed to one that
+   is merely disabled. `display: flex` above would otherwise beat [hidden]. */
+.bettergravity-pet-card__control[hidden] {
+  display: none;
+}
+
+/*
+ * js 6535: the dismiss button on a finished card. It has no children — it is a
+ * 28px hit target laid straight over the green check, and frame 517 takes its
+ * ::before to zero opacity so the only thing you see is the check it is sitting
+ * on. Hover still lights the ::before, which is the whole feedback.
+ */
+.bettergravity-pet-card__controls[data-pet-controls="success"] {
+  /* Unlike the reply/stop row this one carries no opacity gate in Codex: the
+     button is invisible by construction, so it can simply always be there. */
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bettergravity-pet-card__control[data-pet-control="success"]::before {
+  opacity: 0;
+}
+
+/* frame 484 vs 503: the success tick hides its own backing, but Codex's hover
+   branch outranks that rule — one class, :enabled and :is() against one class and
+   one attribute — so hovering a finished card still lights it. Kept explicit here
+   because the generic hover rule and this one tie on specificity. */
+@media (hover: hover) and (pointer: fine) {
+  .bettergravity-pet-card__control[data-pet-control="success"]:hover::before {
+    opacity: 0.47;
+  }
+}
+
+/*
+ * js 6689: the dismiss X, hanging a quarter of a spacing unit off the card's
+ * top-left corner and fading in with hover. This one is not gated on the stack
+ * being expanded — `ge && !Te` is enough — so the front card of a collapsed pile
+ * gets one too.
+ */
+.bettergravity-pet-card__close {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  z-index: 20;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 20px;
+  height: 20px;
+
+  border: 1px solid var(--pet-border-strong);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--pet-surface) 65%, transparent);
+  color: var(--pet-text);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+  backdrop-filter: blur(24px);
+
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out, scale 0.12s ease-out;
+}
+
+.bettergravity-pet-card[data-pet-hovered="true"] .bettergravity-pet-card__close {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* frame js 3462: enabled:hover:!bg-surface/80 — the X lifts from 65% to 80% under
+   the cursor, which is the only feedback it gives before the press. Behind the
+   same query as the rest: this build compiles Tailwind's hover: with
+   hoverOnlyWhenSupported on, which is why every hover rule in the frame
+   stylesheet sits inside one. */
+@media (hover: hover) and (pointer: fine) {
+  .bettergravity-pet-card__close:hover {
+    background: color-mix(in srgb, var(--pet-surface) 80%, transparent);
+  }
+}
+
+.bettergravity-pet-card__close:active {
+  scale: 0.95;
+}
+
+.bettergravity-pet-card__close svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Quick chat ──────────────────────────────────────────────────────────────
+ *
+ * frame 140-150: _QuickChatMaterial_, verbatim. What it is *not* is a member of
+ * the mascot's control arc — qt() reads that arc's voice-controls slot to place
+ * the error pill, and the composer lives somewhere else entirely: frame 4867
+ * puts it and the activity stack in one `flex flex-col items-center gap-2`, with
+ * the composer first when the column is above the mascot and last when it is
+ * below, so the stack is always the member touching the pet. index.js walks that
+ * column and writes the centre and top of each member.
+ *
+ * frame 4710 sizes the composer's wrapper `h-10 w-[344px] shrink-0`, and the
+ * form inside caps itself at `calc(100vw - 12px)` so a narrow window shrinks the
+ * pill rather than pushing it off the edge.
+ *
+ * It opens on pointer-enter of the hit region and closes compactDismissDelayMs
+ * (300) after the pointer leaves, which is the same delay the whole cluster uses.
+ */
+
+.bettergravity-pet-chat {
+  position: fixed;
+  z-index: 2147483001;
+
+  left: var(--pet-chat-x, 50%);
+  top: var(--pet-chat-y, 0px);
+  translate: -50% 0;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: var(--pet-chat-width, 344px);
+  max-width: calc(100vw - 12px);
+  height: 40px;
+  padding-block: 6px;
+  padding-inline: 14px 6px;
+
+  border-radius: 9999px;
+  background: var(--pet-material-background);
+  border: 1px solid var(--pet-material-border);
+  box-shadow: var(--pet-material-shadow);
+  color: var(--pet-text);
+
+  /* frame 16: _Material_'s own blur. The pill is the one surface here that gets
+     it — the frame js composes D(Material, QuickChatMaterial), so the quick chat
+     is a Material, while every activity surface is exempted a few rules later by
+     `[data-avatar-overlay-native-surface-id^="activity-"] { backdrop-filter: none }`.
+     Nothing in the frame sheet turns this one off, not even reduced transparency,
+     so it is unguarded here too. 4px, not the 24px the badge and the dismiss X
+     use: those are Tailwind's backdrop-blur-xl, a different surface. */
+  backdrop-filter: blur(4px);
+
+  /* Codex's own declaration, and the reason a press here reaches the page at all:
+     inside one of the host's drag regions the window manager takes the press
+     first, and the caret never arrives. */
+  -webkit-app-region: no-drag;
+
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s, top 0.2s ease, left 0.2s ease;
+}
+
+.bettergravity-pet-chat[data-pet-chat="open"] {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+}
+
+.bettergravity-pet-chat__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 152px;
+
+  background: transparent;
+  border: 0;
+  padding: 0;
+
+  /* frame 5491: text-[14px] leading-[18px] font-medium. */
+  font: 500 14px / 18px var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+  color: var(--pet-text);
+}
+
+/* frame 5491 again, for the half of that class list that is a fight rather than
+ * a declaration. The field is `outline-none` with no focus branch anywhere on
+ * it — Codex never decorates the caret in its quick chat.
+ *
+ * This sheet, though, is a guest in Antigravity's document, and the workbench
+ * has its own opinion: an `input:focus` rule carrying an inset outline, drawn a
+ * pixel inside the box. On a square field that reads as a focus ring. Inside a
+ * 9999px pill it reads as a glowing rectangle floating in the middle of a
+ * capsule, which is exactly what it is. A plain `outline: none` at one class of
+ * specificity loses to `.monaco-workbench input:focus`, so this says it out
+ * loud. outline-offset is not part of the outline shorthand, hence its own
+ * line, and box-shadow and the border are here because a host is equally free
+ * to draw the ring as either of those.
+ *
+ * The controls need none of this: they are divs (js 830, 902), so they never
+ * take focus, and frame 1452's `focus-visible:ring-2` has nothing to fire on.
+ */
+.bettergravity-pet-chat__input,
+.bettergravity-pet-chat__input:focus,
+.bettergravity-pet-chat__input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* frame 5487: the placeholder is `text-text/35` only on the branch where a real
+   native material is attached behind the pill. We draw our own material in CSS
+   — the non-native branch, same as the rest of this sheet — so the token here
+   is `text-secondary`. */
+.bettergravity-pet-chat__input::placeholder {
+  color: var(--pet-text-secondary);
+}
+
+.bettergravity-pet-chat__send {
+  flex: 0 0 auto;
+  width: var(--pet-pill-control-size);
+  height: var(--pet-pill-control-size);
+}
+
+/* ── The shimmer ─────────────────────────────────────────────────────────────
+ *
+ * frame 226-260: a loading card's text is the whole loading indication, since
+ * na() draws nothing for the spinner. app-BWltMWCm's .loading-shimmer with the
+ * frame's own numbers over it: five seconds in forty-eight steps, contrast
+ * #ffffff5c normally and #00000047 under .electron-dark — which is the one that
+ * applies to us. The gradient is clipped to the glyphs and the fill removed, so
+ * what sweeps across is not a highlight but a fade: the band is the background's
+ * colour, not the text's.
+ */
+.bettergravity-pet-card__text[data-pet-loading="true"] {
+  --shimmer-text: currentColor;
+  --shimmer-contrast: #00000047;
+
+  background: var(--shimmer-text)
+    linear-gradient(
+      to right,
+      transparent 0%,
+      var(--shimmer-contrast) 40%,
+      var(--shimmer-contrast) 60%,
+      transparent 100%
+    );
+  background-position: -100% 0;
+  background-repeat: no-repeat;
+  background-size: 50% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  animation: 5s steps(48, end) infinite bettergravity-pet-shimmer;
+}
+
+/* js 6224: _inlineSubtitleSolidText_ — the title keeps its own colour while the
+   rest of the run is being swept, so the thread's name never dims. */
+.bettergravity-pet-card__text[data-pet-loading="true"] .bettergravity-pet-card__title {
+  -webkit-text-fill-color: var(--pet-text);
+}
+
+@keyframes bettergravity-pet-shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+
+  40%,
+  to {
+    background-position: 250% 0;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .bettergravity-pet__badge,
+  .bettergravity-pet-card__close {
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bettergravity-pet__badge,
+  .bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge,
+  .bettergravity-pet__badge-count,
+  .bettergravity-pet__badge-chevron,
+  .bettergravity-pet-tray,
+  .bettergravity-pet-card,
+  .bettergravity-pet-card__content,
+  .bettergravity-pet-card__controls,
+  .bettergravity-pet-card__close,
+  .bettergravity-pet-chat {
+    transition: none;
+  }
+
+  .bettergravity-pet-card__text[data-pet-loading="true"] {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}

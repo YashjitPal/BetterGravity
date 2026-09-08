@@ -1,0 +1,192 @@
+/* ===========================================================================
+ * Gemini Dialog — Willow's Material 3 dialog
+ * Measured from Gemini / Willow (platform/ui/src/GeminiDialog.css &
+ * apps/studio/src/shell/sidebar/Sidebar.tsx).
+ * ===========================================================================
+ */
+
+.willow-gdlg-host {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+}
+
+.willow-gdlg-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.32) !important;
+  backdrop-filter: none !important;
+  opacity: 0 !important;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  pointer-events: auto !important;
+}
+
+.willow-gdlg-backdrop--shown {
+  opacity: 1 !important;
+}
+
+.willow-gdlg-backdrop--closing {
+  opacity: 0 !important;
+}
+
+.willow-gdlg-surface {
+  position: relative !important;
+  z-index: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 512px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 32px !important;
+  background: rgb(31, 31, 31) !important;
+  box-shadow: rgba(0, 0, 0, 0.28) 0 0 20px 0 !important;
+  color: rgb(227, 227, 227) !important;
+  overflow: hidden !important;
+  transform: scale(0.8) !important;
+  transition: transform 150ms cubic-bezier(0, 0, 0.2, 1) !important;
+  outline: none !important;
+  pointer-events: auto !important;
+}
+
+.willow-gdlg-surface--shown {
+  transform: scale(1) !important;
+}
+
+.willow-gdlg-title {
+  margin: 0 0 1px !important;
+  padding: 24px 24px 0 !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 20px !important;
+  line-height: 24px !important;
+  font-weight: 470 !important;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 94, "wght" 470 !important;
+  color: rgb(227, 227, 227) !important;
+  text-align: start !important;
+  letter-spacing: normal !important;
+}
+
+.willow-gdlg-content {
+  padding: 16px 24px 0 !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 15px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: rgb(230, 230, 230) !important;
+}
+
+.willow-gdlg-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  min-height: 52px !important;
+  padding: 16px 24px 24px !important;
+}
+
+.willow-gdlg-pill {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  height: 36px !important;
+  min-width: 0 !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: rgb(23, 23, 23) !important;
+  color: rgb(230, 230, 230) !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans Text", sans-serif !important;
+  font-size: 14px !important;
+  line-height: normal !important;
+  font-weight: 500 !important;
+  font-variation-settings: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
+  outline: none !important;
+}
+
+.willow-gdlg-pill:disabled {
+  background: rgba(230, 230, 230, 0.12) !important;
+  color: rgba(230, 230, 230, 0.38) !important;
+  cursor: default !important;
+}
+
+.willow-gdlg-pill::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 9999px !important;
+  background: rgb(230, 230, 230) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.willow-gdlg-pill:not(:disabled):hover::before {
+  opacity: 0.08 !important;
+}
+
+.willow-gdlg-pill__label {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Gemini outlined text field */
+.willow-gdlg-field {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 56px !important;
+  padding: 0 16px !important;
+}
+
+.willow-gdlg-field__outline {
+  position: absolute !important;
+  inset: 0 !important;
+  border: 0.8px solid rgb(142, 145, 143) !important;
+  border-radius: 4px !important;
+  pointer-events: none !important;
+  transition: border-color 0.15s ease, border-width 0.15s ease !important;
+}
+
+.willow-gdlg-field:hover .willow-gdlg-field__outline {
+  border-color: rgb(230, 230, 230) !important;
+}
+
+.willow-gdlg-field:focus-within .willow-gdlg-field__outline {
+  border-width: 1.6px !important;
+  border-color: rgb(230, 230, 230) !important;
+}
+
+.willow-gdlg-field__input {
+  width: 100% !important;
+  height: 24px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: rgb(230, 230, 230) !important;
+  caret-color: rgb(230, 230, 230) !important;
+}

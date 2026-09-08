@@ -85,6 +85,13 @@ above it. Several tests here exist because something broke on a real machine.
 has to be survivable. Antigravity opening is more important than BetterGravity
 working.
 
+**The page is hot.** Antigravity re-renders large parts of itself many times a
+second while the agent works, so anything the runtime does per DOM change happens
+thousands of times a minute, and a fraction of a millisecond per element is a
+dropped frame. [Keeping it fast](docs/performance.md) is the list of mistakes
+that have actually cost frames here — including the ones the runtime now absorbs
+on a plugin's behalf, which is why they must keep working.
+
 **Renderer code must never import `@bettergravity/patcher/native`.** The
 structure check fails the build if it does, because that would ship `node:fs`
 into a browser bundle.

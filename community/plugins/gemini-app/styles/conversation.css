@@ -24,6 +24,9 @@
   font-family: var(--gemini-font);
   font-variation-settings: var(--gemini-font-axes);
   color: var(--gemini-body-text);
+  overflow-y: hidden !important;
+  scrollbar-gutter: auto !important;
+  scrollbar-width: none !important;
 }
 
 /* Willow's MESSAGE_GAP: 52px at every turn boundary. Antigravity keeps 12px
@@ -1136,6 +1139,14 @@ div:has(> [data-gemini-top-chips]) {
  * while its menu is open. The weight is written as an axis string because
  * `font-variation-settings` wins over `font-weight` wherever it is set, and the
  * plugin's `--gemini-font-axes` carries `wght 400`. */
+/* In Chat mode: completely suppress workspace top chip and any workspace selector */
+html[data-gemini-experience="chat"] [data-gemini-top-chip="workspace"],
+html[data-gemini-experience="chat"] [data-testid="project-selector-trigger"],
+html[data-gemini-experience="chat"] .no-focus-agent-input:has([data-testid="project-selector-trigger"]) {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 [data-gemini-top-chip="workspace"] {
   order: 1;
   gap: 8px;
@@ -1280,8 +1291,16 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
  *     hover / focus-within (opacity: 1, duration 240ms cubic-bezier(0.2, 0, 0, 1)).
  */
 
-/* The response footer row */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+/* The response footer row.
+ *
+ * The subject used to be found with `:has(button[aria-label="Good response"],
+ * button[aria-label="Copy"])`. It is now found by a mark that `index.js` sets on
+ * the same rows (see `markTurnActions`), because `:has()` is charged per style
+ * invalidation across the whole document, not per match: 23 rules asking this
+ * one question cost about 13 ms on *every* class change anywhere in the app.
+ * The leading `div` is not decoration - it keeps the specificity at (0,5,1),
+ * exactly what the `:has()` form had, so the cascade is untouched. */
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
@@ -1294,27 +1313,27 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
 }
 
 /* Visibility rule: earlier turns hide by default */
-[data-testid="conversation-view"] .group .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+[data-testid="conversation-view"] .group div.flex.w-full.items-start[data-gemini-turn-actions="true"] {
   opacity: 0 !important;
   pointer-events: none !important;
 }
 
 /* Show on hover / focus-within */
-[data-testid="conversation-view"] .group:hover .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]),
-[data-testid="conversation-view"] .group:focus-within .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+[data-testid="conversation-view"] .group:hover div.flex.w-full.items-start[data-gemini-turn-actions="true"],
+[data-testid="conversation-view"] .group:focus-within div.flex.w-full.items-start[data-gemini-turn-actions="true"] {
   opacity: 1 !important;
   pointer-events: auto !important;
 }
 
 /* Show on latest completed turn */
-[data-testid="conversation-view"] [data-gemini-latest-turn="true"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]),
-[data-testid="conversation-view"] .flex.items-start:last-child .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) {
+[data-testid="conversation-view"] [data-gemini-latest-turn="true"] div.flex.w-full.items-start[data-gemini-turn-actions="true"],
+[data-testid="conversation-view"] .flex.items-start:last-child div.flex.w-full.items-start[data-gemini-turn-actions="true"] {
   opacity: 1 !important;
   pointer-events: auto !important;
 }
 
 /* Reorder buttons wrapper to the LEFT (order: 1) */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > .flex.min-w-0 {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] > .flex.min-w-0 {
   order: 1 !important;
   justify-content: flex-start !important;
   margin-inline-start: -6px !important;
@@ -1322,14 +1341,14 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   flex-grow: 0 !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) .flex.shrink-0.items-end {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] .flex.shrink-0.items-end {
   display: flex !important;
   align-items: center !important;
   gap: 2px !important;
 }
 
 /* Willow button styling: 32x32 circular pill */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button {
   box-sizing: border-box !important;
   display: inline-flex !important;
   width: 32px !important;
@@ -1349,45 +1368,45 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1), color 150ms cubic-bezier(0.2, 0, 0, 1) !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:hover {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:hover {
   background: rgba(255, 255, 255, 0.08) !important;
   color: #e6e6e6 !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:focus-visible {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:focus-visible {
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25) !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button[aria-pressed="true"] {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button[aria-pressed="true"] {
   background: rgba(255, 255, 255, 0.09) !important;
   color: #e3e3e3 !important;
 }
 
 /* Willow button order: Like (1), Dislike (2), Copy (3), Fork/More (4) */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Good response"]) {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Good response"]) {
   order: 1 !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Bad response"]) {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Bad response"]) {
   order: 2 !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Copy"], [aria-label="Copied"]) {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Copy"], [aria-label="Copied"]) {
   order: 3 !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Fork Conversation"]) {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Fork Conversation"]) {
   order: 4 !important;
 }
 
 /* Hide native Antigravity SVG icons inside buttons */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button svg {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button svg {
   display: none !important;
 }
 
 /* Render Willow's Luminous Symbols glyphs via ::before */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button::before {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button::before {
   font-family: var(--gemini-icon-font) !important;
   font-size: 20px !important;
   line-height: 20px !important;
@@ -1399,29 +1418,29 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   font-variation-settings: "FILL" 0, "wght" 320, "GRAD" 0, "ROND" 100, "opsz" 20 !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button[aria-pressed="true"]::before {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button[aria-pressed="true"]::before {
   font-variation-settings: "FILL" 1, "wght" 320, "GRAD" 0, "ROND" 100, "opsz" 20 !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Good response"])::before {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Good response"])::before {
   content: "thumb_up" !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Bad response"])::before {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Bad response"])::before {
   content: "thumb_down" !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Copy"])::before {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Copy"])::before {
   content: "copy" !important;
 }
 
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) button:is([aria-label="Copied"])::before {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Copied"])::before {
   content: "check" !important;
 }
 
 /* Position completion timestamp immediately NEXT TO buttons on the left (order: 2) */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > .grow.shrink-0.text-xs,
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > div:not(.flex) {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] > .grow.shrink-0.text-xs,
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] > div:not(.flex) {
   order: 2 !important;
   flex-grow: 0 !important;
   margin-left: 8px !important;
@@ -1435,11 +1454,107 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
 }
 
 /* Empty filler div shouldn't take up space */
-[data-testid="conversation-view"] .flex.w-full.items-start:has(button[aria-label="Good response"], button[aria-label="Copy"]) > div:empty {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] > div:empty {
   display: none !important;
 }
 
+/* --- 3f. Titlebar actions (Willow style) ------------------------------------
+ * Willow's top-right session controls:
+ * - 36x36 round buttons, transparent background, hover rgba(255,255,255,0.08)
+ * - more-actions button: 24px more_vert glyph in Luminous Symbols
+ * - toggle-aux-sidebar button: 24px side_nav glyph in Luminous Symbols,
+ *   vertically mirrored (transform: scaleX(-1)) to indicate the right-hand panel
+ */
+[data-testid="titlebar-more-actions"],
+[data-testid="toggle-aux-sidebar"] {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  border-radius: 9999px !important;
+  background-color: transparent !important;
+  border: none !important;
+  color: var(--gemini-body-text, #e3e3e3) !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  outline: none !important;
+  box-shadow: none !important;
+  position: relative !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
+}
 
+[data-testid="titlebar-more-actions"]:hover,
+[data-testid="toggle-aux-sidebar"]:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
 
+[data-testid="titlebar-more-actions"] > span:first-child > *,
+[data-testid="toggle-aux-sidebar"] > span:first-child > * {
+  display: none !important;
+}
 
+[data-testid="titlebar-more-actions"] > span:first-child,
+[data-testid="toggle-aux-sidebar"] > span:first-child {
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
 
+[data-testid="titlebar-more-actions"] > span:first-child::before {
+  content: "more_vert" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", "Material Symbols Rounded", sans-serif !important;
+  font-variation-settings: var(--gemini-icon-axes, "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24) !important;
+  font-size: 24px !important;
+  line-height: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  color: inherit !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  direction: ltr !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  transition: transform 200ms ease !important;
+}
+
+[data-testid="titlebar-more-actions"]:active > span:first-child::before {
+  transform: scale(0.9) !important;
+}
+
+[data-testid="toggle-aux-sidebar"] > span:first-child::before {
+  content: "side_nav" !important;
+  font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", "Material Symbols Rounded", sans-serif !important;
+  font-variation-settings: var(--gemini-icon-axes, "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24) !important;
+  font-size: 24px !important;
+  line-height: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  color: inherit !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  direction: ltr !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  transform: scaleX(-1) !important;
+  transition: transform 200ms ease !important;
+}
+
+[data-testid="toggle-aux-sidebar"]:active > span:first-child::before {
+  transform: scaleX(-1) scale(0.9) !important;
+}

@@ -8,6 +8,8 @@ import type {
   GeminiConfig,
   GeminiKeyTest,
   GeminiStatus,
+  OverlayStatus,
+  OverlaySurface,
   PluginStorageSnapshot,
   PresenceActivity,
   PresenceStatus,
@@ -43,6 +45,12 @@ export interface RuntimeBridge {
   geminiTest(): Promise<GeminiKeyTest>;
   onGeminiStatus(listener: (status: GeminiStatus) => void): void;
   readAccount(): Promise<AccountProfile>;
+  /** `owner` is the plugin id; the main process uses it to police who may close. */
+  overlayOpen(owner: string, surface: OverlaySurface): Promise<OverlayStatus>;
+  overlayClose(owner: string): Promise<OverlayStatus>;
+  overlaySend(message: unknown): void;
+  onOverlayStatus(listener: (status: OverlayStatus) => void): void;
+  onOverlayMessage(listener: (message: unknown) => void): void;
   log(message: string): void;
   onStateChanged(listener: (state: RuntimeState) => void): void;
 }
