@@ -3,7 +3,8 @@
  * cards naming what the agent is doing, the controls that appear on those cards,
  * and the quick-chat pill.
  *
- * Every number here is Codex's. The comments name where each came from:
+ * Geometry and motion follow the Codex reference, with card accessories
+ * centered vertically instead of using its fixed top offset. Sources below:
  * `initial` is app-initial's petControlsAppearance defaults and stack ladder,
  * `frame` is avatar-overlay-native-frame's stylesheet, `js` is the markup in the
  * script of the same name, and `mascot-button` is avatar-mascot-button.
@@ -678,9 +679,10 @@
 
 .bettergravity-pet-card__status {
   position: absolute;
-  top: 12px;
+  top: 50%;
   right: var(--pet-pill-edge-inset);
   z-index: 10;
+  translate: 0 -50%;
 
   display: flex;
   align-items: center;
@@ -742,9 +744,13 @@
 
 .bettergravity-pet-card__controls {
   position: absolute;
-  top: 12px;
+  /* The reference's top:12px on a 32px row puts its center at 28px in a
+     54px card. Center the row itself so each 28px control has 13px above and
+     below, and stays centered if the measured card height changes. */
+  top: 50%;
   right: var(--pet-pill-control-right-inset);
   z-index: 20;
+  translate: 0 -50%;
 
   display: flex;
   align-items: center;

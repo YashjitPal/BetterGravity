@@ -1043,18 +1043,16 @@ function petSurface(host, data) {
     const columnHeight = column.reduce((sum, member, index) => sum + member.size + (index > 0 ? COLUMN_GAP : 0), 0);
 
     /*
-     * Centred on the pet, and shifted along to stay on screen.
+     * Ri() keeps a w-[344px] quick-chat placeholder in the column whenever quick
+     * chat is enabled, even while its input is hidden (frame 4713-4740). Reserve
+     * that width before hover too: using only visible members moves a 200px card
+     * sideways by 72px at a screen edge when the 344px input appears.
      *
-     * Codex centres the tray on the mascot and stops there: the overlay is a window
-     * the size of the display, so a mascot in the corner simply has part of its
-     * stack over the edge. These surfaces live in a document that may be a fraction
-     * of that — Antigravity's window — and a pet in its bottom-right corner would
-     * put a third of every card, the side the controls are on, outside it. So the
-     * column takes the clamp Codex wrote for its transcript bubble instead, Ci()
-     * frame 3494: `min(max(centre, half), width - half)`, one shift for the whole
-     * column so its members stay in line with each other. The pet is never moved.
+     * Clamp the whole column to the viewport with one stable center, keeping its
+     * members aligned and every control reachable. The mascot has its own bounds
+     * and can still be dragged all the way to the edge independently of the tray.
      */
-    const half = Math.max(trayShown ? trayWidth : 0, chatOpen ? chatWidth : 0) / 2;
+    const half = Math.max(trayWidth, chatWidth) / 2;
     const petCentre = x + width / 2;
     const nearest = half + VIEWPORT_INSET;
     const furthest = window.innerWidth - half - VIEWPORT_INSET;

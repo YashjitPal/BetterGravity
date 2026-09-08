@@ -236,6 +236,39 @@ describe("Pets animation behavior", () => {
     expect(row()).toBe(7);
   });
 
+  it.each([
+    ["left", 1024, 0],
+    ["right", 1024, 10_000],
+    ["left", 360, 0],
+    ["right", 360, 10_000]
+  ])("keeps the tray's horizontal position when chat opens at the %s edge of a %ipx viewport", (_edge, viewportWidth, petX) => {
+    vi.stubGlobal("innerWidth", viewportWidth);
+    mount([entry("Working")]);
+    receive!({ t: "at", x: petX, y: 120 });
+    const tray = document.querySelector<HTMLElement>(".bettergravity-pet-tray")!;
+    const composer = document.querySelector<HTMLElement>(".bettergravity-pet-chat")!;
+    const card = document.querySelector<HTMLElement>("[data-pet-key]")!;
+    const center = tray.style.getPropertyValue("--pet-tray-x");
+    const mascotLeft = pet.style.left;
+
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      expect(composer.dataset.petChat).toBe("closed");
+      vi.mocked(document.elementFromPoint).mockReturnValue(card);
+      document.dispatchEvent(new MouseEvent("mousemove", {
+        clientX: Number.parseFloat(center),
+        clientY: Number.parseFloat(tray.style.getPropertyValue("--pet-tray-y")) + 27,
+        bubbles: true
+      }));
+      expect(composer.dataset.petChat).toBe("open");
+      expect(tray.style.getPropertyValue("--pet-tray-x")).toBe(center);
+      expect(composer.style.getPropertyValue("--pet-chat-x")).toBe(center);
+      expect(pet.style.left).toBe(mascotLeft);
+      move(false);
+      vi.advanceTimersByTime(350);
+      expect(tray.style.getPropertyValue("--pet-tray-x")).toBe(center);
+    }
+  });
+
   it("does not submit Enter while an IME is composing text", () => {
     mount([entry("working")]);
     const input = chat();
