@@ -145,12 +145,12 @@
       "id": "pets",
       "kind": "plugin",
       "name": "Pets",
-      "description": "An animated desktop companion with Codex-style activity cards, replies, and working animations. Choose a pet from the sidebar library or create your own with Antigravity's AI and the bundled Hatch Pet skill. The toolbar paw shows or hides your companion, and your created pets stay saved when the plugin is disabled.",
-      "version": "2.10.2",
+      "description": "An animated desktop companion with Codex-style activity cards, replies, and working animations. Explore every animation, edit your pets' names and descriptions, and choose or create a companion in the Pets sidebar tab. AI creation uses the bundled Hatch Pet skill. The toolbar paw shows or hides your companion, and your created pets stay saved when the plugin is disabled.",
+      "version": "2.11.1",
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/pets",
-      "bytes": 1419697,
+      "bytes": 1457416,
       "files": [
         {
           "name": "assets/rocky.webp",
@@ -159,13 +159,13 @@
         },
         {
           "name": "index.js",
-          "bytes": 182627,
-          "sha256": "19f6966516dd0ddefbdd049b390bc7301f22c3ce20671e02a1133142f512724e"
+          "bytes": 206089,
+          "sha256": "5c7d5cc980bde95a31feea8ef2ff4220b5859c3c75b2c5b9b0673f61438b554a"
         },
         {
           "name": "plugin.json",
-          "bytes": 577,
-          "sha256": "e43cdae395234332a25b14ecfd03bf30f4fa1cb07f0c709c1e14bc437e94f46f"
+          "bytes": 634,
+          "sha256": "3109cf3d11f4a7cc1776282c08e2980a41aaaa45d7edae1c5cb2b23a9499c53b"
         },
         {
           "name": "skills/hatch-pet/LICENSE.txt",
@@ -299,8 +299,8 @@
         },
         {
           "name": "styles/library.css",
-          "bytes": 4591,
-          "sha256": "b525d3c7b20381992607bc8b77a810b9578b1f81c5ced702192655f765a52942"
+          "bytes": 18791,
+          "sha256": "15e3556f31859f150503bf9c1e66d1a17b55f2c806ee217039cca666e2ade647"
         },
         {
           "name": "styles/pet.css",

@@ -1,78 +1,449 @@
-.bettergravity-pet-library,
-.bettergravity-pet-library * { box-sizing: border-box; }
-.bettergravity-pet-library {
-  max-height: min(680px, 72vh);
+/* The Pets tab shares the Skills page's width, typography, and list treatment. */
+[data-pet-page-host][data-pet-page-positioned] { position: relative; }
+[data-pet-page-hidden],
+[data-pet-page-hidden] * { visibility: hidden !important; pointer-events: none !important; }
+
+.bettergravity-pets-page,
+.bettergravity-pets-page * { box-sizing: border-box; }
+.bettergravity-pets-page {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 40px 0 64px;
   overflow-y: auto;
-  color: inherit;
-  font: 13px/1.45 system-ui, sans-serif;
+  overflow-x: hidden;
+  background: var(--studio-surface, #0f0f0f);
+  color: #e3e3e3;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif);
+  letter-spacing: 0;
   scrollbar-width: thin;
+  scrollbar-color: #444 transparent;
+  container-type: inline-size;
 }
-.bettergravity-pet-library__hero { display: flex; align-items: center; gap: 20px; padding: 8px 8px 22px; }
+.bettergravity-pet-library { width: min(676px, calc(100% - 32px)); margin: 0 auto; }
+.bettergravity-pet-library__header { margin-bottom: 8px; }
+.bettergravity-pet-library__header h1 {
+  margin: 0;
+  padding: 4px 8px 4px 16px;
+  color: #e3e3e3;
+  font-size: 28px;
+  font-weight: 350;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 100, "wght" 350;
+  line-height: 36px;
+  outline: none;
+}
+.bettergravity-pet-library__header p {
+  margin: 0;
+  padding: 0 16px;
+  color: #c4c7c5;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.bettergravity-pet-library__hero { margin: 20px 8px 24px; text-align: center; }
+.bettergravity-pet-library__stage {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  justify-items: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 400px;
+  min-height: 264px;
+  margin: 0 auto;
+}
 .bettergravity-pet-library__sprite {
-  width: 96px; height: 104px; flex: 0 0 96px;
+  width: min(224px, 100%);
+  aspect-ratio: 192 / 208;
   background-image: url("../assets/rocky.webp");
-  background-size: 800% 1100%; background-repeat: no-repeat;
+  background-size: 800% 1100%;
+  background-repeat: no-repeat;
   image-rendering: pixelated;
 }
-.bettergravity-pet-library__caption,
-.bettergravity-pet-library__details { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.bettergravity-pet-library__caption strong { font-size: 22px; font-weight: 600; letter-spacing: -.4px; }
-.bettergravity-pet-library__caption span,
-.bettergravity-pet-library__details span { opacity: .66; overflow-wrap: anywhere; }
-.bettergravity-pet-library__eyebrow { font-size: 12px; }
-.bettergravity-pet-library__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-bottom: 20px; }
+.bettergravity-pet-library__state-name {
+  margin: 8px 0 4px;
+  color: #e3e3e3;
+  font-size: 22px;
+  font-weight: 470;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 100, "wght" 470;
+  line-height: 28px;
+}
+.bettergravity-pet-library__pagination { display: flex; justify-content: center; gap: 2px; }
+
 .bettergravity-pet-library__button {
-  appearance: none; border: 1px solid rgba(128,128,128,.24); border-radius: 9px;
-  background: rgba(128,128,128,.15); color: inherit; font: inherit;
-  padding: 7px 12px; cursor: pointer; white-space: nowrap; line-height: 20px;
-  transition: background .15s;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 9999px;
+  background: #171717;
+  color: #e6e6e6;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: background-color 140ms ease;
 }
-.bettergravity-pet-library__button.is-quiet { background: transparent; }
-.bettergravity-pet-library__button:hover:not(:disabled) { background: rgba(128,128,128,.25); }
+.bettergravity-pet-library__button svg { width: 24px; height: 24px; flex-shrink: 0; }
+.bettergravity-pet-library__button:hover:not(:disabled) { background: #242424; }
 .bettergravity-pet-library__button:disabled { cursor: default; opacity: .5; }
-.bettergravity-pet-library__button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-.bettergravity-pet-library__list { border-top: 1px solid rgba(128,128,128,.2); }
-.bettergravity-pet-library__row {
-  display: grid; grid-template-columns: 52px minmax(0,1fr) auto; align-items: center;
-  gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(128,128,128,.15);
+.bettergravity-pet-library__button:focus,
+.bettergravity-pet-library__button:focus-visible {
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  box-shadow: none;
 }
+.bettergravity-pet-library__button:focus-visible { outline: 2px solid #a8c7fa; outline-offset: 3px; }
+.bettergravity-pet-library__button.is-quiet { background: transparent; }
+.bettergravity-pet-library__button.is-quiet:hover:not(:disabled) { background: rgba(230, 230, 230, .08); }
+.bettergravity-pet-library__button.is-selected { color: #a8c7fa; opacity: 1; }
+.bettergravity-pet-library__button.is-primary { background: var(--spark-accent, #1f3b9b); color: #fff; }
+.bettergravity-pet-library__button.is-primary:hover:not(:disabled) { background: var(--spark-accent-hover, #2c48a8); }
+.bettergravity-pet-library__button.bettergravity-pet-library__arrow {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  color: #c4c7c5;
+}
+.bettergravity-pet-library__button.bettergravity-pet-library__arrow:hover { background: #242424; }
+.bettergravity-pet-library__button.bettergravity-pet-library__dot {
+  width: 24px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+}
+.bettergravity-pet-library__dot span {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #5f6368;
+  transition: width 160ms ease, background-color 160ms ease;
+}
+.bettergravity-pet-library__dot:hover span { background: #9aa0a6; }
+.bettergravity-pet-library__dot[aria-pressed="true"] span { width: 18px; background: #c4c7c5; }
+.bettergravity-pet-library__actions {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 0 8px;
+}
+.bettergravity-pet-library__actions .bettergravity-pet-library__button { height: 48px; padding: 0 24px 0 12px; }
+.bettergravity-pet-library__actions .is-icon-only { width: 48px; flex: 0 0 48px; padding: 0; }
+
+.bettergravity-pet-library__available { margin-top: 28px; }
+.bettergravity-pet-library__available > h2 {
+  margin: 0 0 10px 16px;
+  color: #e3e3e3;
+  font-size: 15px;
+  font-weight: 540;
+  line-height: 24px;
+}
+.bettergravity-pet-library__list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #171717;
+  border-radius: 16px;
+}
+.bettergravity-pet-library__row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #1f1f1f;
+  border-bottom: 1px solid rgba(255, 255, 255, .04);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background-color 150ms ease;
+}
+.bettergravity-pet-library__row:last-child { border-bottom: 0; }
+.bettergravity-pet-library__row:hover,
+.bettergravity-pet-library__row:focus-within { background: color-mix(in srgb, #e6e6e6 8%, #1f1f1f); }
+.bettergravity-pet-library__row:focus-visible { outline: 2px solid #a8c7fa; outline-offset: -2px; }
 .bettergravity-pet-library__thumbnail { width: 48px; height: 52px; }
 .bettergravity-pet-library__thumbnail img { width: 100%; height: 100%; object-fit: contain; }
 .bettergravity-pet-library__thumbnail[data-builtin="true"] {
   background: url("../assets/rocky.webp") 0 0 / 800% 1100% no-repeat;
   image-rendering: pixelated;
 }
-.bettergravity-pet-library__details strong { font-weight: 550; overflow-wrap: anywhere; }
+.bettergravity-pet-library__details { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.bettergravity-pet-library__details strong { color: #e3e3e3; font-size: 15px; font-weight: 540; line-height: 20px; overflow-wrap: anywhere; }
+.bettergravity-pet-library__details span { color: #c4c7c5; font-size: 13px; font-weight: 400; line-height: 18px; overflow-wrap: anywhere; }
+.bettergravity-pet-library__row .bettergravity-pet-library__button { font-size: 13px; }
 .bettergravity-pet-library__notice {
-  margin: 0 0 16px; border: 1px solid rgba(215,155,71,.35); border-radius: 9px;
-  padding: 10px 12px; color: inherit; white-space: pre-wrap; overflow-wrap: anywhere;
+  margin: 20px 8px 0;
+  border: 1px solid rgba(215, 155, 71, .35);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #e3e3e3;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
-.bettergravity-pet-library__empty { margin: 16px 0 4px; opacity: .6; }
+.bettergravity-pet-library__empty { margin: 16px; color: #c4c7c5; font-size: 13px; line-height: 18px; }
 .bettergravity-pet-library__progress {
-  display: flex; gap: 20px; align-items: center; border: 1px solid rgba(128,128,128,.2);
-  border-radius: 14px; padding: 16px; margin-bottom: 16px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  border: 1px solid #292929;
+  border-radius: 16px;
+  padding: 16px;
+  margin: 24px 8px 0;
 }
 .bettergravity-pet-library__progress-image {
-  width: 100px; height: 110px; object-fit: contain; border-radius: 10px; flex-shrink: 0;
-  background: repeating-conic-gradient(rgba(128,128,128,.07) 0 25%, transparent 0 50%) 0 / 14px 14px;
+  width: 100px;
+  height: 110px;
+  object-fit: contain;
+  border-radius: 10px;
+  flex-shrink: 0;
+  background: repeating-conic-gradient(rgba(128, 128, 128, .07) 0 25%, transparent 0 50%) 0 / 14px 14px;
 }
-.bettergravity-pet-library__progress-content { min-width: 0; flex: 1; }
+.bettergravity-pet-library__progress-content { min-width: 0; flex: 1; font-size: 14px; line-height: 20px; }
+.bettergravity-pet-library__progress .bettergravity-pet-library__notice { margin: 12px 0 0; }
 .bettergravity-pet-library__steps { list-style: none; padding: 0; margin: 10px 0 0; counter-reset: pet-stage; }
 .bettergravity-pet-library__steps li { counter-increment: pet-stage; display: flex; gap: 9px; align-items: center; margin: 7px 0; opacity: .4; }
 .bettergravity-pet-library__steps li::before {
-  content: counter(pet-stage); width: 18px; height: 18px; border: 1px solid currentColor;
-  border-radius: 50%; text-align: center; font-size: 10px; line-height: 16px; flex-shrink: 0;
+  content: counter(pet-stage);
+  width: 18px;
+  height: 18px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  text-align: center;
+  font-size: 10px;
+  line-height: 16px;
+  flex-shrink: 0;
 }
 .bettergravity-pet-library__steps li[data-stage="complete"] { opacity: .7; }
 .bettergravity-pet-library__steps li[data-stage="complete"]::before { content: "✓"; }
 .bettergravity-pet-library__steps li[data-stage="current"] { opacity: 1; font-weight: 600; }
 .bettergravity-pet-library__steps li[data-stage="current"]::before { animation: bettergravity-pet-hatching 1.5s ease-in-out infinite; }
 @keyframes bettergravity-pet-hatching { 50% { opacity: .35; } }
-@media (max-width: 440px) {
-  .bettergravity-pet-library__hero { gap: 12px; }
+
+/* The same surface, fields, typography, and pills as the chat rename dialog.
+ * Scope the fallback styles here so Pets also works without Gemini App. */
+.bettergravity-pet-editor {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+}
+.bettergravity-pet-editor .willow-gdlg-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, .32) !important;
+  backdrop-filter: none !important;
+  opacity: 0 !important;
+  transition: opacity .4s cubic-bezier(.25, .8, .25, 1) !important;
+}
+.bettergravity-pet-editor .willow-gdlg-backdrop--shown { opacity: 1 !important; }
+.bettergravity-pet-editor .willow-gdlg-surface {
+  position: relative !important;
+  z-index: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 512px !important;
+  max-height: calc(100dvh - 32px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 32px !important;
+  background: #1f1f1f !important;
+  box-shadow: 0 0 20px rgba(0, 0, 0, .28) !important;
+  color: #e3e3e3 !important;
+  overflow: auto !important;
+  transform: scale(.8) !important;
+  transition: transform 150ms cubic-bezier(0, 0, .2, 1) !important;
+  outline: none !important;
+}
+.bettergravity-pet-editor .willow-gdlg-surface--shown { transform: scale(1) !important; }
+.bettergravity-pet-editor .willow-gdlg-title {
+  margin: 0 0 1px !important;
+  padding: 24px 24px 0 !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-size: 20px !important;
+  line-height: 24px !important;
+  font-weight: 470 !important;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 94, "wght" 470 !important;
+  color: #e3e3e3 !important;
+  text-align: start !important;
+  letter-spacing: normal !important;
+}
+.bettergravity-pet-editor .willow-gdlg-content {
+  display: grid !important;
+  gap: 16px !important;
+  padding: 16px 24px 0 !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-size: 15px !important;
+  line-height: 20px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: #e6e6e6 !important;
+}
+.bettergravity-pet-editor__label { display: grid; gap: 8px; font-size: 13px; line-height: 18px; color: #c4c7c5; }
+.bettergravity-pet-editor .willow-gdlg-field {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 56px !important;
+  padding: 0 16px !important;
+}
+.bettergravity-pet-editor .willow-gdlg-field__outline {
+  position: absolute !important;
+  inset: 0 !important;
+  border: .8px solid #8e918f !important;
+  border-radius: 4px !important;
+  pointer-events: none !important;
+  transition: border-color .15s ease, border-width .15s ease !important;
+}
+.bettergravity-pet-editor .willow-gdlg-field:hover .willow-gdlg-field__outline { border-color: #e6e6e6 !important; }
+.bettergravity-pet-editor .willow-gdlg-field:focus-within .willow-gdlg-field__outline { border-width: 1.6px !important; border-color: #e6e6e6 !important; }
+.bettergravity-pet-editor .willow-gdlg-field__input,
+.bettergravity-pet-editor .willow-gdlg-field__input:focus,
+.bettergravity-pet-editor .willow-gdlg-field__input:focus-visible {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 24px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+  background: transparent !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: #e6e6e6 !important;
+  caret-color: #e6e6e6 !important;
+}
+.bettergravity-pet-editor .bettergravity-pet-editor__description { height: 112px !important; padding: 12px 16px !important; }
+.bettergravity-pet-editor .bettergravity-pet-editor__description .willow-gdlg-field__input { height: 88px !important; resize: none !important; }
+.bettergravity-pet-editor .willow-gdlg-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  min-height: 52px !important;
+  padding: 16px 24px 24px !important;
+}
+.bettergravity-pet-editor .willow-gdlg-pill {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  height: 36px !important;
+  min-width: 0 !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: #171717 !important;
+  color: #e6e6e6 !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans Text", sans-serif) !important;
+  font-size: 14px !important;
+  line-height: normal !important;
+  font-weight: 500 !important;
+  font-variation-settings: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+  transition: background-color .15s ease, color .15s ease !important;
+  outline: none !important;
+}
+.bettergravity-pet-editor .willow-gdlg-pill:disabled { background: rgba(230, 230, 230, .12) !important; color: rgba(230, 230, 230, .38) !important; cursor: default !important; }
+.bettergravity-pet-editor .willow-gdlg-pill::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #e6e6e6; opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+.bettergravity-pet-editor .willow-gdlg-pill:not(:disabled):hover::before { opacity: .08 !important; }
+.bettergravity-pet-editor .willow-gdlg-pill:focus-visible::before { opacity: .12 !important; }
+.bettergravity-pet-editor .willow-gdlg-pill__label { position: relative; z-index: 1; }
+.bettergravity-pet-editor__error { margin: 0; color: #f2b8b5; overflow-wrap: anywhere; }
+.bettergravity-pet-editor__error[hidden] { display: none !important; }
+
+[data-bettergravity-button="Pets"] {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 9999px;
+  color: var(--gemini-text, #e6e6e6) !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif);
+  font-size: 13px;
+  font-weight: 400;
+}
+[data-bettergravity-button="Pets"] > svg { width: 20px; height: 20px; }
+[data-bettergravity-button="Pets"]:hover { background: var(--gemini-row-hover, rgba(230, 230, 230, .08)) !important; }
+[data-bettergravity-button="Pets"][aria-pressed="true"] { background: #171717 !important; color: #fff !important; }
+[data-bettergravity-button="Pets"]:active > svg { transform: scale(.9); }
+[role="navigation"][aria-label="Sidebar"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed] {
+  height: 32px;
+  min-height: 32px;
+  width: 100%;
+  margin: 2px 0;
+  padding: 0;
+  gap: 0;
+  border-radius: 9999px;
+  background: transparent !important;
+  font-variation-settings: var(--gemini-font-axes, "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400);
+}
+[role="navigation"][aria-label="Sidebar"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed="true"] { background: #171717 !important; }
+[role="navigation"][aria-label="Sidebar"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed]:hover { background: var(--gemini-row-hover, rgba(230, 230, 230, .08)) !important; }
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button="Pets"] > svg { box-sizing: border-box; width: 32px; height: 32px; padding: 6px; }
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button="Pets"] > span { margin-left: 6px; }
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-row-sidebar"][data-selected="true"] { background-color: transparent !important; }
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate {
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+}
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed] { width: 32px; justify-content: center; padding-inline: 0; }
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-bettergravity-button="Pets"] > span { display: none; }
+
+@container (max-width: 440px) {
+  .bettergravity-pet-library__stage { gap: 8px; min-height: 232px; }
+  .bettergravity-pet-library__row { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 12px; }
+  .bettergravity-pet-library__thumbnail { width: 40px; height: 44px; }
+  .bettergravity-pet-library__row .bettergravity-pet-library__button { padding-inline: 10px; }
   .bettergravity-pet-library__progress { align-items: flex-start; gap: 12px; padding: 12px; }
   .bettergravity-pet-library__progress-image { width: 64px; height: 76px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .bettergravity-pet-editor .willow-gdlg-surface,
+  .bettergravity-pet-editor .willow-gdlg-backdrop { transition: none !important; }
+  .bettergravity-pet-library__button,
+  .bettergravity-pet-library__dot span,
+  .bettergravity-pet-library__row { transition: none; }
   .bettergravity-pet-library__steps li[data-stage="current"]::before { animation: none; }
 }

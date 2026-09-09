@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const http = require("node:http");
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
 
@@ -22,17 +23,25 @@ large.writeUInt32LE(large.length - 8, 4);
 const dataUrl = (bytes) => `data:image/webp;base64,${bytes.toString("base64")}`;
 const rockyUrl = dataUrl(rocky);
 const largeUrl = dataUrl(large);
-const css = ["pet.css", "hud.css"].map((name) =>
+const css = ["pet.css", "hud.css", "library.css"].map((name) =>
   fs.readFileSync(path.join(plugin, "styles", name), "utf8")
 ).join("\n").replaceAll("../assets/rocky.webp", rockyUrl);
 
 app.whenReady().then(async () => {
+  const server = http.createServer((_request, response) => {
+    response.setHeader("Content-Type", "text/html");
+    response.end("<!doctype html><html><body></body></html>");
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
   const window = new BrowserWindow({
     width: 800, height: 600, show: false,
     webPreferences: { backgroundThrottling: false, offscreen: true }
   });
   let renderedSheets = 0;
-  const evaluate = (expression) => window.webContents.executeJavaScript(expression);
+  const evaluate = (expression) => window.webContents.executeJavaScript(expression, true);
   const checkSheet = async (expectedUrl, expectedPet) => {
     const result = await evaluate(`(async () => {
       const pet = document.querySelector('.bettergravity-pet');
@@ -69,7 +78,7 @@ app.whenReady().then(async () => {
   const selectSheet = (sheet) => evaluate(`receivePetMessage({ t: 'config', config: { sheet: ${JSON.stringify(sheet)} } })`);
 
   try {
-    await window.loadURL("data:text/html,<!doctype html><html><body></body></html>");
+    await window.loadURL(`http://127.0.0.1:${server.address().port}/c/previous`);
     await window.webContents.insertCSS(css);
     for (const desktop of [false, true]) {
       await evaluate(`${surface}\npetSurface({
@@ -87,11 +96,67 @@ app.whenReady().then(async () => {
       await checkSheet(largeUrl, "custom");
       await evaluate("receivePetMessage({ t: 'bye' })");
     }
-    fs.writeFileSync(path.join(directory, "result.json"), JSON.stringify({ homes: 2, renderedSheets }));
+    // A real contenteditable editor refuses insertText while its page is inert.
+    // jsdom's textarea assignment does not exercise this tab-to-chat transition.
+    const creation = await evaluate(`(async () => {
+      document.body.innerHTML = '<aside><a data-testid="new-conversation-button" href="/">New chat</a></aside><div id="viewport" style="height:400px"><main data-testid="conversation-view" data-cascade-id="previous" style="display:flex;height:100%"></main></div>';
+      const cleanups = [];
+      let sent = 0;
+      const conversation = document.querySelector('main');
+      const composer = () => {
+        conversation.innerHTML = '<div data-testid="agent-input-box"><div contenteditable="true" role="combobox" aria-label="Message input"></div><button data-testid="send-button">Send</button></div>';
+        conversation.querySelector('button').onclick = () => sent++;
+      };
+      composer();
+      document.querySelector('a').onclick = event => {
+        event.preventDefault();
+        history.replaceState(null, '', '/');
+        conversation.dataset.cascadeId = 'conversation';
+        composer();
+      };
+      const context = {
+        settings: {
+          define: schema => Object.fromEntries(Object.entries(schema).map(([key, value]) => [key, value.default])),
+          onChange: () => () => {}
+        },
+        storage: { get: (key, fallback) => key === 'shown' ? false : fallback, set() {} },
+        log: { info() {}, warn() {}, error() {} },
+        ui: { button: spec => {
+          const element = document.createElement('button');
+          element.dataset.bettergravityButton = spec.label;
+          element.onclick = spec.onClick;
+          document.querySelector('aside').append(element);
+          return { element, setActive: value => element.setAttribute('aria-pressed', String(value)), remove: () => element.remove() };
+        } },
+        pets: {
+          read: async () => ({ enabled: true, pets: [], runs: [] }),
+          prepareCreation: async () => ({}),
+          onChanged: () => () => {}
+        },
+        onDispose: cleanup => cleanups.push(cleanup)
+      };
+      const controller = new Function('plugin', ${JSON.stringify(`${source}\nreturn { openPetLibrary, createPet };`)})(context);
+      try {
+        controller.openPetLibrary();
+        if (!conversation.inert) throw new Error('The conversation must be inert behind the Pets page');
+        await controller.createPet();
+        const field = conversation.querySelector('[contenteditable]');
+        return {
+          prefilled: field.textContent.includes('hatch-pet'),
+          composerInteractive: !conversation.inert && document.activeElement === field,
+          pageClosed: !document.querySelector('#bettergravity-pets-view'),
+          sent
+        };
+      } finally { for (const cleanup of cleanups.reverse()) cleanup(); }
+    })()`);
+    assert.deepEqual(creation, { prefilled: true, composerInteractive: true, pageClosed: true, sent: 0 });
+    fs.writeFileSync(path.join(directory, "result.json"), JSON.stringify({ homes: 2, renderedSheets, pageCreation: true }));
+    server.close();
     window.destroy();
     app.exit(0);
   } catch (error) {
     process.stderr.write(`${error.stack ?? error}\n`);
+    server.close();
     window.destroy();
     app.exit(1);
   }

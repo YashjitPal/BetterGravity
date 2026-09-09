@@ -2852,16 +2852,49 @@ const settings = plugin.settings.define({
   }
 });
 
-/* The picker uses native skill discovery and local, validated pet packages. */
+/* The Pets page uses native skill discovery and local, validated pet packages. */
 let libraryState = null;
 let libraryError = "";
-let libraryModal = null;
+let libraryPage = null;
 let libraryRoot = null;
+let libraryViewport = null;
+let libraryViewportObserver = null;
+let libraryButtonHandle = null;
+let libraryHref = "";
+const libraryHiddenChildren = new Map();
 let libraryBusy = false;
+let libraryCreating = false;
 let libraryRefreshPending = false;
 let libraryDisposed = false;
 let libraryRequest = 0;
+let previewState = 0;
 let previewTimer;
+let petEditor = null;
+const previewMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+
+// The v2 animation rows used by petSurface. A preview loops its chosen row;
+// browsing it never changes the live companion's agent-driven state.
+const PET_PREVIEW_STATES = [
+  { id: "idle", label: "Idle", row: 0, durations: [1680, 660, 660, 840, 840, 1920] },
+  { id: "running", label: "Thinking", row: 7, count: 6, duration: 120, last: 220 },
+  { id: "waiting", label: "Needs input", row: 6, count: 6, duration: 150, last: 260 },
+  { id: "review", label: "Ready", row: 8, count: 6, duration: 150, last: 280 },
+  { id: "waving", label: "Waving", row: 3, count: 4, duration: 140, last: 280 },
+  { id: "jumping", label: "Jumping", row: 4, count: 5, duration: 140, last: 280 },
+  { id: "running-right", label: "Running right", row: 1, count: 8, duration: 120, last: 220 },
+  { id: "running-left", label: "Running left", row: 2, count: 8, duration: 120, last: 220 },
+  { id: "failed", label: "Blocked", row: 5, count: 8, duration: 140, last: 240 }
+];
+
+// Skills' Luminous Symbols outlines at 24px / weight 300 (refresh: 330).
+// Embed the same glyphs so these controls also render with Gemini App disabled.
+const PET_LIBRARY_ICONS = {
+  previous: "M10.454 12 14.527 16.073Q14.735 16.281 14.739 16.595Q14.744 16.91 14.527 17.127Q14.31 17.344 14 17.344Q13.69 17.344 13.473 17.127L8.979 12.633Q8.838 12.492 8.781 12.337Q8.723 12.181 8.723 12Q8.723 11.819 8.781 11.663Q8.838 11.508 8.979 11.367L13.473 6.873Q13.681 6.665 13.995 6.661Q14.31 6.656 14.527 6.873Q14.744 7.09 14.744 7.4Q14.744 7.71 14.527 7.927Z",
+  next: "M12.946 12 8.873 7.927Q8.665 7.719 8.661 7.405Q8.656 7.09 8.873 6.873Q9.09 6.656 9.4 6.656Q9.71 6.656 9.927 6.873L14.421 11.367Q14.562 11.508 14.619 11.663Q14.677 11.819 14.677 12Q14.677 12.181 14.619 12.337Q14.562 12.492 14.421 12.633L9.927 17.127Q9.719 17.335 9.405 17.339Q9.09 17.344 8.873 17.127Q8.656 16.91 8.656 16.6Q8.656 16.29 8.873 16.073Z",
+  create: "M11.458 21.5Q9.471 21.5 8.55 21.402Q7.629 21.304 7.023 20.998Q6.356 20.652 5.849 20.143Q5.342 19.635 5.012 18.967Q4.706 18.346 4.603 17.425Q4.5 16.504 4.5 14.533V9.477Q4.5 7.481 4.598 6.56Q4.696 5.638 5.012 5.033Q5.358 4.356 5.857 3.844Q6.356 3.333 7.023 3.012Q7.644 2.696 8.565 2.598Q9.487 2.5 11.458 2.5H13Q13.319 2.5 13.535 2.715Q13.75 2.931 13.75 3.25Q13.75 3.569 13.535 3.785Q13.319 4 13 4H11.458Q9.842 4 9.042 4.035Q8.242 4.069 7.702 4.344Q7.258 4.563 6.918 4.913Q6.579 5.263 6.344 5.717Q6.069 6.267 6.035 7.06Q6 7.852 6 9.477V14.533Q6 16.148 6.035 16.948Q6.069 17.748 6.344 18.298Q6.569 18.742 6.916 19.082Q7.263 19.421 7.717 19.665Q8.258 19.94 9.05 19.97Q9.842 20 11.458 20H12.619Q14.225 20 15.025 19.97Q15.825 19.94 16.365 19.665Q16.819 19.446 17.159 19.091Q17.498 18.737 17.733 18.283Q18.008 17.733 18.038 16.94Q18.067 16.148 18.067 14.533Q18.067 14.213 18.283 13.998Q18.498 13.783 18.817 13.783Q19.137 13.783 19.352 13.998Q19.567 14.213 19.567 14.533Q19.567 16.519 19.469 17.44Q19.371 18.362 19.065 18.967Q18.719 19.644 18.215 20.156Q17.712 20.667 17.044 20.998Q16.423 21.304 15.507 21.402Q14.59 21.5 12.619 21.5ZM10.121 14.692Q9.802 14.692 9.587 14.469Q9.371 14.246 9.371 13.927Q9.396 12.358 9.779 11.209Q10.162 10.06 11.271 8.95L16.913 3.288Q17.3 2.902 17.792 2.701Q18.285 2.5 18.817 2.5Q19.933 2.5 20.721 3.288Q21.51 4.077 21.51 5.192Q21.51 5.725 21.309 6.217Q21.108 6.71 20.721 7.106L15.079 12.767Q13.944 13.912 12.817 14.294Q11.69 14.677 10.121 14.692ZM10.902 13.162Q11.775 13.09 12.514 12.777Q13.254 12.463 14.01 11.698L19.667 6.037Q19.831 5.873 19.915 5.652Q20 5.431 20 5.202Q20 4.7 19.66 4.35Q19.319 4 18.817 4Q18.588 4 18.375 4.089Q18.162 4.179 17.983 4.358L12.34 10.019Q11.61 10.75 11.296 11.512Q10.983 12.273 10.902 13.162Z",
+  folder: "M4.25 19.5Q3.521 19.5 3.011 18.989Q2.5 18.479 2.5 17.75V6.308Q2.5 5.579 3.039 5.039Q3.579 4.5 4.308 4.5H9.05Q9.412 4.5 9.745 4.64Q10.079 4.781 10.325 5.027L11.798 6.5H20.663Q20.983 6.5 21.198 6.715Q21.413 6.931 21.413 7.25Q21.413 7.569 21.198 7.785Q20.983 8 20.663 8H11.185L9.185 6H4.308Q4.173 6 4.087 6.087Q4 6.173 4 6.308V18Q4 17.865 4.053 17.899Q4.106 17.933 4.192 17.981L6.138 11.483Q6.319 10.9 6.804 10.546Q7.288 10.192 7.881 10.192H20.742Q21.662 10.192 22.201 10.923Q22.74 11.654 22.485 12.517L20.762 18.258Q20.59 18.821 20.12 19.161Q19.65 19.5 19.077 19.5ZM5.763 18H19.038Q19.144 18 19.226 17.942Q19.308 17.885 19.337 17.779L21.04 12.087Q21.088 11.933 20.992 11.812Q20.896 11.692 20.742 11.692H7.881Q7.775 11.692 7.693 11.75Q7.612 11.808 7.583 11.913ZM5.763 18 7.583 11.913Q7.602 11.865 7.612 11.822Q7.621 11.779 7.631 11.75Q7.64 11.721 7.65 11.692Q7.631 11.75 7.612 11.817Q7.602 11.865 7.578 11.937Q7.554 12.01 7.535 12.087L5.831 17.779Q5.812 17.827 5.802 17.87Q5.792 17.913 5.783 17.942Q5.773 17.971 5.763 18Z",
+  refresh: "M12 20.657Q10.199 20.657 8.626 19.974Q7.052 19.292 5.883 18.124Q4.714 16.955 4.032 15.381Q3.35 13.808 3.35 12.007Q3.35 10.227 4.032 8.652Q4.714 7.077 5.883 5.899Q7.052 4.721 8.625 4.048Q10.199 3.375 12 3.375Q13.534 3.375 14.95 3.897Q16.367 4.419 17.534 5.418V4.468Q17.534 4.118 17.771 3.881Q18.008 3.643 18.359 3.643Q18.71 3.643 18.947 3.881Q19.184 4.118 19.184 4.468V7.297Q19.184 7.698 18.915 7.965Q18.647 8.233 18.251 8.233H15.419Q15.069 8.233 14.831 7.995Q14.594 7.758 14.594 7.407Q14.594 7.057 14.831 6.82Q15.069 6.583 15.419 6.583H16.341Q15.426 5.83 14.317 5.427Q13.208 5.025 12 5.025Q9.093 5.025 7.047 7.064Q5 9.103 5 12.005Q5 14.932 7.038 16.969Q9.075 19.007 12 19.007Q14.925 19.007 16.962 16.969Q19 14.932 19 12.007Q19 11.656 19.237 11.419Q19.474 11.182 19.825 11.182Q20.176 11.182 20.413 11.419Q20.65 11.656 20.65 12.007Q20.65 13.808 19.968 15.381Q19.286 16.955 18.117 18.124Q16.948 19.292 15.375 19.974Q13.802 20.657 12 20.657Z"
+};
 
 const libraryElement = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -2875,6 +2908,239 @@ function libraryButton(text, action, quiet = false) {
   button.type = "button";
   button.addEventListener("click", () => { void action(); });
   return button;
+}
+
+function libraryIcon(name) {
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("fill", "currentColor");
+  icon.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", PET_LIBRARY_ICONS[name]);
+  icon.append(path);
+  return icon;
+}
+
+// Display details belong to the chosen pet's stable id, including the bundled
+// companion. Keep them in durable plugin storage alongside its selection.
+function petDetails(pet) {
+  const saved = plugin.storage.get(`petDetails:${pet.id}`);
+  if (!saved || typeof saved !== "object") return pet;
+  return { ...pet,
+    displayName: typeof saved.displayName === "string" && saved.displayName.trim() ? saved.displayName.trim().slice(0, 100) : pet.displayName,
+    description: typeof saved.description === "string" ? saved.description.slice(0, 500) : pet.description
+  };
+}
+
+function openPetEditor(pet) {
+  if (!libraryPage || libraryBusy || libraryDisposed) return;
+  petEditor?.close(false);
+  const page = libraryPage;
+  const wasInert = page.inert === true;
+  // Own the host: Gemini App removes its chat-dialog hosts when it reloads.
+  const host = libraryElement("div", "bettergravity-pet-editor");
+  const backdrop = libraryElement("div", "willow-gdlg-backdrop");
+  backdrop.setAttribute("aria-hidden", "true");
+  const surface = libraryElement("form", "willow-gdlg-surface");
+  surface.setAttribute("role", "dialog");
+  surface.setAttribute("aria-modal", "true");
+  surface.setAttribute("aria-labelledby", "bettergravity-pet-editor-title");
+  surface.noValidate = true;
+  const title = libraryElement("h2", "willow-gdlg-title", "Rename this pet");
+  title.id = "bettergravity-pet-editor-title";
+  const content = libraryElement("div", "willow-gdlg-content");
+  const field = (tag, label, value, limit) => {
+    const wrapper = libraryElement("label", "bettergravity-pet-editor__label", label);
+    const outlineField = libraryElement("div", "willow-gdlg-field");
+    const input = libraryElement(tag, "willow-gdlg-field__input");
+    input.setAttribute("aria-label", label);
+    input.value = value;
+    input.maxLength = limit;
+    if (tag === "textarea") {
+      outlineField.classList.add("bettergravity-pet-editor__description");
+      input.rows = 3;
+    } else input.autocomplete = "off";
+    const outline = libraryElement("div", "willow-gdlg-field__outline");
+    outline.setAttribute("aria-hidden", "true");
+    outlineField.append(input, outline);
+    wrapper.append(outlineField);
+    content.append(wrapper);
+    return input;
+  };
+  const name = field("input", "Pet name", pet.displayName, 100);
+  const description = field("textarea", "Description", pet.description ?? "", 500);
+  const error = libraryElement("p", "bettergravity-pet-editor__error");
+  error.id = "bettergravity-pet-editor-error";
+  error.setAttribute("role", "alert");
+  error.hidden = true;
+  content.append(error);
+  const actions = libraryElement("div", "willow-gdlg-actions");
+  const cancel = libraryElement("button", "willow-gdlg-pill");
+  cancel.type = "button";
+  cancel.append(libraryElement("span", "willow-gdlg-pill__label", "Cancel"));
+  const save = libraryElement("button", "willow-gdlg-pill");
+  save.type = "submit";
+  save.disabled = true;
+  save.append(libraryElement("span", "willow-gdlg-pill__label", "Rename"));
+  actions.append(cancel, save);
+  surface.append(title, content, actions);
+  host.append(backdrop, surface);
+  document.body.append(host);
+  page.inert = true;
+  let closing = false;
+  let closeTimer;
+  const focusRow = () => [...(libraryRoot?.querySelectorAll("[data-pet-choice]") ?? [])].find(row => row.dataset.petChoice === pet.id)?.focus({ preventScroll: true });
+  const finish = restoreFocus => {
+    clearTimeout(closeTimer);
+    cancelAnimationFrame(openFrame);
+    document.removeEventListener("focusin", keepFocus, true);
+    host.remove();
+    page.inert = wasInert;
+    if (petEditor?.host === host) petEditor = null;
+    if (restoreFocus && page === libraryPage && !libraryDisposed) focusRow();
+  };
+  const close = (restoreFocus = true) => {
+    if (!restoreFocus) { finish(false); return; }
+    if (closing) return;
+    closing = true;
+    backdrop.classList.remove("willow-gdlg-backdrop--shown");
+    closeTimer = setTimeout(() => finish(true), previewMotion?.matches ? 0 : 75);
+  };
+  const keepFocus = event => {
+    if (!host.contains(event.target) && host.isConnected) name.focus({ preventScroll: true });
+  };
+  const update = () => {
+    error.hidden = true;
+    const trimmed = name.value.trim();
+    save.disabled = !trimmed || trimmed.length > 100 || description.value.length > 500 ||
+      (trimmed === pet.displayName && description.value === (pet.description ?? ""));
+  };
+  const commit = () => {
+    if (closing || save.disabled || libraryDisposed || libraryPage !== page) return;
+    try {
+      plugin.storage.set(`petDetails:${pet.id}`, { displayName: name.value.trim(), description: description.value });
+      if (greeting && sheetId() === pet.id) {
+        greeting.title = `Hi, I'm ${petName()}`;
+        signature = "";
+        poll();
+      }
+      renderPetLibrary();
+      close();
+    } catch (failure) {
+      error.textContent = failure?.message ?? "Your changes could not be saved. Try again.";
+      error.hidden = false;
+    }
+  };
+  name.addEventListener("input", update);
+  description.addEventListener("input", update);
+  surface.addEventListener("submit", event => { event.preventDefault(); event.stopPropagation(); commit(); });
+  cancel.addEventListener("click", () => close());
+  backdrop.addEventListener("click", () => close());
+  host.addEventListener("keydown", event => {
+    event.stopPropagation();
+    if (event.isComposing) return;
+    if (event.key === "Escape") { event.preventDefault(); close(); }
+    else if (event.key === "Enter" && (event.target === name || (event.target === description && (event.ctrlKey || event.metaKey)))) {
+      event.preventDefault(); commit();
+    } else if (event.key === "Tab") {
+      const controls = [name, description, cancel, save].filter(control => !control.disabled);
+      const next = controls.indexOf(document.activeElement) + (event.shiftKey ? -1 : 1);
+      if (next < 0 || next >= controls.length) {
+        event.preventDefault(); controls[(next + controls.length) % controls.length].focus();
+      }
+    }
+  });
+  document.addEventListener("focusin", keepFocus, true);
+  const openFrame = requestAnimationFrame(() => {
+    if (closing || !host.isConnected) return;
+    backdrop.classList.add("willow-gdlg-backdrop--shown");
+    surface.classList.add("willow-gdlg-surface--shown");
+  });
+  petEditor = { host, close };
+  name.focus({ preventScroll: true });
+  name.select();
+}
+
+function paintPetPreview() {
+  clearTimeout(previewTimer);
+  const preview = libraryRoot?.querySelector(".bettergravity-pet-library__sprite");
+  if (!preview || libraryDisposed) return;
+  const state = PET_PREVIEW_STATES[previewState];
+  const name = petName();
+  preview.dataset.petPreviewState = state.id;
+  preview.setAttribute("aria-label", `${name}: ${state.label}`);
+  libraryRoot.querySelector(".bettergravity-pet-library__state-name").textContent = state.label;
+  for (const dot of libraryRoot.querySelectorAll("[data-pet-animation]")) {
+    const current = dot.dataset.petAnimation === state.id;
+    dot.setAttribute("aria-pressed", String(current));
+    dot.tabIndex = current ? 0 : -1;
+  }
+  let frame = 0;
+  const count = state.durations?.length ?? state.count;
+  const paint = () => {
+    if (!preview.isConnected || libraryDisposed) return;
+    preview.style.backgroundPosition = `${frame / 7 * 100}% ${state.row * 10}%`;
+    if (previewMotion?.matches) return;
+    const delay = state.durations?.[frame] ?? (frame === count - 1 ? state.last : state.duration);
+    frame = (frame + 1) % count;
+    previewTimer = setTimeout(paint, delay);
+  };
+  paint();
+}
+
+function selectPreviewState(index) {
+  previewState = (index + PET_PREVIEW_STATES.length) % PET_PREVIEW_STATES.length;
+  paintPetPreview();
+}
+
+function renderPetPreview() {
+  const hero = libraryElement("section", "bettergravity-pet-library__hero");
+  hero.setAttribute("aria-label", "Pet animations");
+  hero.setAttribute("aria-roledescription", "carousel");
+  const stage = libraryElement("div", "bettergravity-pet-library__stage");
+  const arrow = (name, step, label) => {
+    const button = libraryButton("", () => selectPreviewState(previewState + step));
+    button.classList.add("bettergravity-pet-library__arrow");
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-controls", "bettergravity-pet-preview");
+    button.dataset.petLibraryFocus = name;
+    button.append(libraryIcon(name));
+    return button;
+  };
+  const preview = libraryElement("div", "bettergravity-pet-library__sprite");
+  preview.id = "bettergravity-pet-preview";
+  preview.setAttribute("role", "img");
+  const sheet = selectedPet?.spritesheetDataUrl || settings.sheet;
+  if (sheet) preview.style.backgroundImage = `url(${JSON.stringify(sheet)})`;
+  stage.append(arrow("previous", -1, "Previous animation"), preview, arrow("next", 1, "Next animation"));
+  const label = libraryElement("p", "bettergravity-pet-library__state-name");
+  label.setAttribute("aria-live", "polite");
+  label.setAttribute("aria-atomic", "true");
+  const dots = libraryElement("div", "bettergravity-pet-library__pagination");
+  dots.setAttribute("role", "group");
+  dots.setAttribute("aria-label", "Choose an animation");
+  PET_PREVIEW_STATES.forEach((state, index) => {
+    const dot = libraryButton("", () => selectPreviewState(index));
+    dot.classList.add("bettergravity-pet-library__dot");
+    dot.dataset.petAnimation = state.id;
+    dot.dataset.petLibraryFocus = `animation:${state.id}`;
+    dot.setAttribute("aria-label", state.label);
+    dot.setAttribute("aria-controls", preview.id);
+    dot.title = state.label;
+    dot.append(libraryElement("span", ""));
+    dots.append(dot);
+  });
+  hero.append(stage, label, dots);
+  hero.addEventListener("keydown", event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+    const next = event.key === "ArrowLeft" ? previewState - 1 : event.key === "ArrowRight" ? previewState + 1 :
+      event.key === "Home" ? 0 : event.key === "End" ? PET_PREVIEW_STATES.length - 1 : null;
+    if (next === null) return;
+    event.preventDefault();
+    selectPreviewState(next);
+    if (event.target.closest("[data-pet-animation]")) dots.querySelector('[aria-pressed="true"]').focus();
+  });
+  return hero;
 }
 
 async function refreshPetLibrary() {
@@ -2926,31 +3192,42 @@ async function selectLibraryPet(id) {
 
 async function createPet() {
   if (libraryBusy || libraryDisposed) return;
+  const creationPage = libraryPage;
+  let restorePageOnError = false;
   libraryBusy = true;
+  libraryCreating = true;
   libraryError = "";
   renderPetLibrary();
   try {
     if (!plugin.pets) throw new Error("Restart Antigravity to activate pet creation.");
     await plugin.pets.prepareCreation();
-    if (libraryDisposed) return;
-    if (!(await newConversation())) throw new Error("The new conversation could not be opened.");
+    if (libraryDisposed || (creationPage && libraryPage !== creationPage)) return;
+    if (!(await newConversation(true))) throw new Error("The new conversation could not be opened.");
+    libraryHref = location.href;
     const expected = currentId();
-    const current = () => !libraryDisposed && currentId() === expected && projectlessHome();
+    const current = () => !libraryDisposed && (!creationPage || libraryPage === creationPage) && currentId() === expected && projectlessHome();
     const field = await waitForComposer(current);
     if (!field || !current()) throw new Error("The new conversation is no longer selected.");
     const draft = "value" in field ? field.value : field.textContent;
     if (draft?.trim()) throw new Error("The new conversation already has a draft. Clear it before creating a pet.");
     const prompt = "Use the hatch-pet skill to create a pet based on what you know about me. Show me the character and animation previews.";
+    // The contenteditable composer cannot accept insertText while its page is
+    // inert. Restore the conversation before focusing and filling its editor.
+    closePetLibrary();
+    restorePageOnError = creationPage !== null;
     if (!typeInto(field, prompt)) throw new Error("The pet request could not be added to the composer.");
     // Codex's Create action prefills a projectless chat; the user can add a
     // description or reference image before sending the request.
-    libraryModal?.close();
     window.BetterGravity?.panel?.close();
     field.focus();
   } catch (error) {
-    if (!libraryDisposed) libraryError = error?.message ?? String(error);
+    if (!libraryDisposed) {
+      libraryError = error?.message ?? String(error);
+      if (restorePageOnError) openPetLibrary(false);
+    }
   } finally {
     libraryBusy = false;
+    libraryCreating = false;
     renderPetLibrary();
     if (libraryRefreshPending) { libraryRefreshPending = false; void refreshPetLibrary(); }
   }
@@ -2959,38 +3236,37 @@ async function createPet() {
 function renderPetLibrary() {
   clearTimeout(previewTimer);
   if (!libraryRoot || libraryDisposed) return;
+  const scrollTop = libraryPage?.scrollTop ?? 0;
+  const focusKey = libraryRoot.contains(document.activeElement) ? document.activeElement?.dataset.petLibraryFocus : null;
   libraryRoot.replaceChildren();
-  const hero = libraryElement("div", "bettergravity-pet-library__hero");
-  const preview = libraryElement("div", "bettergravity-pet-library__sprite");
-  preview.setAttribute("role", "img");
-  preview.setAttribute("aria-label", selectedPet?.displayName ?? "Rocky");
-  const sheet = selectedPet?.spritesheetDataUrl || settings.sheet;
-  if (sheet) preview.style.backgroundImage = `url(${JSON.stringify(sheet)})`;
-  const caption = libraryElement("div", "bettergravity-pet-library__caption");
-  caption.append(libraryElement("span", "bettergravity-pet-library__eyebrow", "Your companion"),
-    libraryElement("strong", "", selectedPet?.displayName ?? "Rocky"),
-    libraryElement("span", "", selectedPet?.description ?? "A little company while you work."));
-  hero.append(preview, caption);
-  libraryRoot.append(hero);
-  if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-    let frame = 0;
-    const animate = () => {
-      if (!preview.isConnected || libraryDisposed) return;
-      preview.style.backgroundPosition = `${frame / 7 * 100}% 70%`;
-      const delay = frame === 5 ? 220 : 120;
-      frame = (frame + 1) % 6;
-      previewTimer = setTimeout(animate, delay);
-    };
-    previewTimer = setTimeout(animate, 120);
-  }
+  const header = libraryElement("header", "bettergravity-pet-library__header");
+  const title = libraryElement("h1", "", "Pets");
+  title.id = "bettergravity-pets-title";
+  title.tabIndex = -1;
+  header.append(title, libraryElement("p", "", "Choose a companion for your workspace, or create your own with AI."));
+  libraryRoot.append(header);
   const actions = libraryElement("div", "bettergravity-pet-library__actions");
-  const create = libraryButton(libraryBusy ? "Opening…" : "Create your own pet", createPet);
+  actions.setAttribute("aria-label", "Manage pets");
+  const create = libraryButton(libraryCreating ? "Opening…" : "Create with Gemini", createPet);
+  create.classList.add("is-primary");
+  create.dataset.petLibraryFocus = "create";
+  create.prepend(libraryIcon("create"));
   create.disabled = libraryBusy;
-  actions.append(create, libraryButton("Refresh", refreshPetLibrary, true), libraryButton("Open folder", async () => {
+  const folder = libraryButton("Open folder", async () => {
     try { await plugin.pets.openFolder(); }
     catch (error) { libraryError = error?.message ?? String(error); renderPetLibrary(); }
-  }, true));
-  libraryRoot.append(actions);
+  });
+  folder.dataset.petLibraryFocus = "folder";
+  folder.prepend(libraryIcon("folder"));
+  const refresh = libraryButton("", refreshPetLibrary);
+  refresh.classList.add("is-icon-only");
+  refresh.dataset.petLibraryFocus = "refresh";
+  refresh.setAttribute("aria-label", "Refresh pets");
+  refresh.title = "Refresh pets";
+  refresh.append(libraryIcon("refresh"));
+  refresh.disabled = libraryBusy;
+  actions.append(create, folder, refresh);
+  libraryRoot.append(actions, renderPetPreview());
   const notice = libraryError || (libraryState === null ? "Loading your pets…" : "");
   if (notice) {
     const message = libraryElement("p", "bettergravity-pet-library__notice", notice);
@@ -2999,6 +3275,7 @@ function renderPetLibrary() {
   }
   const stages = ["preparing", "imagining", "posing", "hatching"];
   const labels = ["Getting ready", "Imagining the main look", "Picturing the poses", "Hatching"];
+  const progressCards = [];
   for (const run of libraryState?.runs ?? []) {
     if (run.stage === "ready") continue;
     const card = libraryElement("section", "bettergravity-pet-library__progress");
@@ -3021,14 +3298,34 @@ function renderPetLibrary() {
     content.append(steps);
     if (run.stage === "error") content.append(libraryElement("p", "bettergravity-pet-library__notice", run.message || "Creation needs attention."));
     card.append(content);
-    libraryRoot.append(card);
+    progressCards.push(card);
   }
+  const available = libraryElement("section", "bettergravity-pet-library__available");
   const list = libraryElement("div", "bettergravity-pet-library__list");
   const records = [{ id: "rocky", displayName: "Rocky", description: "The original companion." },
-    ...(libraryState?.pets ?? []).map(pet => ({ ...pet, id: `custom:${pet.id}` }))];
+    ...(libraryState?.pets ?? []).map(pet => ({ ...pet, id: `custom:${pet.id}` }))].map(petDetails);
+  const heading = libraryElement("h2", "", `Available pets (${records.length})`);
+  heading.id = "bettergravity-pets-available";
+  available.setAttribute("aria-labelledby", heading.id);
+  list.setAttribute("role", "list");
   for (const pet of records) {
     const row = libraryElement("div", "bettergravity-pet-library__row");
     row.dataset.petChoice = pet.id;
+    row.dataset.petLibraryFocus = `edit:${pet.id}`;
+    row.tabIndex = 0;
+    row.setAttribute("role", "listitem");
+    row.setAttribute("aria-label", pet.displayName);
+    row.setAttribute("aria-description", "Double-click or press Enter to edit the name and description.");
+    row.setAttribute("aria-keyshortcuts", "Enter F2");
+    row.title = "Double-click to edit name and description";
+    row.addEventListener("dblclick", event => {
+      if (event.target.closest("button")) return;
+      event.preventDefault(); event.stopPropagation(); openPetEditor(pet);
+    });
+    row.addEventListener("keydown", event => {
+      if (event.target !== row || event.isComposing || !["Enter", "F2"].includes(event.key)) return;
+      event.preventDefault(); event.stopPropagation(); openPetEditor(pet);
+    });
     const thumbnail = libraryElement("div", "bettergravity-pet-library__thumbnail");
     if (pet.previewDataUrl) {
       const image = libraryElement("img", "");
@@ -3037,36 +3334,126 @@ function renderPetLibrary() {
       thumbnail.append(image);
     } else thumbnail.dataset.builtin = "true";
     const details = libraryElement("div", "bettergravity-pet-library__details");
-    details.append(libraryElement("strong", "", pet.displayName), libraryElement("span", "", pet.description));
+    details.append(libraryElement("strong", "", pet.displayName), libraryElement("span", "", pet.description ?? "Your custom companion."));
     const current = selectedPetId === pet.id && !settings.sheet;
     const choose = libraryButton(current ? "Selected" : "Use pet", () => selectLibraryPet(pet.id), true);
+    choose.dataset.petLibraryFocus = `use:${pet.id}`;
+    choose.setAttribute("aria-label", `${current ? "Selected pet:" : "Use pet:"} ${pet.displayName}`);
+    choose.classList.toggle("is-selected", current);
     choose.disabled = current || libraryBusy;
     row.append(thumbnail, details, choose);
     list.append(row);
   }
-  libraryRoot.append(list);
-  if (libraryState && libraryState.pets.length === 0) libraryRoot.append(libraryElement("p", "bettergravity-pet-library__empty", "Describe a companion or add a reference image in the new chat. Your finished pet will appear here."));
+  available.append(heading, list);
+  libraryRoot.append(available);
+  if (libraryState && libraryState.pets.length === 0) available.append(libraryElement("p", "bettergravity-pet-library__empty", "Describe a companion or add a reference image in the new chat. Your finished pet will appear here."));
+  libraryRoot.append(...progressCards);
+  paintPetPreview();
+  if (libraryPage) libraryPage.scrollTop = scrollTop;
+  if (focusKey) [...libraryRoot.querySelectorAll("[data-pet-library-focus]")].find(node => node.dataset.petLibraryFocus === focusKey)?.focus({ preventScroll: true });
 }
 
-function openPetLibrary() {
-  libraryModal?.close();
-  libraryModal = plugin.ui.modal({
-    title: "Pets", width: 620,
-    render: body => {
-      libraryRoot = libraryElement("div", "bettergravity-pet-library");
-      body.append(libraryRoot);
-      renderPetLibrary();
-      void refreshPetLibrary();
-    },
-    onClose: () => { libraryRoot = null; libraryModal = null; clearTimeout(previewTimer); }
-  });
+function petLibraryViewport() {
+  const conversation = document.querySelector(VIEW);
+  if (conversation) return conversation.parentElement === document.body ? conversation : conversation.parentElement;
+  const main = document.querySelector(".flex-1.flex.flex-col.min-w-0.h-full");
+  return main?.querySelector(".flex-1.min-h-0") ?? main?.children[1] ?? document.querySelector("main, [role='main']");
+}
+
+function hidePetLibrarySiblings() {
+  if (!libraryViewport) return;
+  for (const child of libraryViewport.children) {
+    if (child === libraryPage || libraryHiddenChildren.has(child)) continue;
+    libraryHiddenChildren.set(child, { inert: child.inert === true, ariaHidden: child.getAttribute("aria-hidden") });
+    child.setAttribute("data-pet-page-hidden", "");
+    child.inert = true;
+    child.setAttribute("aria-hidden", "true");
+  }
+}
+
+function closePetLibrary() {
+  petEditor?.close(false);
+  clearTimeout(previewTimer);
+  libraryViewportObserver?.disconnect();
+  libraryViewportObserver = null;
+  libraryPage?.remove();
+  libraryPage = null;
+  libraryRoot = null;
+  for (const [child, previous] of libraryHiddenChildren) {
+    child.removeAttribute("data-pet-page-hidden");
+    child.inert = previous.inert;
+    if (child.getAttribute("aria-hidden") === "true") {
+      if (previous.ariaHidden === null) child.removeAttribute("aria-hidden");
+      else child.setAttribute("aria-hidden", previous.ariaHidden);
+    }
+  }
+  libraryHiddenChildren.clear();
+  libraryViewport?.removeAttribute("data-pet-page-host");
+  libraryViewport?.removeAttribute("data-pet-page-positioned");
+  libraryViewport = null;
+  document.body.classList.remove("bettergravity-pets-open");
+  libraryButtonHandle?.setActive(false);
+}
+
+function openPetLibrary(refresh = true) {
+  if (libraryDisposed) return;
+  if (libraryPage?.isConnected) return;
+  // Use Skills' own navigation action so its editor and sidebar state close
+  // together. No dependency on Gemini App is needed when that plugin is absent.
+  const skills = document.getElementById("gemini-skills-view");
+  if (skills && skills.style.display !== "none") document.getElementById("gemini-skills-button")?.click();
+  const viewport = petLibraryViewport();
+  if (!viewport || viewport === document.body) return;
+  closePetLibrary();
+  window.BetterGravity?.panel?.close();
+  libraryHref = location.href;
+  libraryViewport = viewport;
+  libraryViewport.setAttribute("data-pet-page-host", "");
+  if (getComputedStyle(viewport).position === "static") libraryViewport.setAttribute("data-pet-page-positioned", "");
+  libraryPage = libraryElement("section", "bettergravity-pets-page");
+  libraryPage.id = "bettergravity-pets-view";
+  libraryPage.setAttribute("role", "region");
+  libraryPage.setAttribute("aria-labelledby", "bettergravity-pets-title");
+  libraryRoot = libraryElement("div", "bettergravity-pet-library");
+  libraryPage.append(libraryRoot);
+  libraryViewport.append(libraryPage);
+  // Keep the host's flex layout intact while making the covered content inert.
+  hidePetLibrarySiblings();
+  libraryViewportObserver = new MutationObserver(hidePetLibrarySiblings);
+  libraryViewportObserver.observe(libraryViewport, { childList: true });
+  document.body.classList.add("bettergravity-pets-open");
+  libraryButtonHandle?.setActive(true);
+  renderPetLibrary();
+  libraryRoot.querySelector("h1").focus({ preventScroll: true });
+  if (refresh) void refreshPetLibrary();
 }
 
 plugin.onDispose(() => {
   libraryDisposed = true;
   libraryRequest++;
-  clearTimeout(previewTimer);
-  libraryModal?.close();
+  closePetLibrary();
+});
+
+const leavePetLibrary = event => {
+  if (!libraryPage || event.betterGravityKeepPetLibrary) return;
+  const target = event.target;
+  if (!(target instanceof Element) || target.closest("#bettergravity-pets-view, [data-bettergravity-button='Pets']")) return;
+  if (target.closest(`${NEW_CHAT}, [data-testid='history-button'], #gemini-skills-button, #gemini-scheduled-tasks-button, [data-testid='automations-button'], #gemini-new-project-button, ${ROW}, #gemini-experience-switch, a[href*='/c/'], [role='navigation'][aria-label='Sidebar'] a`)) closePetLibrary();
+};
+const leavePetLibraryFromKeyboard = event => {
+  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "o" && !event.isComposing) closePetLibrary();
+};
+document.addEventListener("click", leavePetLibrary, true);
+window.addEventListener("keydown", leavePetLibraryFromKeyboard, true);
+window.addEventListener("popstate", closePetLibrary);
+window.addEventListener("hashchange", closePetLibrary);
+previewMotion?.addEventListener?.("change", paintPetPreview);
+plugin.onDispose(() => {
+  document.removeEventListener("click", leavePetLibrary, true);
+  window.removeEventListener("keydown", leavePetLibraryFromKeyboard, true);
+  window.removeEventListener("popstate", closePetLibrary);
+  window.removeEventListener("hashchange", closePetLibrary);
+  previewMotion?.removeEventListener?.("change", paintPetPreview);
 });
 
 /* ── Reading the sidebar ───────────────────────────────────────────────────
@@ -3513,9 +3900,9 @@ const sheetId = () => {
  * takes to be introduced to Luna.
  */
 function petName() {
-  if (selectedPet) return selectedPet.displayName;
+  if (selectedPet) return petDetails({ ...selectedPet, id: `custom:${selectedPet.id}` }).displayName;
   const id = sheetId();
-  if (id === "rocky") return "Rocky";
+  if (id === "rocky") return petDetails({ id, displayName: "Rocky" }).displayName;
 
   const file = id.split(/[?#]/, 1)[0].replace(/\.[a-z0-9]+$/i, "");
   const words = file
@@ -3825,6 +4212,7 @@ function composerField() {
 
 /** Codex opens the thread a notification belongs to. This is that click. */
 function openThread(key) {
+  closePetLibrary();
   if (key === GREETING_KEY) {
     focusComposer();
     return true;
@@ -3957,7 +4345,7 @@ const projectlessHome = () => {
  * anchor rather than assigning `location.href` is deliberate — the workbench
  * routes it, and a navigation would reload the window the plugin is running in.
  */
-async function newConversation() {
+async function newConversation(keepPetLibrary = false) {
   raise();
   const link = document.querySelector(NEW_CHAT);
   if (!(link instanceof HTMLElement)) {
@@ -3968,6 +4356,7 @@ async function newConversation() {
   // The pet's unaimed chat must explicitly request Conversations in either mode.
   const activation = new MouseEvent("click", { bubbles: true, cancelable: true });
   Object.defineProperty(activation, "betterGravityProjectless", { value: true });
+  if (keepPetLibrary) Object.defineProperty(activation, "betterGravityKeepPetLibrary", { value: true });
   link.dispatchEvent(activation);
   const deadline = Date.now() + HOST_WAIT_MS;
   while (!projectlessHome()) {
@@ -4193,6 +4582,7 @@ function begin() {
 }
 
 function poll() {
+  if (libraryPage && !libraryCreating && (!libraryPage.isConnected || location.href !== libraryHref)) closePetLibrary();
   if (surface === null) return;
   const next = activityOf();
   const nextSignature = signatureOf(next.entries, next.working);
@@ -4252,12 +4642,12 @@ placeToggle();
 
 // The sidebar opens the library independently of the title-bar visibility
 // toggle. A late title bar must never move the toggle into this entry's place.
-const libraryButtonHandle = plugin.ui.button({
+libraryButtonHandle = plugin.ui.button({
   area: "sidebar",
   label: "Pets",
   icon: PAW,
   tooltip: "Choose or create a pet",
-  onClick: openPetLibrary
+  onClick: () => { if (libraryPage) closePetLibrary(); else openPetLibrary(); }
 });
 plugin.onDispose(() => libraryButtonHandle.remove());
 
