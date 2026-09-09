@@ -98,6 +98,7 @@ if (command === "launch") {
   const file = argument ?? "antigravity.png";
   await writeFile(file, Buffer.from(result.data, "base64"));
   console.log(`Saved ${file}`);
+  process.exit(0);
 } else if (command === "eval" || command === "run") {
   if (!argument) {
     console.error(command === "run" ? "Provide a file to evaluate." : 'Provide an expression, for example: eval "document.title"');
@@ -116,6 +117,7 @@ if (command === "launch") {
     process.exit(1);
   }
   console.log(JSON.stringify(result.result?.value ?? null, null, 2));
+  process.exit(0);
 } else {
   console.error(`Unknown command "${command}". Use launch, shot, eval, or run.`);
   process.exit(1);

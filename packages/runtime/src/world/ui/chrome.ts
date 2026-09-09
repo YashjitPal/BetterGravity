@@ -33,7 +33,7 @@ export const CHROME = {
     "inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-transparent text-muted-foreground hover:text-foreground hover:bg-secondary h-6 w-6 shrink-0 rounded-md",
   /** The full-width shape the sidebar's own actions use. */
   buttonSidebar:
-    "inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer disabled:opacity-50 w-full justify-start font-normal h-8 min-w-0 gap-1.5 px-2 py-1 rounded-lg border border-border text-foreground bg-sidebar-secondary hover:bg-sidebar-muted",
+    "inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer disabled:opacity-50 w-full justify-start font-normal h-8 min-w-0 gap-1.5 px-2 py-1 rounded-lg border border-border text-foreground bg-transparent hover:bg-sidebar-muted",
 
   overlay: "fixed inset-0 z-[8000] flex items-center justify-center bg-black/50",
   panel: "bg-card text-foreground rounded-xl border border-border shadow-lg flex flex-col max-h-[80vh] w-full mx-4",

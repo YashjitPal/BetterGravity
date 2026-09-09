@@ -759,6 +759,7 @@ function updateSidebarItemsState(sidebar, collapsed) {
   const navSpecs = [
     { selector: '[data-testid="new-conversation-button"]', title: "New conversation" },
     { selector: '[data-testid="history-button"]', title: "History" },
+    { selector: '#gemini-skills-button', title: "Skills" },
     { selector: '#gemini-scheduled-tasks-button', title: "Scheduled tasks" },
     { selector: '[data-testid="automations-button"]', title: "Scheduled tasks" },
     { selector: '#gemini-new-project-button', title: "New project" },
@@ -780,6 +781,19 @@ function updateSidebarItemsState(sidebar, collapsed) {
         if (el.getAttribute("data-tooltip-position") === "right") {
           el.removeAttribute("data-tooltip-position");
         }
+      }
+    }
+  }
+
+  const pluginButtons = sidebar.querySelectorAll('[data-bettergravity-button]');
+  for (const btn of pluginButtons) {
+    if (collapsed) {
+      if (btn.getAttribute("data-tooltip-position") !== "right") {
+        btn.setAttribute("data-tooltip-position", "right");
+      }
+    } else {
+      if (btn.getAttribute("data-tooltip-position") === "right") {
+        btn.removeAttribute("data-tooltip-position");
       }
     }
   }
@@ -1236,6 +1250,830 @@ function ensureDisplayOptionsRow(block) {
   if (displayOptsBtn.parentElement !== block) block.appendChild(displayOptsBtn);
 }
 
+
+/* ===========================================================================
+ * Gemini App — Skills Section & Tab (Willow Spark Skills Fidelity)
+ * ======================================================================== */
+
+function setComposerPromptText(text) {
+  const textarea = document.querySelector('textarea');
+  if (!textarea) return;
+  textarea.focus();
+  const prototype = Object.getPrototypeOf(textarea);
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value') || Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+  if (descriptor && descriptor.set) {
+    descriptor.set.call(textarea, text);
+  } else {
+    textarea.value = text;
+  }
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  textarea.dispatchEvent(new Event('change', { bubbles: true }));
+  textarea.selectionStart = textarea.selectionEnd = text.length;
+}
+
+const ANTIGRAVITY_BUILTIN_SKILLS = [
+  { id: 'agy-customizations', name: 'agy-customizations', scope: 'Built-in', description: 'Comprehensive guide and reference for the Antigravity Customization System. Use to explain how customizations work, their loading priority, discovery mechanisms, and to guide the creation of skills, rules, plugins, hooks, and MCP servers.' },
+  { id: 'antigravity-guide', name: 'antigravity-guide', scope: 'Built-in', description: 'Comprehensive guide, quick reference, and sitemap for Google Antigravity (AGY), including the Antigravity CLI (agy), Antigravity 2.0, Antigravity IDE, Python SDK, slash commands, keybindings, and customizations.' },
+  { id: 'generative_ui', name: 'generative_ui', scope: 'Built-in', description: 'How to render rich interactive HTML widgets inline in the chat or as standalone artifacts. Use this skill when you want to show the user diagrams, data visualizations, interactive controls, or rich visual content.' },
+  { id: 'migrate-workflows', name: 'migrate-workflows', scope: 'Built-in', description: 'Automatically migrate legacy workflows to modern skills across global and workspace configurations. Scans for existing workflows, creates target SKILL.md files, and safely archives old workflow files.' },
+  { id: 'gemini-api-dev', name: 'gemini-api-dev', scope: 'Plugin', description: 'Use this skill when building applications with Gemini API hosted models, including Gemini and Gemma, working with multimodal content, implementing function calling, or needing current model specifications.' },
+  { id: 'gemini-interactions-api', name: 'gemini-interactions-api', scope: 'Plugin', description: 'Use this skill when writing code that calls the Gemini API for text generation, multi-turn chat, multimodal understanding, image generation, video generation, streaming responses, or structured output.' },
+  { id: 'gemini-live-api-dev', name: 'gemini-live-api-dev', scope: 'Plugin', description: 'Use this skill when building real-time, bidirectional streaming applications with the Gemini Live API. Covers WebSocket streaming, voice activity detection (VAD), session management, and live translation.' },
+  { id: 'gemini-omni-flash-api', name: 'gemini-omni-flash-api', scope: 'Plugin', description: 'Use this skill for generative video editing, text-to-video, image-referenced video generation, and first-frame-to-video transitions using Gemini Omni 1.1 Flash.' },
+  { id: 'android-cli', name: 'android-cli', scope: 'Plugin', description: 'Provides instructions for installing and using the android CLI. Manage Android SDK components, virtual devices, UI inspection, and official Android documentation.' },
+  { id: 'alphafold-database-fetch-and-analyze', name: 'alphafold-database-fetch-and-analyze', scope: 'Plugin', description: 'Retrieve and analyze AlphaFold predicted structures for a protein. Provides structural confidence metrics (pLDDT), domain boundary analysis, and disorder assessment.' },
+  { id: 'alphagenome-single-variant-analysis', name: 'alphagenome-single-variant-analysis', scope: 'Plugin', description: 'Analyzes genetic variant effects on gene expression (RNA-seq), chromatin accessibility (DNASE), histone marks (ChIP), and transcription factors using the AlphaGenome API.' },
+  { id: 'chembl-database', name: 'chembl-database', scope: 'Plugin', description: 'Query the ChEMBL database for bioactive molecules, drug targets, bioactivity data, approved drugs, and chemical structures.' },
+  { id: 'clinical-trials-database', name: 'clinical-trials-database', scope: 'Plugin', description: 'Query ClinicalTrials.gov via APIv2 for trials by condition, drug, location, status, or phase; retrieve trial details by NCT ID; check eligibility/inclusion criteria.' },
+  { id: 'clinvar-database', name: 'clinvar-database', scope: 'Plugin', description: 'Clinical significance, pathogenicity classifications (Pathogenic, Benign, VUS), and clinical evidence rationales for human genomic variants.' },
+  { id: 'credentials', name: 'credentials', scope: 'Plugin', description: 'Instructions for handling API keys and credentials safely, verifying their presence, and prompting the user to add them if missing using a safe protocol.' },
+  { id: 'dbsnp-database', name: 'dbsnp-database', scope: 'Plugin', description: 'Look up, map, and search for short genetic variants (SNPs, indels) in NCBI dbSNP database. Resolves rsIDs, genomic coordinates, and HGVS strings.' },
+  { id: 'embl-ebi-ols', name: 'embl-ebi-ols', scope: 'Plugin', description: 'Query and search the EMBL-EBI Ontology Lookup Service (OLS) for biomedical ontology terms, definitions, and hierarchies across 250+ ontologies.' },
+  { id: 'encode-ccres-database', name: 'encode-ccres-database', scope: 'Plugin', description: 'Query the ENCODE Registry of cis-Regulatory Elements (cCREs) via the SCREEN GraphQL API and query regulatory annotations across human cell types.' },
+  { id: 'ensembl-database', name: 'ensembl-database', scope: 'Plugin', description: 'Query the Ensembl database to resolve gene, transcript, and protein IDs, fetch genomic or protein sequences, and get variant consequence predictions (VEP).' },
+  { id: 'foldseek-structural-search', name: 'foldseek-structural-search', scope: 'Plugin', description: 'Performs 3D structural searches of proteins against databases (PDB, AlphaFold, CATH, MGnify) using the Foldseek API.' },
+  { id: 'gnomad-database', name: 'gnomad-database', scope: 'Plugin', description: 'Query the Genome Aggregation Database (gnomAD) for rarity or allele frequency of genetic variants and gene constraint metrics (pLI, LOEUF).' },
+  { id: 'gtex-database', name: 'gtex-database', scope: 'Plugin', description: 'Retrieve quantitative RNA expression data and variant eQTL information from the GTEx Project across 54 non-diseased tissue sites.' },
+  { id: 'human-protein-atlas-database', name: 'human-protein-atlas-database', scope: 'Plugin', description: 'Retrieve semi-quantitative protein expression and spatial localisation data from the Human Protein Atlas (HPA).' },
+  { id: 'interpro-database', name: 'interpro-database', scope: 'Plugin', description: 'Identify domains, families, and sites in proteins; find all proteins in a family or sharing a domain; explore species distribution for a domain.' },
+  { id: 'jaspar-database', name: 'jaspar-database', scope: 'Plugin', description: 'Query the JASPAR database for Transcription Factor (TF) binding profiles, PFMs, PWMs, and resolve gene symbols to Matrix IDs.' },
+  { id: 'literature-search-arxiv', name: 'literature-search-arxiv', scope: 'Plugin', description: 'Search for scientific papers, preprints, and publications on arXiv. Extract metadata, abstracts, and download PDFs or HTML versions.' },
+  { id: 'literature-search-biorxiv', name: 'literature-search-biorxiv', scope: 'Plugin', description: 'Browse, filter, and download life sciences, biology, and medical preprints from bioRxiv and medRxiv.' },
+  { id: 'literature-search-europepmc', name: 'literature-search-europepmc', scope: 'Plugin', description: 'Search Europe PMC for scientific literature and download open-access full texts, XML, and PDFs.' },
+  { id: 'literature-search-openalex', name: 'literature-search-openalex', scope: 'Plugin', description: 'Query the OpenAlex scholarly database for research papers, authors, institutions, topics, sources, and bibliometric data.' },
+  { id: 'ncbi-sequence-fetch', name: 'ncbi-sequence-fetch', scope: 'Plugin', description: 'Retrieve protein and nucleotide sequences from NCBI databases using E-utilities. Supports direct accession lookup and CDS translation.' },
+  { id: 'openfda-database', name: 'openfda-database', scope: 'Plugin', description: 'Query, search, and download data from the openFDA API for drugs, devices, adverse events, recalls, labeling, and shortages.' },
+  { id: 'opentargets-database', name: 'opentargets-database', scope: 'Plugin', description: 'Query Open Targets Platform for target-disease associations, drug target discovery, tractability/safety data, and genetics evidence.' },
+  { id: 'pdb-database', name: 'pdb-database', scope: 'Plugin', description: 'Search for or download experimentally-determined 3D biomolecular structures (proteins, nucleic acids, bound ligands) from the Protein Data Bank.' },
+  { id: 'predictingthepast', name: 'predictingthepast', scope: 'Plugin', description: 'Ancient text restoration, attribution, dating, contextualization, and embedding via Aeneas (Latin) / Ithaca (Ancient Greek).' },
+  { id: 'protein-sequence-msa', name: 'protein-sequence-msa', scope: 'Plugin', description: 'Performs multiple sequence alignment of proteins with EBI Clustal Omega to assess similarity and domain conservation.' },
+  { id: 'protein-sequence-similarity-search', name: 'protein-sequence-similarity-search', scope: 'Plugin', description: 'Searches for homologous protein sequences using MMseqs2 or BLAST to infer protein function based on sequence similarity.' },
+  { id: 'pubchem-database', name: 'pubchem-database', scope: 'Plugin', description: 'Query PubChem, search by name/CID/SMILES, retrieve molecular properties, chemical structure searches, and bioactivity data.' },
+  { id: 'pubmed-database', name: 'pubmed-database', scope: 'Plugin', description: 'Search PubMed for scientific literature and clinical trials; link published research to biological databases (genes, proteins, compounds).' },
+  { id: 'pymol', name: 'pymol', scope: 'Plugin', description: 'Visualize, analyze, and render protein and molecular structures using PyMOL. Highlight binding sites, active site residues, and color by pLDDT.' },
+  { id: 'quickgo-database', name: 'quickgo-database', scope: 'Plugin', description: 'Query the QuickGO and Evidence & Conclusion Ontology (ECO) REST API for Gene Ontology terms, annotations, and hierarchies.' },
+  { id: 'reactome-database', name: 'reactome-database', scope: 'Plugin', description: 'Query the Reactome database for biological pathway analysis, gene list enrichment, reaction participants, and pathway diagrams.' },
+  { id: 'science-skills-common', name: 'science-skills-common', scope: 'Plugin', description: 'Shared Python package for Science Skills with rate limiting, retries, and exponential backoff HTTP client.' },
+  { id: 'scienceskillscommon', name: 'scienceskillscommon', scope: 'Plugin', description: 'Shared Python package for Science Skills with unified HTTP client and rate limiting.' },
+  { id: 'string-database', name: 'string-database', scope: 'Plugin', description: 'Query the STRING database for protein-protein interactions (PPIs), functional enrichment, confidence scores, and homology.' },
+  { id: 'ucsc-conservation-and-tfbs', name: 'ucsc-conservation-and-tfbs', scope: 'Plugin', description: 'Fetch Evolutionary Conservation scores (phyloP, phastCons) and Transcription Factor Binding Sites (TFBS) from UCSC Genome Browser.' },
+  { id: 'unibind-database', name: 'unibind-database', scope: 'Plugin', description: 'Query the UniBind database for experimentally validated transcription factor (TF) binding sites.' },
+  { id: 'uniprot-database', name: 'uniprot-database', scope: 'Plugin', description: 'Access protein metadata, function, taxonomy, and sequences across UniProtKB, UniParc, and UniRef.' },
+  { id: 'uv', name: 'uv', scope: 'Plugin', description: 'Checks whether the uv Python package manager is installed and installs it if missing. Ensures uv is on PATH.' },
+  { id: 'workflow-skill-creator', name: 'workflow-skill-creator', scope: 'Plugin', description: 'Distills a completed user workflow or interaction into a reusable agent skill.' }
+];
+
+const RECOMMENDED_SKILLS = [
+  {
+    title: 'Match your writing style',
+    description: 'Learns your voice from your real writing across Workspace apps',
+    instructions: 'Analyze the tone, phrasing, cadence, and vocabulary from my inputs and match that voice consistently in all written responses.'
+  },
+  {
+    title: 'Focus your energy',
+    description: 'Align your workload with your energy instead of your calendar',
+    instructions: 'When planning or reviewing tasks, prioritize demanding cognitive work for peak energy windows and group routine tasks together.'
+  },
+  {
+    title: 'Get more perspectives',
+    description: 'Get 3\u20135 distinct viewpoints before you commit to a decision',
+    instructions: 'Whenever evaluating an architecture, strategy, or implementation, provide 3 to 5 distinct perspectives highlighting trade-offs, potential blind spots, and counter-arguments.'
+  },
+  {
+    title: 'Generate fresh ideas',
+    description: 'Turn existing content into 5 entirely new creative concepts',
+    instructions: 'Take the current concept or topic and generate 5 creative, distinct, and unconventional alternative angles or improvements.'
+  },
+  {
+    title: 'Write clearer updates',
+    description: 'Turn rough notes into concise, audience-ready project updates',
+    instructions: 'Transform rough status notes or commit logs into concise, professional updates structured into Summary, Progress, and Next Steps.'
+  },
+  {
+    title: 'Challenge your assumptions',
+    description: 'Surface risks, counterarguments and missing evidence before you decide',
+    instructions: 'Critically analyze proposals, find unstated assumptions, flag potential risks, and identify what evidence is missing before moving forward.'
+  },
+  {
+    title: 'Prepare for meetings',
+    description: 'Create a focused brief with context, questions and desired outcomes',
+    instructions: 'Create a concise meeting brief outline with meeting goal, background context, key discussion questions, and intended decisions/outcomes.'
+  },
+  {
+    title: 'Turn feedback into action',
+    description: 'Organise feedback into themes, priorities and concrete next steps',
+    instructions: 'Synthesize raw feedback or code review comments into thematic groups, prioritized by impact, with concrete actionable steps.'
+  }
+];
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function parseSkillFile(text, filename) {
+  let name = filename ? filename.replace(/\.[^/.]+$/, '') : '';
+  let description = '';
+  let instructions = text;
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (match) {
+    const fm = match[1];
+    instructions = match[2].trim();
+    const nameMatch = fm.match(/^name:\s*(.+)$/m);
+    if (nameMatch) name = nameMatch[1].trim();
+    const descMatch = fm.match(/^description:\s*(?:>-\s*)?([\s\S]*?)(?=\n[a-z_]+:|$)/m);
+    if (descMatch) description = descMatch[1].trim();
+  }
+  return { name, description, instructions, scope: 'Custom' };
+}
+
+function getUserSkills() {
+  try {
+    const raw = localStorage.getItem('bettergravity-user-skills');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUserSkill(skill) {
+  try {
+    const list = getUserSkills();
+    const cleanName = (skill.name || 'custom-skill').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+    const existingIndex = list.findIndex(s => s.id === skill.id || s.name.toLowerCase() === cleanName);
+    const entry = {
+      id: skill.id || 'custom-' + Date.now(),
+      name: cleanName,
+      description: (skill.description || '').trim(),
+      instructions: (skill.instructions || '').trim(),
+      scope: 'Custom',
+      updatedAt: Date.now()
+    };
+    if (existingIndex >= 0) {
+      list[existingIndex] = { ...list[existingIndex], ...entry };
+    } else {
+      entry.createdAt = Date.now();
+      list.unshift(entry);
+    }
+    localStorage.setItem('bettergravity-user-skills', JSON.stringify(list));
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+function deleteUserSkill(id) {
+  try {
+    const list = getUserSkills().filter(s => s.id !== id && s.name !== id);
+    localStorage.setItem('bettergravity-user-skills', JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function downloadSkillFile(skill) {
+  const frontmatter = [
+    '---',
+    `name: ${skill.name}`,
+    `description: ${skill.description || ''}`,
+    '---',
+    '',
+    (skill.instructions || skill.description || '').trim(),
+    ''
+  ].join('\n');
+  const blob = new Blob([frontmatter], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const fileName = (skill.name || 'skill').toLowerCase().replace(/[^a-z0-9_-]+/g, '-') || 'skill';
+  a.download = `${fileName}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function getMainViewportContainer() {
+  const convView = document.querySelector('[data-testid="conversation-view"]');
+  if (convView && convView.parentElement) return convView.parentElement;
+  const flexMain = document.querySelector('.flex-1.flex.flex-col.min-w-0.h-full');
+  if (flexMain) {
+    const viewport = flexMain.querySelector('.flex-1.min-h-0') || flexMain.children[1];
+    if (viewport) return viewport;
+  }
+  return document.body;
+}
+
+let activeKebabPopover = null;
+
+function closeActiveKebabPopover() {
+  if (activeKebabPopover) {
+    activeKebabPopover.remove();
+    activeKebabPopover = null;
+  }
+  for (const r of document.querySelectorAll('.spark-skill-row.has-menu-open')) {
+    r.classList.remove('has-menu-open');
+  }
+}
+
+function openKebabPopover(triggerBtn, rowEl, skill) {
+  closeActiveKebabPopover();
+  rowEl.classList.add('has-menu-open');
+
+  const popover = document.createElement('div');
+  popover.className = 'spark-row-action-menu__popover';
+
+  const isCustom = skill.scope === 'Custom';
+
+  popover.innerHTML = `
+    <button type="button" class="spark-row-action-menu__item" data-action="use-now">
+      <span class="luminous-symbol item-icon">contract</span>
+      <span>Use now</span>
+    </button>
+    <button type="button" class="spark-row-action-menu__item" data-action="edit-gemini">
+      <span class="luminous-symbol item-icon">auto_awesome</span>
+      <span>Edit with Gemini</span>
+    </button>
+    <button type="button" class="spark-row-action-menu__item" data-action="edit-manual">
+      <span class="google-symbols item-icon is-google-symbols">edit_note</span>
+      <span>${isCustom ? 'Edit manually' : 'View / customize'}</span>
+    </button>
+    <div class="spark-row-action-menu__divider"></div>
+    <button type="button" class="spark-row-action-menu__item" data-action="download">
+      <span class="google-symbols item-icon is-google-symbols">download</span>
+      <span>Download</span>
+    </button>
+    ${isCustom ? `
+      <div class="spark-row-action-menu__divider"></div>
+      <button type="button" class="spark-row-action-menu__item is-danger" data-action="delete">
+        <span class="luminous-symbol item-icon">delete</span>
+        <span>Delete</span>
+      </button>
+    ` : ''}
+  `;
+
+  document.body.appendChild(popover);
+  activeKebabPopover = popover;
+
+  const rect = triggerBtn.getBoundingClientRect();
+  const menuWidth = 190;
+  let left = rect.right - menuWidth;
+  if (left < 16) left = 16;
+  let top = rect.bottom + 6;
+  if (top + 220 > window.innerHeight) {
+    top = Math.max(16, rect.top - 220);
+  }
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+
+  popover.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-action]');
+    if (!item) return;
+    const action = item.dataset.action;
+    closeActiveKebabPopover();
+
+    if (action === 'use-now') {
+      closeSkillsView();
+      navigateToExperienceNewConversation('chat');
+      setTimeout(() => {
+        setComposerPromptText('/' + skill.name + ' ');
+      }, 150);
+    } else if (action === 'edit-gemini') {
+      closeSkillsView();
+      navigateToExperienceNewConversation('chat');
+      setTimeout(() => {
+        setComposerPromptText('Please help me refine and customize the Antigravity skill "' + skill.name + '". Description: ' + (skill.description || '') + '. How can we adapt or extend it?');
+      }, 150);
+    } else if (action === 'edit-manual') {
+      renderSkillEditor(skill, isCustom);
+    } else if (action === 'download') {
+      downloadSkillFile(skill);
+    } else if (action === 'delete') {
+      deleteUserSkill(skill.id);
+      renderSkillsLibrary(currentFilterQuery);
+    }
+  });
+}
+
+let currentFilterQuery = '';
+let showAllRecommendationsState = false;
+
+function isSkillsViewOpen() {
+  const view = document.getElementById('gemini-skills-view');
+  return !!(view && view.parentElement && view.style.display !== 'none');
+}
+
+function openSkillsView() {
+  const container = getMainViewportContainer();
+  if (!container) return;
+
+  for (const child of container.children) {
+    if (child.id !== 'gemini-skills-view') {
+      child.dataset.geminiSkillsHidden = child.style.display || '';
+      child.style.display = 'none';
+    }
+  }
+
+  let view = document.getElementById('gemini-skills-view');
+  if (!view) {
+    view = document.createElement('div');
+    view.id = 'gemini-skills-view';
+    view.className = 'spark-customise-page spark-customise-page--skills';
+    container.appendChild(view);
+  } else {
+    view.style.display = 'flex';
+  }
+
+  document.body.classList.add('gemini-skills-open');
+  const skillsBtn = document.getElementById('gemini-skills-button');
+  if (skillsBtn) skillsBtn.classList.add('bg-sidebar-secondary');
+
+  const otherBtns = document.querySelectorAll(
+    '[data-testid="new-conversation-button"], [data-testid="history-button"], #gemini-scheduled-tasks-button, [data-testid="automations-button"], [data-bettergravity-button]'
+  );
+  for (const b of otherBtns) b.classList.remove('bg-sidebar-secondary');
+
+  renderSkillsLibrary();
+}
+
+function closeSkillsView() {
+  document.body.classList.remove('gemini-skills-open');
+  const view = document.getElementById('gemini-skills-view');
+  if (view) view.remove();
+
+  const container = getMainViewportContainer();
+  if (container) {
+    for (const child of container.children) {
+      if (child.dataset.geminiSkillsHidden !== undefined) {
+        const prev = child.dataset.geminiSkillsHidden;
+        child.style.display = (prev === '' || prev === 'none' || prev === 'block') ? '' : prev;
+        delete child.dataset.geminiSkillsHidden;
+      } else if (child.id !== 'gemini-skills-view') {
+        if (child.style.display === 'block' || child.style.display === 'none') {
+          child.style.display = '';
+        }
+      }
+    }
+  }
+
+  const convView = document.querySelector('[data-testid="conversation-view"]');
+  if (convView && (convView.style.display === 'block' || convView.style.display === 'none')) {
+    convView.style.display = '';
+  }
+
+  const skillsBtn = document.getElementById('gemini-skills-button');
+  if (skillsBtn) skillsBtn.classList.remove('bg-sidebar-secondary');
+  closeActiveKebabPopover();
+}
+
+function renderSkillsLibrary(filterText = '', showAllRecs = showAllRecommendationsState) {
+  currentFilterQuery = filterText;
+  showAllRecommendationsState = showAllRecs;
+
+  const view = document.getElementById('gemini-skills-view');
+  if (!view) return;
+
+  closeActiveKebabPopover();
+
+  const userSkills = getUserSkills();
+  const allSkills = [...userSkills, ...ANTIGRAVITY_BUILTIN_SKILLS];
+
+  const q = filterText.toLowerCase().trim();
+  const filtered = q
+    ? allSkills.filter(s => s.name.toLowerCase().includes(q) || (s.description && s.description.toLowerCase().includes(q)))
+    : allSkills;
+
+  const recVisible = showAllRecs ? RECOMMENDED_SKILLS : RECOMMENDED_SKILLS.slice(0, 4);
+
+  view.innerHTML = `
+    <div class="spark-customise-page__narrow-inner">
+      <header class="spark-customise-header">
+        <h1>Skills</h1>
+        <p>Create custom, reusable instructions for more helpful responses. Gemini uses relevant skills automatically, or you can apply them using /.</p>
+      </header>
+
+      <div class="spark-page-actions spark-skills-actions" aria-label="Add a skill">
+        <button type="button" class="spark-page-action spark-page-action--primary" id="gemini-skills-btn-gemini">
+          <span class="luminous-symbol spark-action-icon is-luminous">edit_rectangle</span>
+          <span>Create with Gemini</span>
+        </button>
+        <button type="button" class="spark-page-action" id="gemini-skills-btn-manual">
+          <span class="google-symbols spark-action-icon is-google-symbols">edit_note</span>
+          <span>Create manually</span>
+        </button>
+        <button type="button" class="spark-page-action spark-page-action--icon-only" id="gemini-skills-btn-upload" title="Upload skill" aria-label="Upload skill">
+          <span class="luminous-symbol spark-action-icon is-luminous">upload</span>
+        </button>
+      </div>
+
+      <div class="spark-skills-search-row">
+        <div class="spark-skills-search-box">
+          <span class="luminous-symbol search-icon">search</span>
+          <input type="text" id="gemini-skills-search-input" placeholder="Search skills..." value="${escapeHtml(filterText)}" />
+        </div>
+      </div>
+    </div>
+
+    <section class="spark-skills-library">
+      <h2>Active (${filtered.length})</h2>
+      ${filtered.length === 0 ? `
+        <div class="spark-skills-empty">
+          <h2>No matching skills</h2>
+          <p>Try a different search term or add a new skill</p>
+        </div>
+      ` : `
+        <div class="spark-skills-library__list" id="gemini-skills-active-list"></div>
+      `}
+    </section>
+
+    <section class="spark-recommended-skills">
+      <h2>Recommended</h2>
+      <div class="spark-recommended-skills__grid" id="gemini-skills-recommended-grid"></div>
+      <button type="button" class="spark-show-more" id="gemini-skills-show-more-toggle">
+        <span>${showAllRecs ? 'Show less' : 'Show more'}</span>
+        <span class="luminous-symbol arrow-icon">${showAllRecs ? 'expand_less' : 'expand_more'}</span>
+      </button>
+    </section>
+  `;
+
+  // Attach Header Action Listeners
+  view.querySelector('#gemini-skills-btn-gemini')?.addEventListener('click', () => {
+    closeSkillsView();
+    navigateToExperienceNewConversation('chat');
+    setTimeout(() => {
+      setComposerPromptText('I want to create a new skill for Antigravity. Please ask me questions about what the skill should do and help me design it.');
+    }, 150);
+  });
+
+  view.querySelector('#gemini-skills-btn-manual')?.addEventListener('click', () => {
+    renderSkillEditor({ name: '', description: '', instructions: '', scope: 'Custom' }, false);
+  });
+
+  view.querySelector('#gemini-skills-btn-upload')?.addEventListener('click', () => {
+    renderUploadDialog();
+  });
+
+  // Attach Search Listener
+  const searchInput = view.querySelector('#gemini-skills-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      renderSkillsLibrary(e.target.value, showAllRecommendationsState);
+      const updatedInput = document.getElementById('gemini-skills-search-input');
+      if (updatedInput) {
+        updatedInput.focus();
+        updatedInput.selectionStart = updatedInput.selectionEnd = updatedInput.value.length;
+      }
+    });
+  }
+
+  // Populate Active Skills List
+  const activeList = view.querySelector('#gemini-skills-active-list');
+  if (activeList) {
+    filtered.forEach((skill) => {
+      const row = document.createElement('div');
+      row.className = 'spark-skill-row';
+
+      const cardBtn = document.createElement('button');
+      cardBtn.type = 'button';
+      cardBtn.className = 'spark-skill-card';
+      cardBtn.innerHTML = `
+        <span class="spark-skill-card__copy">
+          <span class="spark-skill-card__header">
+            <span class="spark-skill-card__title">${escapeHtml(skill.name)}</span>
+            <span class="spark-skill-badge ${skill.scope === 'Custom' ? 'spark-skill-badge--custom' : ''}">${escapeHtml(skill.scope || 'Custom')}</span>
+          </span>
+          <span class="spark-skill-card__description">${escapeHtml(skill.description || 'Custom reusable instructions')}</span>
+        </span>
+      `;
+      cardBtn.addEventListener('click', () => {
+        renderSkillEditor(skill, skill.scope === 'Custom');
+      });
+
+      const actionsWell = document.createElement('div');
+      actionsWell.className = 'spark-skill-row__actions';
+      const kebabBtn = document.createElement('button');
+      kebabBtn.type = 'button';
+      kebabBtn.className = 'spark-row-action-menu__trigger';
+      kebabBtn.title = 'Skill options';
+      kebabBtn.innerHTML = '<span class="luminous-symbol">more_vert</span>';
+      kebabBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openKebabPopover(kebabBtn, row, skill);
+      });
+      actionsWell.appendChild(kebabBtn);
+
+      row.appendChild(cardBtn);
+      row.appendChild(actionsWell);
+      activeList.appendChild(row);
+    });
+  }
+
+  // Populate Recommended Skills Grid
+  const recGrid = view.querySelector('#gemini-skills-recommended-grid');
+  if (recGrid) {
+    recVisible.forEach((rec) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'spark-recommended-skill';
+      card.innerHTML = `
+        <span class="spark-recommended-skill__copy">
+          <h3 class="spark-recommended-skill__title">${escapeHtml(rec.title)}</h3>
+          <p class="spark-recommended-skill__description">${escapeHtml(rec.description)}</p>
+        </span>
+      `;
+      card.addEventListener('click', () => {
+        const defaultName = rec.title.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+        renderSkillEditor({
+          name: defaultName,
+          description: rec.description,
+          instructions: rec.instructions,
+          scope: 'Custom'
+        }, false);
+      });
+      recGrid.appendChild(card);
+    });
+  }
+
+  // Toggle Show More / Less
+  view.querySelector('#gemini-skills-show-more-toggle')?.addEventListener('click', () => {
+    renderSkillsLibrary(currentFilterQuery, !showAllRecs);
+  });
+}
+
+function renderSkillEditor(draft, isEditing = false) {
+  const view = document.getElementById('gemini-skills-view');
+  if (!view) return;
+
+  closeActiveKebabPopover();
+
+  const currentDraft = {
+    id: draft.id || '',
+    name: draft.name || '',
+    description: draft.description || '',
+    instructions: draft.instructions || '',
+    scope: draft.scope || 'Custom'
+  };
+
+  const initialSnapshot = JSON.stringify([currentDraft.name, currentDraft.description, currentDraft.instructions]);
+
+  view.innerHTML = `
+    <div class="spark-skill-editor">
+      <form class="spark-skill-editor__content" id="gemini-skill-editor-form">
+        <header class="spark-skill-editor__header">
+          <button type="button" class="spark-skill-editor__back" id="gemini-skill-editor-back">
+            <span class="luminous-symbol back-icon">arrow_back</span>
+            <span>Skills</span>
+          </button>
+          <div class="spark-skill-editor__header-actions">
+            ${isEditing && currentDraft.scope === 'Custom' ? `
+              <button type="button" class="spark-skill-editor__delete" id="gemini-skill-editor-delete" title="Delete skill">
+                <span class="luminous-symbol del-icon">delete</span>
+              </button>
+            ` : ''}
+            <button type="submit" class="spark-skill-editor__create" id="gemini-skill-editor-submit" disabled>
+              <span>${isEditing ? 'Save' : 'Create'}</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="spark-skill-editor__panel">
+          <div class="spark-skill-editor__field">
+            <label for="gemini-skill-input-name">Skill name</label>
+            <input id="gemini-skill-input-name" type="text" placeholder="Name your skill" autocomplete="off" value="${escapeHtml(currentDraft.name)}" />
+          </div>
+
+          <div class="spark-skill-editor__field">
+            <label for="gemini-skill-input-desc">Description</label>
+            <textarea id="gemini-skill-input-desc" rows="2" placeholder="Give your skill a description" autocomplete="off">${escapeHtml(currentDraft.description)}</textarea>
+          </div>
+
+          <div class="spark-skill-editor__field spark-skill-editor__field--instructions">
+            <div class="spark-skill-editor__instructions-heading">
+              <label for="gemini-skill-input-inst">Instructions</label>
+            </div>
+            <textarea id="gemini-skill-input-inst" placeholder="Describe what you want Gemini to do">${escapeHtml(currentDraft.instructions)}</textarea>
+          </div>
+        </section>
+      </form>
+    </div>
+  `;
+
+  const nameInput = view.querySelector('#gemini-skill-input-name');
+  const descInput = view.querySelector('#gemini-skill-input-desc');
+  const instInput = view.querySelector('#gemini-skill-input-inst');
+  const submitBtn = view.querySelector('#gemini-skill-editor-submit');
+  const backBtn = view.querySelector('#gemini-skill-editor-back');
+  const deleteBtn = view.querySelector('#gemini-skill-editor-delete');
+
+  const checkCanSubmit = () => {
+    const valid = !!(nameInput.value.trim() && instInput.value.trim());
+    submitBtn.disabled = !valid;
+  };
+
+  nameInput.addEventListener('input', checkCanSubmit);
+  instInput.addEventListener('input', checkCanSubmit);
+  descInput.addEventListener('input', checkCanSubmit);
+  checkCanSubmit();
+
+  const isDirty = () => {
+    const snap = JSON.stringify([nameInput.value, descInput.value, instInput.value]);
+    return snap !== initialSnapshot;
+  };
+
+  backBtn.addEventListener('click', () => {
+    if (isDirty()) {
+      if (confirm('Leave without saving? You will lose any recent changes.')) {
+        renderSkillsLibrary(currentFilterQuery);
+      }
+    } else {
+      renderSkillsLibrary(currentFilterQuery);
+    }
+  });
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => {
+      if (confirm(`Delete "${currentDraft.name}"? This cannot be undone.`)) {
+        deleteUserSkill(currentDraft.id);
+        renderSkillsLibrary(currentFilterQuery);
+      }
+    });
+  }
+
+  view.querySelector('#gemini-skill-editor-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (submitBtn.disabled) return;
+    saveUserSkill({
+      id: currentDraft.id,
+      name: nameInput.value.trim(),
+      description: descInput.value.trim(),
+      instructions: instInput.value.trim(),
+      scope: 'Custom'
+    });
+    renderSkillsLibrary(currentFilterQuery);
+  });
+}
+
+function renderUploadDialog() {
+  closeActiveKebabPopover();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'spark-upload-dialog-backdrop';
+  backdrop.innerHTML = `
+    <div class="spark-upload-dialog" role="dialog" aria-modal="true">
+      <h2>Upload skill</h2>
+      <div class="spark-upload-dialog__requirements">
+        <p>To upload a skill:</p>
+        <ul>
+          <li>File must contain a name, description, and instructions</li>
+          <li>Accepted formats: .md, .txt, .py, .zip</li>
+        </ul>
+      </div>
+      <div class="spark-upload-dialog__dropzone" id="gemini-skill-dropzone">
+        <input type="file" id="gemini-skill-file-input" accept=".md,.txt,.py,.zip" style="display:none;" />
+        <div class="spark-upload-dialog__drop-content">
+          <span class="luminous-symbol upload-icon">upload</span>
+          <span>Drag and drop skill file here or <button type="button" class="spark-inline-link" id="gemini-skill-browse-link">browse</button></span>
+        </div>
+      </div>
+      <div class="spark-upload-dialog__actions">
+        <button type="button" class="spark-upload-dialog__btn spark-upload-dialog__btn--cancel" id="gemini-skill-upload-close">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+
+  const closeDialog = () => backdrop.remove();
+
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) closeDialog();
+  });
+  backdrop.querySelector('#gemini-skill-upload-close')?.addEventListener('click', closeDialog);
+
+  const fileInput = backdrop.querySelector('#gemini-skill-file-input');
+  const dropzone = backdrop.querySelector('#gemini-skill-dropzone');
+  const browseLink = backdrop.querySelector('#gemini-skill-browse-link');
+
+  browseLink?.addEventListener('click', (e) => {
+    e.preventDefault();
+    fileInput?.click();
+  });
+
+  dropzone?.addEventListener('click', (e) => {
+    if (e.target !== browseLink) fileInput?.click();
+  });
+
+  dropzone?.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('is-dragging');
+  });
+
+  dropzone?.addEventListener('dragleave', () => {
+    dropzone.classList.remove('is-dragging');
+  });
+
+  const handleFiles = (files) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result || '');
+      const parsed = parseSkillFile(content, file.name);
+      closeDialog();
+      renderSkillEditor(parsed, false);
+    };
+    reader.readAsText(file);
+  };
+
+  dropzone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('is-dragging');
+    handleFiles(e.dataTransfer?.files);
+  });
+
+  fileInput?.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+  });
+}
+
+function ensureSkillsRow(block) {
+  let row = document.getElementById('gemini-skills-button');
+  if (!row) {
+    row = navRow('gemini-skills-button');
+    row.innerHTML = '<span class="icon-box"></span><span class="truncate">Skills</span>';
+    row.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (isSkillsViewOpen()) {
+        closeSkillsView();
+      } else {
+        openSkillsView();
+      }
+    });
+  }
+  const slot = row.querySelector('span:last-child');
+  if (slot && slot.textContent !== 'Skills') slot.textContent = 'Skills';
+  row.classList.toggle('bg-sidebar-secondary', isSkillsViewOpen());
+  if (row.parentElement !== block) block.appendChild(row);
+}
+
+document.addEventListener('click', (e) => {
+  const target = e.target;
+  if (!target || !target.closest) return;
+  if (
+    target.closest('#gemini-skills-view') ||
+    target.closest('#gemini-skills-button') ||
+    target.closest('.spark-row-action-menu__popover') ||
+    target.closest('.spark-upload-dialog-backdrop')
+  ) {
+    return;
+  }
+  if (
+    target.closest('[data-testid="new-conversation-button"]') ||
+    target.closest('[data-testid="history-button"]') ||
+    target.closest('#gemini-scheduled-tasks-button') ||
+    target.closest('[data-testid="automations-button"]') ||
+    target.closest('#gemini-new-project-button') ||
+    target.closest('[data-testid="conversation-row-sidebar"]') ||
+    target.closest('#gemini-experience-switch') ||
+    target.closest('a[href*="/c/"]') ||
+    target.closest('[role="navigation"][aria-label="Sidebar"] a') ||
+    target.closest('[data-bettergravity-button]') ||
+    target.closest('#gemini-scroll-nav > *')
+  ) {
+    cancelSentPromptGlide();
+    if (isSkillsViewOpen()) {
+      closeSkillsView();
+    }
+  }
+}, true);
+
+window.addEventListener('popstate', () => {
+  cancelSentPromptGlide();
+  if (isSkillsViewOpen()) {
+    closeSkillsView();
+  }
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if (activeKebabPopover && !activeKebabPopover.contains(e.target) && !e.target.closest('.spark-row-action-menu__trigger')) {
+    closeActiveKebabPopover();
+  }
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeActiveKebabPopover();
+    const uploadDialog = document.querySelector('.spark-upload-dialog-backdrop');
+    if (uploadDialog) uploadDialog.remove();
+  }
+});
+
 function ensureScheduledTasksRow(block) {
   const original = document.querySelector(AUTOMATIONS_SELECTOR);
   let row = document.getElementById('gemini-scheduled-tasks-button');
@@ -1264,6 +2102,15 @@ function ensureScheduledTasksRow(block) {
   if (row.parentElement !== block) block.appendChild(row);
 }
 
+function isPinnedTopNavItem(node) {
+  if (!node || node.nodeType !== 1) return true;
+  if (node.id === 'gemini-scroll-nav') return true;
+  if (node.matches('[data-testid="new-conversation-button"]') || node.querySelector?.('[data-testid="new-conversation-button"]')) return true;
+  if (node.matches('[data-testid="history-button"]') || node.querySelector?.('[data-testid="history-button"]')) return true;
+  if (node.matches(AUTOMATIONS_SELECTOR) || node.querySelector?.(AUTOMATIONS_SELECTOR)) return true;
+  return false;
+}
+
 function ensureScrollNav() {
   const collapsed = isSidebarCollapsed();
   const topNav = document.querySelector('[role="navigation"][aria-label="Sidebar"] > .px-2 > div.flex-col') ||
@@ -1271,11 +2118,19 @@ function ensureScrollNav() {
   const scroller = document.querySelector(LIST_SELECTOR);
   if (!topNav && !scroller) return;
 
+  if (topNav && !topNav.__geminiNavObserved) {
+    topNav.__geminiNavObserved = true;
+    const topNavObserver = new MutationObserver(() => ensureScrollNav());
+    topNavObserver.observe(topNav, { childList: true });
+    remember(topNav, topNavObserver);
+  }
+
   let block = document.getElementById('gemini-scroll-nav');
   if (!block) {
     block = document.createElement('div');
     block.id = 'gemini-scroll-nav';
   }
+  ensureSkillsRow(block);
   ensureScheduledTasksRow(block);
 
   const isWork = getStoredExperience() === 'work';
@@ -1286,16 +2141,61 @@ function ensureScrollNav() {
   }
   ensureDisplayOptionsRow(block);
 
-  const wantedIds = isWork
-    ? ['gemini-scheduled-tasks-button', 'gemini-new-project-button', 'gemini-display-options-button']
-    : ['gemini-scheduled-tasks-button', 'gemini-display-options-button'];
+  const topRowIds = isWork
+    ? ['gemini-skills-button', 'gemini-scheduled-tasks-button', 'gemini-new-project-button']
+    : ['gemini-skills-button', 'gemini-scheduled-tasks-button'];
+
+  const topRows = topRowIds
+    .map((id) => document.getElementById(id))
+    .filter((row) => row && row.parentElement === block);
+
+  const bottomRows = ['gemini-display-options-button']
+    .map((id) => document.getElementById(id))
+    .filter((row) => row && row.parentElement === block);
+
+  // Global rule: only New Conversation and History remain pinned at the top.
+  // Any other items in topNav (such as plugin buttons) are adopted into the scroll block.
+  const unpinnedTopNavItems = topNav
+    ? Array.from(topNav.children).filter((child) => !isPinnedTopNavItem(child))
+    : [];
+
+  const existingAdoptedInBlock = Array.from(block.children).filter((child) => {
+    return child.id !== 'gemini-skills-button' &&
+           child.id !== 'gemini-scheduled-tasks-button' &&
+           child.id !== 'gemini-new-project-button' &&
+           child.id !== 'gemini-display-options-button';
+  });
+
+  const otherPluginButtons = Array.from(
+    document.querySelectorAll('[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button]')
+  ).filter((b) => b.parentElement !== block && !isPinnedTopNavItem(b));
+
+  const adoptedPluginItems = [];
+  const seenNodes = new Set();
+  for (const item of [...existingAdoptedInBlock, ...unpinnedTopNavItems, ...otherPluginButtons]) {
+    if (!seenNodes.has(item)) {
+      seenNodes.add(item);
+      adoptedPluginItems.push(item);
+    }
+  }
+
+  for (const item of adoptedPluginItems) {
+    if (!item.classList.contains('gemini-nav-item')) {
+      item.classList.add('gemini-nav-item');
+    }
+    item.classList.remove('bg-sidebar-secondary');
+    if (item.firstElementChild && item.firstElementChild.tagName.toLowerCase() === 'svg') {
+      const iconWrap = document.createElement('span');
+      iconWrap.className = 'icon-box shrink-0 flex items-center';
+      item.insertBefore(iconWrap, item.firstElementChild);
+      iconWrap.appendChild(item.children[1]);
+    }
+  }
 
   // Every write from here down is guarded, because the observers that call this
   // watch the nodes it writes to, and a `replaceChildren` or an `insertBefore`
   // that changes nothing still reports a mutation. That is a loop.
-  const wanted = wantedIds
-    .map((id) => document.getElementById(id))
-    .filter((row) => row && row.parentElement === block);
+  const wanted = [...topRows, ...adoptedPluginItems, ...bottomRows];
   const current = [...block.children];
   if (wanted.length !== current.length || wanted.some((row, i) => current[i] !== row)) {
     block.replaceChildren(...wanted);
@@ -2635,8 +3535,26 @@ plugin.onDispose(() => {
   // and the fade drawn over the top of it.
   document.getElementById("gemini-new-project-button")?.remove();
   document.getElementById("gemini-display-options-button")?.remove();
+  document.getElementById("gemini-skills-button")?.remove();
+  closeSkillsView();
   document.getElementById("gemini-scheduled-tasks-button")?.remove();
-  document.getElementById("gemini-scroll-nav")?.remove();
+  const scrollNav = document.getElementById("gemini-scroll-nav");
+  if (scrollNav) {
+    const topNav = document.querySelector('[role="navigation"][aria-label="Sidebar"] > .px-2 > div.flex-col') ||
+                   document.querySelector('[role="navigation"][aria-label="Sidebar"] > div.px-2 > div.flex-col');
+    if (topNav) {
+      const adopted = Array.from(scrollNav.children).filter((c) => {
+        return c.id !== 'gemini-skills-button' &&
+               c.id !== 'gemini-scheduled-tasks-button' &&
+               c.id !== 'gemini-new-project-button' &&
+               c.id !== 'gemini-display-options-button';
+      });
+      for (const btn of adopted) {
+        topNav.appendChild(btn);
+      }
+    }
+    scrollNav.remove();
+  }
   document.getElementById("gemini-top-fade")?.remove();
   document.querySelectorAll(".gemini-logo-btn, .willow-sidenav-text, .gemini-sidebar-expand-rail, #gemini-experience-switch").forEach((el) => el.remove());
   document.querySelectorAll('[role="navigation"][aria-label="Sidebar"]').forEach((el) => el.removeAttribute("data-collapsed"));
@@ -4206,7 +5124,7 @@ function markTurnActions(root) {
  * What the two passes above actually read: a turn, one of the view's scrollers,
  * and the action bar that lands when a turn finishes.
  */
-const TURN_LANDMARKS = '[role="article"], .overflow-y-auto, button[aria-label="Good response"], button[aria-label="Copy"]';
+const TURN_LANDMARKS = '[role="article"], [data-testid="user-input-step"], .overflow-y-auto, button[aria-label="Good response"], button[aria-label="Copy"]';
 
 /*
  * A streaming reply changes this subtree continuously — every word arriving is a
@@ -4240,6 +5158,9 @@ function scanTurnMutations(records) {
 }
 
 plugin.dom.observe(CONV_VIEW_SELECTOR, (view) => {
+  if (view.style.display === 'block') {
+    view.style.display = '';
+  }
   applyConversationScrollbar(view);
   updateTurnFooters(view);
   markTurnActions(view);
@@ -4250,6 +5171,9 @@ plugin.dom.observe(CONV_VIEW_SELECTOR, (view) => {
     convRafId = requestAnimationFrame(() => {
       convRafId = null;
       if (!view.isConnected) return;
+      if (view.style.display === 'block') {
+        view.style.display = '';
+      }
       lastPass = performance.now();
       applyConversationScrollbar(view);
       updateTurnFooters(view);
@@ -4587,10 +5511,189 @@ function armComposerSlide() {
   pendingSlide = { watcher, timer: window.setTimeout(cancelComposerSlide, SLIDE_WINDOW_MS) };
 }
 
+/**
+ * Sampler for Willow's emphasised curve, `cubic-bezier(0.2, 0, 0, 1)`.
+ * Newton-Raphson to invert x(u), then evaluate y(u) (from features/chat/src/ChatView.tsx).
+ */
+function sampleEmphasisedEase(t) {
+  const axis = (c1, c2, u) => {
+    const a = 3 * c1;
+    const b = 3 * (c2 - c1) - a;
+    const c = 1 - a - b;
+    return ((c * u + b) * u + a) * u;
+  };
+  const axisSlope = (c1, c2, u) => {
+    const a = 3 * c1;
+    const b = 3 * (c2 - c1) - a;
+    const c = 1 - a - b;
+    return (3 * c * u + 2 * b) * u + a;
+  };
+  let u = t;
+  for (let i = 0; i < 5; i += 1) {
+    const slope = axisSlope(0.2, 0, u);
+    if (Math.abs(slope) < 1e-6) break;
+    u -= (axis(0.2, 0, u) - t) / slope;
+  }
+  return axis(0, 1, Math.min(1, Math.max(0, u)));
+}
+
+let pendingSentPromptGlide = null;
+
+function cancelSentPromptGlide() {
+  if (!pendingSentPromptGlide) return;
+  if (pendingSentPromptGlide.timer) {
+    window.clearTimeout(pendingSentPromptGlide.timer);
+  }
+  if (pendingSentPromptGlide.watcher) {
+    pendingSentPromptGlide.watcher.disconnect();
+  }
+  pendingSentPromptGlide = null;
+}
+
+/**
+ * Sent-prompt entrance animation: the new user bubble glides from where the
+ * composer was to its resting position near the top of the conversation view,
+ * while the previous conversation thread smoothly glides upward to make room.
+ *
+ * Runs entirely on Chromium's GPU compositor thread (cubic-bezier(0.2, 0, 0, 1))
+ * without JavaScript layout reflows, scroll thrashing, or dropped frames.
+ */
+function armSentPromptGlide() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const box = document.querySelector(COMPOSER_BOX) || document.querySelector(INPUT_BOX);
+  if (!box) return;
+
+  cancelSentPromptGlide();
+  const rect = box.getBoundingClientRect();
+  if (rect.height === 0 || rect.width === 0) return;
+
+  const fromTop = rect.top;
+  const existingCount = document.querySelectorAll('[data-testid="user-input-step"]').length;
+
+  const launchGlide = (step) => {
+    try {
+      if (!step || step.dataset.geminiGlided) return;
+      step.dataset.geminiGlided = "true";
+      cancelSentPromptGlide();
+
+      const currTurn = step.closest('.flex.items-start') || step.closest('[role="article"]') || step;
+      const card = step.closest('[role="article"]') || currTurn;
+      const currentScroller =
+        step.closest('.overflow-y-auto') ||
+        document.querySelector('[data-testid="conversation-view"] .overflow-y-auto');
+
+      if (!card || !currTurn || !currentScroller) return;
+
+      const restingTop = card.getBoundingClientRect().top;
+      const distance = Math.round(fromTop - restingTop);
+
+      if (Math.abs(distance) < 20) return;
+
+      // Willow's signature layout transition timing: 240ms base + distance factor, clamped to 480ms max
+      const duration = Math.min(480, Math.max(260, 240 + Math.abs(distance) * 0.20));
+      const easing = "cubic-bezier(0.2, 0, 0, 1)";
+
+      const activeAnims = [];
+
+      // 1. Animate the new user prompt card ascending from the composer dock position
+      const animPrompt = card.animate(
+        [
+          { transform: `translateY(${distance}px)` },
+          { transform: "translateY(0px)" }
+        ],
+        { duration, easing, fill: "none" }
+      );
+      activeAnims.push(animPrompt);
+
+      // 2. Animate previous visible message turn(s) sliding up in 100% unified lockstep
+      const turnsList = currTurn.parentElement;
+      if (turnsList) {
+        const turns = Array.from(turnsList.children);
+        const currIndex = turns.indexOf(currTurn);
+        const prevTurns = currIndex > 0 ? turns.slice(0, currIndex) : [];
+
+        for (const pt of prevTurns) {
+          const r = pt.getBoundingClientRect();
+          if (r.bottom >= -distance && r.top <= window.innerHeight) {
+            const animPrev = pt.animate(
+              [
+                { transform: `translateY(${distance}px)` },
+                { transform: "translateY(0px)" }
+              ],
+              { duration, easing, fill: "none" }
+            );
+            activeAnims.push(animPrev);
+          }
+        }
+      }
+
+      const onInterrupt = () => {
+        for (const a of activeAnims) {
+          try { a.cancel(); } catch (_) {}
+        }
+        card.style.transform = '';
+        currentScroller.removeEventListener('wheel', onInterrupt);
+        currentScroller.removeEventListener('touchstart', onInterrupt);
+      };
+      currentScroller.addEventListener('wheel', onInterrupt, { passive: true, once: true });
+      currentScroller.addEventListener('touchstart', onInterrupt, { passive: true, once: true });
+    } catch (_) {}
+  };
+
+  const watcher = new MutationObserver(() => {
+    try {
+      const steps = document.querySelectorAll('[data-testid="user-input-step"]');
+      if (steps.length <= existingCount) return;
+
+      const step = steps[steps.length - 1];
+      launchGlide(step);
+    } catch (_) {}
+  });
+
+  watcher.observe(document.documentElement, { childList: true, subtree: true });
+  pendingSentPromptGlide = {
+    watcher,
+    timer: window.setTimeout(cancelSentPromptGlide, 4000)
+  };
+
+  // Immediate check in case React updated synchronously before MutationObserver registered
+  try {
+    const currentSteps = document.querySelectorAll('[data-testid="user-input-step"]');
+    if (currentSteps.length > existingCount) {
+      launchGlide(currentSteps[currentSteps.length - 1]);
+    }
+  } catch (_) {}
+}
+
+function isComposerSubmitButton(target) {
+  if (!target || !(target instanceof Element)) return false;
+  const btn = target.closest('button');
+  if (!btn) return false;
+
+  const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+  const testId = (btn.getAttribute('data-testid') || '').toLowerCase();
+
+  if (testId === 'send-button' || testId.includes('send') || label.includes('send')) {
+    return true;
+  }
+  if (btn.querySelector('svg.lucide-arrow-up, svg.lucide-send')) {
+    return true;
+  }
+  return false;
+}
+
 function onComposerSubmitKey(event) {
   if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
   const target = event.target instanceof Element ? event.target : null;
-  if (!target?.closest(COMPOSER_BOX) && !target?.closest(INPUT_BOX)) return;
+  if (
+    !target?.closest(COMPOSER_BOX) &&
+    !target?.closest(INPUT_BOX) &&
+    !target?.closest('.tiptap') &&
+    !target?.closest('[contenteditable="true"]') &&
+    !target?.closest('[aria-label="Message input"]')
+  ) {
+    return;
+  }
 
   const currentTool = getSelectedTool();
   if (currentTool) {
@@ -4619,12 +5722,13 @@ function onComposerSubmitKey(event) {
   }
 
   armComposerSlide();
+  armSentPromptGlide();
 }
 
 function onComposerSubmitClick(event) {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
-  if (target.closest(SEND_BUTTON) || target.closest('[data-testid="send-button"]')) {
+  if (isComposerSubmitButton(target)) {
     const currentTool = getSelectedTool();
     if (currentTool) {
       const root = editorRoot();
@@ -4652,12 +5756,16 @@ function onComposerSubmitClick(event) {
     }
 
     armComposerSlide();
+    armSentPromptGlide();
     return;
   }
   // Opening a conversation from the sidebar is the one navigation that must not
   // slide. It can only collide with a pending submit if both happen inside the
   // window above, and then the composer that arrives is the sidebar's.
-  if (target.closest(SIDEBAR_NAV)) cancelComposerSlide();
+  if (target.closest(SIDEBAR_NAV)) {
+    cancelComposerSlide();
+    cancelSentPromptGlide();
+  }
 }
 
 // Capture, so a submit is seen before whatever Antigravity's editor does with
@@ -5556,6 +6664,9 @@ plugin.onDispose(() => {
   for (const host of document.querySelectorAll("[data-gemini-top-chips]")) host.remove();
   for (const row of document.querySelectorAll("[data-gemini-parked-row]")) row.removeAttribute("data-gemini-parked-row");
   for (const dlg of document.querySelectorAll(".willow-gdlg-host")) dlg.remove();
+  closeSkillsView();
+  cancelSentPromptGlide();
+  document.getElementById("gemini-skills-button")?.remove();
   const s = document.getElementById("gemini-theme-dynamic-styles");
   if (s) s.remove();
 });

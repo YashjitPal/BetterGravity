@@ -1,0 +1,9 @@
+{
+  "name": "Fork Chat",
+  "description": "Fork any conversation from any message turn or sidebar thread into a new branch or workspace, matching Codex and Claude Code.",
+  "version": "1.0.0",
+  "author": "Yashjit Pal",
+  "main": "index.js",
+  "styles": ["styles/fork.css"],
+  "source": "https://github.com/YashjitPal/BetterGravity"
+}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-08T15:54:29.022Z",
+  "generatedAt": "2026-09-09T19:38:03.295Z",
   "entries": [
     {
       "id": "discord-rich-presence",
@@ -22,6 +22,39 @@
           "name": "plugin.json",
           "bytes": 286,
           "sha256": "1e854c6cfc78478c68dfd4b7f66160bb675722e6cfb5e6b81fcf871d71a1b729"
+        }
+      ]
+    },
+    {
+      "id": "fork-chat",
+      "kind": "plugin",
+      "name": "Fork Chat",
+      "description": "Fork any conversation from any message turn or sidebar thread into a new branch or workspace, matching Codex and Claude Code.",
+      "version": "1.0.0",
+      "author": "Yashjit Pal",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/fork-chat",
+      "bytes": 54132,
+      "files": [
+        {
+          "name": "index.js",
+          "bytes": 39195,
+          "sha256": "d678603d44087a571a4a9d7b1d5c21e82e9bb8fef1a3a031bb5be47688056669"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 335,
+          "sha256": "8972e1f6a531171e46790693938460479e7d93a4bca52fb12df3bf42b2e754fb"
+        },
+        {
+          "name": "README.md",
+          "bytes": 1366,
+          "sha256": "8641f34bc299e15504ef7d4bafec50437e8a25f18c4bcc6a4a8216176d45103a"
+        },
+        {
+          "name": "styles/fork.css",
+          "bytes": 13236,
+          "sha256": "0924c67eb9a739cb8cae18ee9f25024bf79a042d9140d7a3ba4c53a4701523a6"
         }
       ]
     },
@@ -57,7 +90,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 605075,
+      "bytes": 685989,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -76,8 +109,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 206465,
-          "sha256": "03e67182c501ef3c0f57e4b5e2e91cbac4c50e8b34b982e2bf40381b524d3fea"
+          "bytes": 257284,
+          "sha256": "9a8a6c8d699ec18d9290a4d51d5f6dfc2381fc754f532436dd558586491b1554"
         },
         {
           "name": "plugin.json",
@@ -86,18 +119,18 @@
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 63744,
-          "sha256": "7bcb61cc9393ae183c2c02cee72cb37c525f627c67d4a1667ffb03fc96f4155f"
+          "bytes": 67094,
+          "sha256": "e4e28a3c648845f6045551c2b3d3f26e644605ad44ef9e8eeca3258c18d0ae3f"
         },
         {
           "name": "styles/dialog.css",
-          "bytes": 5773,
-          "sha256": "1bd5038f61e99c5ab6b57451d28173bb8bf68d82f5e88b663e8642c62a8a6f7f"
+          "bytes": 6599,
+          "sha256": "3f59ed40c508ee9e7586ee880f5f69f6a2cfe53ae71add2f7ac199c97b1c10f7"
         },
         {
           "name": "styles/gemini-app.css",
-          "bytes": 2475,
-          "sha256": "e95d974d0eeee8ffb3ca16db984470fa7a2a61a768b3004e64587be5ac628d36"
+          "bytes": 2501,
+          "sha256": "e368ecde53c61eb8aa09ca36d79a513116370546d6426c97fe64223a908c40ec"
         },
         {
           "name": "styles/home-composer.css",
@@ -126,8 +159,13 @@
         },
         {
           "name": "styles/sidebar.css",
-          "bytes": 114829,
-          "sha256": "2e6f30bd7b22919280e36515815eb7fb86618a5ebb4412e10ca03ec71e09341d"
+          "bytes": 121019,
+          "sha256": "629b49a70321880a019cb90edc7d37d84d443fe66a144261befc48b62121244d"
+        },
+        {
+          "name": "styles/skills-tab.css",
+          "bytes": 19703,
+          "sha256": "6a8766b2eb6db9185641176794efff62abec8ddea2551a4f55be2cdef9708d40"
         },
         {
           "name": "styles/tokens.css",

@@ -1,0 +1,918 @@
+/* ===========================================================================
+ * Gemini App — Skills Tab & Skill Editor (Willow Spark Fidelity)
+ * Based on features/spark/src/SparkCustomisePages.css & SparkSkillEditor.css
+ * ======================================================================== */
+
+.spark-customise-page--skills,
+.spark-customise-page--skills * {
+  box-sizing: border-box;
+}
+
+.spark-customise-page--skills {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding: 40px 0 64px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--studio-surface, #0f0f0f);
+  color: #e3e3e3;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif);
+  letter-spacing: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.spark-customise-page__narrow-inner {
+  width: min(676px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.spark-customise-header {
+  margin-bottom: 8px;
+}
+
+.spark-customise-header h1 {
+  margin: 0;
+  padding: 4px 8px 4px 16px;
+  color: #e3e3e3;
+  font-size: 28px;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 100, "wght" 350;
+  font-weight: 350;
+  line-height: 36px;
+}
+
+.spark-customise-header p {
+  margin: 0;
+  padding: 0 16px;
+  color: #c4c7c5;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.spark-inline-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #e6e6e6;
+  font: inherit;
+  font-weight: 400;
+  text-decoration: underline 1.2px dotted;
+  cursor: pointer;
+}
+
+.spark-inline-link:hover {
+  text-decoration: underline 1.2px solid;
+}
+
+/* Page actions */
+.spark-page-actions {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 0 8px;
+}
+
+.spark-page-action {
+  display: inline-flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px 0 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: #171717;
+  color: #e6e6e6;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+  user-select: none;
+}
+
+.spark-page-action:hover {
+  background: #242424;
+}
+
+.spark-page-action--primary {
+  background: var(--spark-accent, #1f3b9b);
+  color: #ffffff;
+}
+
+.spark-page-action--primary:hover {
+  background: var(--spark-accent-hover, #2c48a8);
+}
+
+.spark-page-action.spark-page-action--icon-only {
+  width: 48px;
+  flex: 0 0 48px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.spark-action-icon {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  max-width: 24px;
+  max-height: 24px;
+  font-size: 24px !important;
+  line-height: 24px !important;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+  direction: ltr;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  -webkit-font-feature-settings: "liga" !important;
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  flex-shrink: 0;
+}
+
+.spark-action-icon.is-luminous {
+  font-family: var(--gemini-icon-font, "Luminous Symbols") !important;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24 !important;
+}
+
+.spark-action-icon.is-google-symbols {
+  font-family: var(--gemini-symbols-font, "Google Symbols"), "Google Symbols" !important;
+  font-variation-settings: "ROND" 100, "slnt" 0, "wght" 300 !important;
+}
+
+.spark-page-action.spark-page-action--icon-only .spark-action-icon.is-luminous {
+  font-variation-settings: "FILL" 0, "wght" 330, "GRAD" 0, "ROND" 100, "opsz" 24 !important;
+}
+
+.spark-row-action-menu__item .item-icon.is-google-symbols {
+  font-family: var(--gemini-symbols-font, "Google Symbols"), "Google Symbols" !important;
+  font-variation-settings: "ROND" 100, "slnt" 0, "wght" 320 !important;
+}
+
+.luminous-symbol,
+.spark-page-action .material-symbol,
+.spark-page-action .luminous-symbol {
+  font-family: var(--gemini-icon-font, "Luminous Symbols") !important;
+  font-variation-settings: var(--gemini-icon-axes-menu, "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
+  font-feature-settings: "liga" !important;
+  -webkit-font-smoothing: antialiased !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+/* Search filter */
+.spark-skills-search-row {
+  margin-top: 20px;
+  padding: 0 8px;
+}
+
+.spark-skills-search-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 24px 0 16px;
+  border: 0;
+  border-radius: 9999px;
+  background: #171717;
+  color: #e6e6e6;
+  transition: background-color 140ms ease;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.spark-skills-search-box:hover,
+.spark-skills-search-box:focus-within {
+  background: #242424;
+}
+
+.spark-skills-search-box .search-icon {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  font-family: var(--gemini-icon-font, "Luminous Symbols") !important;
+  font-size: 24px !important;
+  line-height: 24px !important;
+  font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24 !important;
+  color: #c4c7c5;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.spark-skills-search-box input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0 !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+  color: #e6e6e6;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  padding: 0;
+}
+
+.spark-skills-search-box input:focus,
+.spark-skills-search-box input:focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+}
+
+.spark-skills-search-box input::placeholder {
+  color: #8e918f;
+  font-weight: 400;
+}
+
+/* Empty State */
+.spark-skills-empty {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 32px 0 0;
+  padding: 80px 24px;
+  border: 1px solid #171717;
+  border-radius: 28px;
+  background: transparent;
+  text-align: center;
+}
+
+.spark-skills-empty h2 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 20px;
+  font-variation-settings: "ROND" 20, "slnt" 0, "wdth" 94, "wght" 470;
+  font-weight: 470;
+  line-height: 24px;
+}
+
+.spark-skills-empty p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400;
+  font-weight: 400;
+  line-height: 17px;
+}
+
+.spark-skills-empty p span {
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540;
+  font-weight: 540;
+}
+
+/* Active Skills Library */
+.spark-skills-library {
+  width: min(676px, calc(100% - 32px));
+  margin: 28px auto 0;
+}
+
+.spark-skills-library > h2,
+.spark-recommended-skills > h2 {
+  margin: 0 0 10px 16px;
+  color: #e3e3e3;
+  font-size: 15px;
+  font-weight: 540;
+  line-height: 24px;
+}
+
+.spark-skills-library__list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #171717;
+  border-radius: 16px;
+  background: transparent;
+}
+
+.spark-skill-row {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  background: #1f1f1f;
+  transition: background-color 150ms ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.spark-skill-row:last-child {
+  border-bottom: none;
+}
+
+.spark-skill-row:hover,
+.spark-skill-row:focus-within,
+.spark-skill-row.has-menu-open {
+  background: color-mix(in srgb, #e6e6e6 8%, #1f1f1f);
+}
+
+.spark-skill-card {
+  display: flex;
+  width: auto;
+  min-height: 73px;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
+  background: inherit;
+  color: #e3e3e3;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.spark-skill-card__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spark-skill-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spark-skill-card__title {
+  color: #e3e3e3;
+  font-size: 15px;
+  font-weight: 540;
+  line-height: 20px;
+}
+
+.spark-skill-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #c4c7c5;
+  text-transform: capitalize;
+}
+
+.spark-skill-badge--custom {
+  background: rgba(168, 199, 250, 0.15);
+  color: #a8c7fa;
+}
+
+.spark-skill-card__description {
+  color: #c4c7c5;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.spark-skill-row__actions {
+  display: none;
+  width: 56px;
+  flex: 0 0 56px;
+  align-items: center;
+  justify-content: flex-start;
+  padding-right: 16px;
+  background: inherit;
+}
+
+.spark-skill-row:hover .spark-skill-row__actions,
+.spark-skill-row:focus-within .spark-skill-row__actions,
+.spark-skill-row.has-menu-open .spark-skill-row__actions {
+  display: flex;
+}
+
+/* Kebab Trigger & Floating Menu */
+.spark-row-action-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.spark-row-action-menu__trigger {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: #e3e3e3;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.spark-row-action-menu__trigger:hover,
+.spark-row-action-menu__trigger[aria-expanded="true"] {
+  background: rgba(227, 227, 227, 0.08);
+}
+
+.spark-row-action-menu__trigger span {
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-size: 20px;
+}
+
+.spark-row-action-menu__popover {
+  position: fixed;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: #1f1f1f;
+  color: #e3e3e3;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  font-family: inherit;
+  animation: spark-menu-in 120ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+@keyframes spark-menu-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.spark-row-action-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  padding: 0 16px 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #e3e3e3;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 100ms ease;
+  white-space: nowrap;
+}
+
+.spark-row-action-menu__item:hover {
+  background: rgba(227, 227, 227, 0.08);
+}
+
+.spark-row-action-menu__item.is-danger {
+  color: #f2b8b5;
+}
+
+.spark-row-action-menu__item.is-danger:hover {
+  background: rgba(242, 184, 181, 0.12);
+}
+
+.spark-row-action-menu__item .item-icon {
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-size: 20px;
+  line-height: 20px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spark-row-action-menu__divider {
+  height: 1px;
+  margin: 6px 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Recommended Skills Section */
+.spark-recommended-skills {
+  display: flex;
+  width: min(676px, calc(100% - 32px));
+  flex-direction: column;
+  gap: 8px;
+  margin: 28px auto 0;
+}
+
+.spark-recommended-skills__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spark-recommended-skill {
+  display: flex;
+  width: 100%;
+  min-height: 61px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 16px;
+  background: #171717;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.spark-recommended-skill:hover {
+  background: rgba(230, 230, 230, 0.08);
+}
+
+.spark-recommended-skill__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.spark-recommended-skill__title {
+  margin: 0;
+  color: #e3e3e3;
+  font-size: 15px;
+  font-weight: 540;
+  line-height: 20px;
+}
+
+.spark-recommended-skill__description {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 17px;
+}
+
+.spark-show-more {
+  display: flex;
+  width: max-content;
+  height: 44px;
+  box-sizing: border-box;
+  align-items: center;
+  align-self: center;
+  gap: 4px;
+  margin: 4px 0 0;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: #9a9b9c;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 17px;
+  cursor: pointer;
+}
+
+.spark-show-more:hover {
+  background: rgba(230, 230, 230, 0.08);
+  color: #e6e6e6;
+}
+
+.spark-show-more .arrow-icon {
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-size: 24px;
+}
+
+/* ===========================================================================
+ * Spark Skill Editor (features/spark/src/SparkSkillEditor.css)
+ * ======================================================================== */
+.spark-skill-editor {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--studio-surface, #0f0f0f);
+  color: #e3e3e3;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif);
+  padding: 20px 0 64px;
+  box-sizing: border-box;
+}
+
+.spark-skill-editor__content {
+  width: min(1060px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.spark-skill-editor__header {
+  display: flex;
+  height: 60px;
+  min-height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 12px 0;
+}
+
+.spark-skill-editor__back {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 4px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: #c4c7c5;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.spark-skill-editor__back:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.spark-skill-editor__back .back-icon {
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-size: 24px;
+}
+
+.spark-skill-editor__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spark-skill-editor__delete {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #c4c7c5;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.spark-skill-editor__delete:hover {
+  background: rgba(242, 184, 181, 0.12);
+  color: #f2b8b5;
+}
+
+.spark-skill-editor__delete .del-icon {
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-size: 20px;
+}
+
+.spark-skill-editor__create {
+  height: 36px;
+  min-width: 90px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 9999px;
+  background: #1f3b9b;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.spark-skill-editor__create:disabled {
+  background: rgba(227, 227, 227, 0.12);
+  color: rgba(227, 227, 227, 0.38);
+  cursor: default;
+}
+
+.spark-skill-editor__create:not(:disabled):hover {
+  background: #2948a8;
+}
+
+.spark-skill-editor__panel {
+  display: flex;
+  width: 100%;
+  min-height: 520px;
+  padding: 24px;
+  flex-direction: column;
+  gap: 20px;
+  border: 1px solid #171717;
+  border-radius: 28px;
+  background: #1e1f20;
+  box-sizing: border-box;
+}
+
+.spark-skill-editor__field {
+  display: flex;
+  flex-direction: column;
+}
+
+.spark-skill-editor__field > label,
+.spark-skill-editor__instructions-heading label {
+  padding-bottom: 6px;
+  color: #9a9b9c;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 17px;
+}
+
+.spark-skill-editor__field input,
+.spark-skill-editor__field textarea {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #171717;
+  border-radius: 12px;
+  outline: 0;
+  background: rgba(0, 0, 0, 0.18);
+  color: #e3e3e3;
+  font-size: 15px;
+  line-height: 20px;
+  font-family: inherit;
+  transition: border-color 140ms ease;
+  box-sizing: border-box;
+}
+
+.spark-skill-editor__field input:focus,
+.spark-skill-editor__field textarea:focus {
+  border-color: rgba(168, 199, 250, 0.4);
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+}
+
+.spark-skill-editor__field input {
+  height: 53.6px;
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.spark-skill-editor__field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.spark-skill-editor__field--instructions textarea {
+  min-height: 340px;
+  font-family: var(--gemini-font, "Google Sans Flex", sans-serif);
+  line-height: 22px;
+}
+
+/* Upload Dialog */
+.spark-upload-dialog-backdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+  animation: spark-fade-in 150ms ease both;
+}
+
+@keyframes spark-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.spark-upload-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  padding: 28px;
+  border-radius: 28px;
+  background: #1e1f20;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #e3e3e3;
+  box-sizing: border-box;
+  animation: spark-dialog-zoom 150ms cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+@keyframes spark-dialog-zoom {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.spark-upload-dialog h2 {
+  margin: 0;
+  color: #e3e3e3;
+  font-size: 20px;
+  font-weight: 470;
+  line-height: 24px;
+}
+
+.spark-upload-dialog__requirements {
+  margin: 12px 0 16px;
+  color: #c4c7c5;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.spark-upload-dialog__requirements ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.spark-upload-dialog__dropzone {
+  display: flex;
+  min-height: 200px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border: 2px dashed #444746;
+  border-radius: 20px;
+  background: #171717;
+  text-align: center;
+  transition: background-color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.spark-upload-dialog__dropzone.is-dragging {
+  border-color: #3186ff;
+  background: #192967;
+}
+
+.spark-upload-dialog__drop-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #e3e3e3;
+  font-size: 14px;
+}
+
+.spark-upload-dialog__drop-content .upload-icon {
+  font-family: var(--gemini-icon-font, "Luminous Symbols");
+  font-size: 36px;
+  color: #a8c7fa;
+}
+
+.spark-upload-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.spark-upload-dialog__btn {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 9999px;
+  border: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.spark-upload-dialog__btn--cancel {
+  background: transparent;
+  color: #c4c7c5;
+}
+
+.spark-upload-dialog__btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}

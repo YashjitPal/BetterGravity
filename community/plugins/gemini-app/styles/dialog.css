@@ -115,8 +115,20 @@
   white-space: nowrap !important;
   cursor: pointer !important;
   box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
   transition: background-color 0.15s ease, color 0.15s ease !important;
   outline: none !important;
+}
+
+.willow-gdlg-pill:focus,
+.willow-gdlg-pill:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
 }
 
 .willow-gdlg-pill:disabled {
@@ -181,6 +193,10 @@
   padding: 0 !important;
   border: 0 !important;
   outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
   background: transparent !important;
   font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
   font-size: 16px !important;
@@ -190,3 +206,14 @@
   color: rgb(230, 230, 230) !important;
   caret-color: rgb(230, 230, 230) !important;
 }
+
+.willow-gdlg-field__input:focus,
+.willow-gdlg-field__input:focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+}
+

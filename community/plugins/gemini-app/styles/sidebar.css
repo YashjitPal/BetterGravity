@@ -914,14 +914,18 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"],
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"],
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"],
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button,
 [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button,
 [role="navigation"][aria-label="Sidebar"] #gemini-new-project-button,
 [role="navigation"][aria-label="Sidebar"] #gemini-display-options-button,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button],
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *,
 [role="navigation"][aria-label="Sidebar"] .gemini-nav-item {
   height: 32px !important;
   min-height: 32px !important;
   border-radius: 9999px !important;
   border: none !important;
+  box-shadow: none !important;
   background-color: transparent !important;
   color: var(--gemini-text, #e6e6e6) !important;
   padding: 0 !important;
@@ -948,9 +952,12 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"],
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"],
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-skills-button,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scheduled-tasks-button,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-new-project-button,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-display-options-button,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-bettergravity-button],
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scroll-nav > *,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item {
   width: 32px !important;
   height: 32px !important;
@@ -973,9 +980,12 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] span.truncate,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] span.truncate,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button span.truncate,
 [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button span.truncate,
 [role="navigation"][aria-label="Sidebar"] #gemini-new-project-button span.truncate,
 [role="navigation"][aria-label="Sidebar"] #gemini-display-options-button span.truncate,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button] span.truncate,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > * span.truncate,
 [role="navigation"][aria-label="Sidebar"] .gemini-nav-item span.truncate,
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] span:last-child,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] span:last-child,
@@ -993,9 +1003,12 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-skills-button span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scheduled-tasks-button span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-new-project-button span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-display-options-button span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-bettergravity-button] span.truncate,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scroll-nav > * span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item span.truncate,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] span:last-child,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] span:last-child,
@@ -1027,17 +1040,23 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button > span.icon-box,
 [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button > span.icon-box,
 [role="navigation"][aria-label="Sidebar"] #gemini-new-project-button > span.icon-box,
 [role="navigation"][aria-label="Sidebar"] #gemini-display-options-button > span.icon-box,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button] > span.icon-box,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > * > span.icon-box,
 [role="navigation"][aria-label="Sidebar"] .gemini-nav-item .icon-box,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] .gemini-nav-item .icon-box,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="new-conversation-button"] > span:first-child,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="history-button"] > span:first-child,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-testid="automations-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-skills-button > span.icon-box,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scheduled-tasks-button > span.icon-box,
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-new-project-button > span.icon-box,
-[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-display-options-button > span.icon-box {
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-display-options-button > span.icon-box,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-bettergravity-button] > span.icon-box,
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-scroll-nav > * > span.icon-box {
   width: 32px !important;
   height: 32px !important;
   min-width: 32px !important;
@@ -1091,19 +1110,42 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
  * pill and the current row LIGHTENS under the pointer rather than staying
  * dark. Same specificity here, so source order has to carry it.
  * ------------------------------------------------------------------------- */
+/* Active destination pill: stock rows use .bg-sidebar-secondary from React */
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary,
-[role="navigation"][aria-label="Sidebar"] .gemini-nav-item.bg-sidebar-secondary,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button.bg-sidebar-secondary,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary,
 [role="navigation"][aria-label="Sidebar"] div.flex-col > a.bg-sidebar-secondary,
-[role="navigation"][aria-label="Sidebar"] div.flex-col > button.bg-sidebar-secondary {
+/* Plugin buttons only when explicitly active via standard state attributes */
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][aria-pressed="true"],
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][aria-selected="true"],
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-active="true"],
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-selected="true"],
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-pressed="true"],
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-selected="true"],
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-active="true"],
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-selected="true"] {
   background-color: #171717 !important;
   color: #ffffff !important;
+}
+
+/* Plugin buttons idle state: always transparent unless active, hovered, or pressed */
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button]:not([aria-pressed="true"]):not([aria-selected="true"]):not([data-active="true"]):not([data-selected="true"]):not(:hover):not(:active),
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *:not(#gemini-skills-button):not(#gemini-scheduled-tasks-button):not(#gemini-new-project-button):not(#gemini-display-options-button):not([aria-pressed="true"]):not([aria-selected="true"]):not([data-active="true"]):not([data-selected="true"]):not(:hover):not(:active) {
+  background-color: transparent !important;
+  color: var(--gemini-text, #e6e6e6) !important;
 }
 
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]:hover,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"]:hover,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"]:hover,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button:hover,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button:hover,
+[role="navigation"][aria-label="Sidebar"] #gemini-new-project-button:hover,
+[role="navigation"][aria-label="Sidebar"] #gemini-display-options-button:hover,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button]:hover,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *:hover,
 [role="navigation"][aria-label="Sidebar"] .gemini-nav-item:hover {
   background-color: var(--gemini-row-hover, rgba(230, 230, 230, 0.08)) !important;
 }
@@ -1111,6 +1153,12 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]:active,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"]:active,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"]:active,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button:active,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button:active,
+[role="navigation"][aria-label="Sidebar"] #gemini-new-project-button:active,
+[role="navigation"][aria-label="Sidebar"] #gemini-display-options-button:active,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button]:active,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *:active,
 [role="navigation"][aria-label="Sidebar"] .gemini-nav-item:active {
   background-color: var(--gemini-row-pressed, rgba(230, 230, 230, 0.12)) !important;
 }
@@ -1119,6 +1167,8 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button] .icon-box,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > * .icon-box,
 [role="navigation"][aria-label="Sidebar"] .gemini-nav-item .icon-box {
   width: 28px !important;
   height: 28px !important;
@@ -1152,6 +1202,7 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
  * like this plugin's other two rows, so the two cannot drift apart. */
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"] > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"] > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child::before {
   font-family: var(--gemini-icon-font, "Luminous Symbols");
@@ -1182,6 +1233,10 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
   content: "history";
 }
 
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button > span:first-child::before {
+  content: "contract";
+}
+
 [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"] > span:first-child::before {
   content: "schedule";
@@ -1190,6 +1245,7 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 /* Active press animation (group-active/item:scale-90) */
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"]:active > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"]:active > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button:active > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button:active > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"]:active > span:first-child::before {
   transform: scale(0.9);
@@ -1223,9 +1279,17 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary > span:last-child,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary > span:last-child,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary > span:last-child,
-[role="navigation"][aria-label="Sidebar"] .gemini-nav-item.bg-sidebar-secondary > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button.bg-sidebar-secondary > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary > span:last-child,
 [role="navigation"][aria-label="Sidebar"] div.flex-col > a.bg-sidebar-secondary > span:last-child,
-[role="navigation"][aria-label="Sidebar"] div.flex-col > button.bg-sidebar-secondary > span:last-child {
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][aria-pressed="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][aria-selected="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-active="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-selected="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-pressed="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-selected="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-active="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-selected="true"] > span:last-child {
   font-weight: 500 !important;
   font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
   color: #ffffff !important;
@@ -1233,9 +1297,21 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 
 [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary > span:first-child::before,
+[role="navigation"][aria-label="Sidebar"] #gemini-skills-button.bg-sidebar-secondary > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary > span:first-child::before,
 [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary > span:first-child::before {
   font-variation-settings: var(--gemini-icon-axes-menu-fill, "FILL" 1, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
+}
+
+/* While Skills view is open, don't show active background on conversation rows */
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] {
+  background-color: transparent !important;
+}
+
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate {
+  font-weight: 400 !important;
+  font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
+  color: var(--gemini-text, #e6e6e6) !important;
 }
 
 /* Trailing keyboard shortcut hint for New conversation */

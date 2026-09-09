@@ -7,7 +7,7 @@ here follows from one fact about the host, and changes that ignore it tend not
 to work.
 
 Writing a theme or a plugin needs none of this — see
-[themes](docs/themes.md) and [plugins](docs/plugins.md) instead. This page is
+[themes](docs/themes.md) and [plugins](docs/plugins.md) instead. For layout invariants, host DOM handling, and instructions for AI agents, see [AGENTS.md](AGENTS.md). This page is
 about changing BetterGravity itself.
 
 ## Getting set up

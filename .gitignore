@@ -51,3 +51,7 @@ electron-builder.yml
 storage.json
 trust.json
 *.jsonl
+
+# Local personal backup scripts
+backup.cmd
+backup*.cmd

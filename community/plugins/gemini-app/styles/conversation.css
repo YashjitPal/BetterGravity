@@ -21,6 +21,8 @@
 }
 
 [data-testid="conversation-view"] {
+  display: flex !important;
+  flex-direction: column !important;
   font-family: var(--gemini-font);
   font-variation-settings: var(--gemini-font-axes);
   color: var(--gemini-body-text);
@@ -46,6 +48,7 @@
  * rule does not depend on which offset class the wrapper carries. The lift out
  * of the stacking order goes with it; nothing needs to paint over the reply
  * once it no longer overlaps it. */
+[data-testid="conversation-view"] [role="article"][aria-label="User message"],
 [data-testid="conversation-view"] .sticky:has([data-testid="user-input-step"]) {
   position: static !important;
   z-index: auto !important;
@@ -567,9 +570,9 @@
 /* Header inside code block */
 :is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3),
 :is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 2 !important;
+  position: relative !important;
+  top: auto !important;
+  z-index: auto !important;
   display: flex !important;
   width: 100% !important;
   height: 36px !important;
@@ -803,13 +806,7 @@
   scrollbar-gutter: auto !important;
 }
 
-[data-testid="conversation-view"]:has(.overflow-y-auto) {
-  overflow-y: hidden !important;
-  scrollbar-gutter: auto !important;
-  scrollbar-width: none !important;
-}
-
-[data-testid="conversation-view"]:has(.overflow-y-auto)::-webkit-scrollbar {
+[data-testid="conversation-view"]::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
@@ -1270,6 +1267,41 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   display: none !important;
 }
 
+/*
+ * Pane top toolbar in conversation view:
+ * When viewing a conversation, Antigravity renders a 40px toolbar containing
+ * breadcrumbs (hidden above) and top-right action buttons (fork, split view, more menu).
+ * Because this toolbar was in document flow, it pushed the conversation scroller down by 40px,
+ * causing content to prematurely clip below the 40px line and creating a visual "blocker".
+ * By taking this bar out of document flow (position: absolute) with pointer-events: none,
+ * the conversation scroller extends smoothly all the way to the top titlebar.
+ * Individual interactive children retain pointer-events: auto so buttons remain clickable.
+ */
+.group\/pane:has([data-testid="conversation-view"]) > .flex.w-full.min-w-0.select-none.items-center.justify-between.overflow-hidden {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 40px !important;
+  pointer-events: none !important;
+  z-index: 20 !important;
+  background: transparent !important;
+}
+
+.group\/pane:has([data-testid="conversation-view"]) > .flex.w-full.min-w-0.select-none.items-center.justify-between.overflow-hidden * {
+  pointer-events: auto !important;
+}
+
+/*
+ * Apply 40px top padding strictly to the primary chat thread scroller inside Child 0,
+ * so conversation content smoothly passes beneath the absolute 40px top toolbar
+ * without applying padding to inner scrollable boxes (thoughts, tool groups, composer).
+ */
+[data-testid="conversation-view"] > div:first-child > .h-full.overflow-y-auto,
+[data-testid="conversation-view"] > .flex-grow > .h-full.overflow-y-auto {
+  padding-top: 40px !important;
+}
+
 /* ---------------------------------------------------------------------------
  * 3g. Response actions: Willow Like, Dislike, Copy buttons and timestamp
  * ------------------------------------------------------------------------- */
@@ -1348,7 +1380,7 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
 }
 
 /* Willow button styling: 32x32 circular pill */
-[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:not([aria-label="Fork Conversation"]):not([aria-label*="Fork"]) {
   box-sizing: border-box !important;
   display: inline-flex !important;
   width: 32px !important;
@@ -1392,12 +1424,37 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   order: 2 !important;
 }
 
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] :is(.flex.shrink-0.items-end, div:has(> button:is([aria-label="Copy"], [aria-label="Copied"]))) {
+  order: 3 !important;
+}
+
 [data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Copy"], [aria-label="Copied"]) {
   order: 3 !important;
 }
 
-[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Fork Conversation"]) {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button[data-fork-chat-btn] {
   order: 4 !important;
+}
+
+/* Hide native Antigravity fork button so only one fork button ever exists under messages */
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
+[data-testid="conversation-view"] div.flex.w-full.items-start button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
+[data-testid="conversation-view"] button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
+button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]) {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* Hide native Antigravity top bar forked conversation banner */
+[data-testid="conversation-view"] div[title="Open side-by-side view"],
+[data-testid="conversation-view"] div.w-full.bg-background.border-b.border-border:has(> div > span:is([class*="select-none"])) {
+  display: none !important;
 }
 
 /* Hide native Antigravity SVG icons inside buttons */
@@ -1436,6 +1493,10 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
 
 [data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Copied"])::before {
   content: "check" !important;
+}
+
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button[data-fork-chat-btn]::before {
+  content: "arrow_split" !important;
 }
 
 /* Position completion timestamp immediately NEXT TO buttons on the left (order: 2) */
