@@ -227,7 +227,7 @@ describe("Fork Chat plugin functionality", () => {
       turnBar.querySelectorAll('button:is([aria-label="Fork Conversation"], [data-fork-chat-btn])')
     ).filter((b) => (b as HTMLElement).style.display !== "none");
     expect(visibleForkBtns.length).toBe(1);
-    expect(visibleForkBtns[0].getAttribute("data-fork-chat-btn")).toBe("true");
+    expect(visibleForkBtns[0]!.getAttribute("data-fork-chat-btn")).toBe("true");
   });
 
   it("clicking the turn fork button opens a Willow-styled popup menu with the two workspace options", () => {
@@ -241,8 +241,8 @@ describe("Fork Chat plugin functionality", () => {
 
     const items = menu?.querySelectorAll(".bettergravity-fork-popover-item");
     expect(items?.length).toBe(2);
-    expect(items?.[0].textContent).toContain("Fork in current workspace");
-    expect(items?.[1].textContent).toContain("Fork in shared worktree");
+    expect(items?.[0]?.textContent).toContain("Fork in current workspace");
+    expect(items?.[1]?.textContent).toContain("Fork in shared worktree");
   });
 
   it("adds a Fork conversation item to the conversation sidebar context menu", () => {
@@ -252,7 +252,7 @@ describe("Fork Chat plugin functionality", () => {
       trigger: document.querySelector('[data-testid="conversation-row-sidebar"]')
     };
 
-    const items = menuContributors[0](mockMenu);
+    const items = menuContributors[0]!(mockMenu);
     expect(items).toBeDefined();
     expect(items.length).toBe(1);
     expect(items[0].label).toBe("Fork conversation");
@@ -285,8 +285,8 @@ describe("Fork Chat plugin functionality", () => {
       trigger: document.querySelector('[data-testid="conversation-row-sidebar"]')
     };
 
-    const items = menuContributors[0](mockMenu);
-    items[0].onSelect();
+    const items = menuContributors[0]!(mockMenu);
+    items[0]!.onSelect();
 
     // Wait for async fork to resolve
     await new Promise((r) => setTimeout(r, 20));
@@ -324,8 +324,8 @@ describe("Fork Chat plugin functionality", () => {
       }
     };
 
-    const items = menuContributors[0](mockMenu);
-    items[0].onSelect();
+    const items = menuContributors[0]!(mockMenu);
+    items[0]!.onSelect();
 
     await new Promise((r) => setTimeout(r, 20));
 
