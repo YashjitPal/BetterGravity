@@ -23,6 +23,12 @@
   flex-direction: column;
 }
 
+/* Ensure full-viewport overlay hides conversation view and hidden siblings */
+body.gemini-skills-open [data-testid="conversation-view"],
+body.gemini-skills-open [data-gemini-skills-hidden] {
+  display: none !important;
+}
+
 .spark-customise-page__narrow-inner {
   width: min(676px, calc(100% - 32px));
   margin: 0 auto;

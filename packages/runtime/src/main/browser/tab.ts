@@ -194,19 +194,43 @@ export class NativeBrowserTab {
   }
 
   async screenshot(args: Record<string, unknown> = {}): Promise<string> {
-    let clip: Record<string, number> | undefined;
-    if (args.fullPage === true) {
-      const metrics = await this.cdp("Page.getLayoutMetrics");
-      const size = metrics.cssContentSize ?? metrics.contentSize;
-      clip = { x: 0, y: 0, width: Math.min(size.width, 16_384), height: Math.min(size.height, 16_384), scale: 1 };
+    if (args.fullPage !== true && args.cropWidth === undefined && args.cropHeight === undefined) {
+      // Electron's capture path wakes hidden native views without showing a
+      // window. A raw CDP capture can wait forever for a hidden compositor.
+      const capture = await this.contents.capturePage(undefined, { stayHidden: true, stayAwake: true });
+      return capture.toPNG().toString("base64");
     }
-    if (args.cropWidth !== undefined || args.cropHeight !== undefined) clip = {
-      x: finiteNumber(args.cropX ?? 0, "cropX", 0, 100_000), y: finiteNumber(args.cropY ?? 0, "cropY", 0, 100_000),
-      width: finiteNumber(args.cropWidth, "cropWidth", 1, 16_384), height: finiteNumber(args.cropHeight, "cropHeight", 1, 16_384), scale: 1
-    };
-    if (clip && clip.width! * clip.height! > 40_000_000) clip.scale = Math.sqrt(40_000_000 / (clip.width! * clip.height!));
-    const result = await this.cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: !!clip, ...(clip ? { clip } : {}) });
-    return result.data;
+    try {
+      let clip: Record<string, number> | undefined;
+      if (args.fullPage === true) {
+        const metrics = await this.cdp("Page.getLayoutMetrics");
+        const size = metrics.cssContentSize ?? metrics.contentSize;
+        clip = { x: 0, y: 0, width: Math.min(size.width, 16_384), height: Math.min(size.height, 16_384), scale: 1 };
+      }
+      if (args.cropWidth !== undefined || args.cropHeight !== undefined) clip = {
+        x: finiteNumber(args.cropX ?? 0, "cropX", 0, 100_000), y: finiteNumber(args.cropY ?? 0, "cropY", 0, 100_000),
+        width: finiteNumber(args.cropWidth, "cropWidth", 1, 16_384), height: finiteNumber(args.cropHeight, "cropHeight", 1, 16_384), scale: 1
+      };
+      if (clip && clip.width! * clip.height! > 40_000_000) clip.scale = Math.sqrt(40_000_000 / (clip.width! * clip.height!));
+      const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("CDP screenshot timeout")), 12_000));
+      const result = await Promise.race([
+        this.cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, ...(clip ? { clip } : {}) }),
+        timeout
+      ]);
+      return result.data;
+    } catch {
+      let rect: { x: number; y: number; width: number; height: number } | undefined;
+      if (args.cropWidth !== undefined || args.cropHeight !== undefined) {
+        rect = {
+          x: finiteNumber(args.cropX ?? 0, "cropX", 0, 100_000),
+          y: finiteNumber(args.cropY ?? 0, "cropY", 0, 100_000),
+          width: finiteNumber(args.cropWidth, "cropWidth", 1, 16_384),
+          height: finiteNumber(args.cropHeight, "cropHeight", 1, 16_384)
+        };
+      }
+      const image = await this.contents.capturePage(rect);
+      return image.toPNG().toString("base64");
+    }
   }
 
   async annotate(enabled: boolean): Promise<void> {

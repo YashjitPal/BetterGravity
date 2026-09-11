@@ -1767,6 +1767,7 @@ function openSkillsView() {
     view.className = 'spark-customise-page spark-customise-page--skills';
     container.appendChild(view);
   } else {
+    if (view.parentElement !== container) container.appendChild(view);
     view.style.display = 'flex';
   }
 

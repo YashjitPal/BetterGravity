@@ -42,7 +42,7 @@ export async function browserDomDriver(input: Record<string, any>): Promise<any>
       const element = one();
       element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
       if (!input.force) {
-        const result = await engine.checkElementStates(element, ["visible", "enabled", "stable"]);
+        const result = await engine.checkElementStates(element, ["visible", "enabled"]);
         if (result) throw new Error(`Element is not ready: ${result.missingState ?? result.error ?? "detached"}.`);
       }
       const rect = element.getBoundingClientRect();

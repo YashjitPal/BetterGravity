@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-11T23:27:32.927Z",
+  "generatedAt": "2026-09-11T23:46:15.872Z",
   "entries": [
     {
       "id": "computer-use",
@@ -308,7 +308,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 874506,
+      "bytes": 875044,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -327,8 +327,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 358479,
-          "sha256": "4adb67e5fa97269a6869865f6d02f724e9528a0e25963176bee6ee10a7ee5dc5"
+          "bytes": 358550,
+          "sha256": "04af0232120c23a210020e30b7d65648e66f9d4332f1d78174a4c93a2eaf15ed"
         },
         {
           "name": "plugin.json",
@@ -337,8 +337,8 @@
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 73821,
-          "sha256": "b8720be29c73c5f491a466c1fc8fbb293a4bb849746aa5e0374574b9ddfb92c1"
+          "bytes": 74065,
+          "sha256": "0c1001fedbf07dce8b40ebaacaa1c07584ece733ece25adfecfa716b876f53bb"
         },
         {
           "name": "styles/dialog.css",
@@ -392,8 +392,8 @@
         },
         {
           "name": "styles/skills-tab.css",
-          "bytes": 19703,
-          "sha256": "6a8766b2eb6db9185641176794efff62abec8ddea2551a4f55be2cdef9708d40"
+          "bytes": 19926,
+          "sha256": "aaa6a9dc0ba400d0ce0cbceac9ffba16d7451f264facc15a2967b81faae8e16e"
         },
         {
           "name": "styles/tokens.css",
@@ -416,12 +416,12 @@
       "author": "BetterGravity Community",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/in-built-browser",
-      "bytes": 433139,
+      "bytes": 473828,
       "files": [
         {
           "name": "index.js",
-          "bytes": 37,
-          "sha256": "bcd5a037deedda6a24b803b1e703eb78c0b36d8a47e590c0a4abc407a1c319ad"
+          "bytes": 30772,
+          "sha256": "47ea5ff581389679ff5e62b54f436c36601fc65570ef47c3469acde2b33b84b7"
         },
         {
           "name": "mcp-server.cjs",
@@ -450,8 +450,8 @@
         },
         {
           "name": "styles/browser.css",
-          "bytes": 37,
-          "sha256": "cba8a3632525942983ca65b31fb0a9042ab1661b3a1cce210d64527f26ead967"
+          "bytes": 9991,
+          "sha256": "e6f901b485dedffb9484987fbc28647ff6f1a9acbd161065878c7eab1439976d"
         },
         {
           "name": "vendor/api.json",

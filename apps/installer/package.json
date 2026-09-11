@@ -77,10 +77,10 @@
           ]
         }
       ],
-      "category": "public.app-category.developer-tools",
-      "dmg": {
-        "title": "BetterGravity Installer ${version}"
-      }
+      "category": "public.app-category.developer-tools"
+    },
+    "dmg": {
+      "title": "BetterGravity Installer ${version}"
     }
   }
 }

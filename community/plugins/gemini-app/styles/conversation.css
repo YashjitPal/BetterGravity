@@ -31,6 +31,12 @@
   scrollbar-width: none !important;
 }
 
+/* When custom full-viewport views (e.g. Skills view) are active, cleanly hide conversation view */
+body.gemini-skills-open [data-testid="conversation-view"],
+body.gemini-skills-open [data-gemini-skills-hidden] {
+  display: none !important;
+}
+
 /* Willow's MESSAGE_GAP: 52px at every turn boundary. Antigravity keeps 12px
  * between turns and 16px under the sent message's sticky header. */
 [data-testid="conversation-view"] .flex.flex-col.gap-y-3 {

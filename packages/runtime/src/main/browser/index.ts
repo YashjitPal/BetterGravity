@@ -178,9 +178,14 @@ export class InBuiltBrowserService {
     const operation = host.queue.catch(() => undefined).then(async () => {
       this.assertAgent(host, epoch, generation);
       host.activity = toolDescription(command).split(".")[0] ?? "Using browser";
+      const operatingTab = typeof args.tab_id === "string" ? host.tabs.get(args.tab_id) : undefined;
+      if (operatingTab && !operatingTab.destroyed) operatingTab.contents.setBackgroundThrottling(false);
       this.changed(host);
       try { return await dispatchBrowserCommand(this, command, args); }
-      finally { host.activity = null; this.changed(host); }
+      finally {
+        if (operatingTab && !operatingTab.destroyed) operatingTab.contents.setBackgroundThrottling(true);
+        host.activity = null; this.changed(host);
+      }
     });
     host.queue = operation;
     return operation;
@@ -391,6 +396,7 @@ export class InBuiltBrowserService {
       case "find": return args.text ? active().contents.findInPage(String(args.text), { forward: args.forward !== false, findNext: args.next === true }) : active().contents.stopFindInPage("clearSelection");
       case "external": { const url = browserUrl(active().contents.getURL()); if (!/^https?:/.test(url)) throw new Error("Only web URLs may be opened externally."); await shell.openExternal(url); break; }
       case "devtools": active().contents.openDevTools({ mode: "detach" }); break;
+      case "capture": return `data:image/png;base64,${await active().screenshot()}`;
       case "history": return this.history.filter(item => `${item.title} ${item.url}`.toLowerCase().includes(String(args.query ?? "").toLowerCase())).slice(-60).reverse();
       case "clear-history": this.history.length = 0; writeObject(path.join(this.dataDirectory, "history.json"), { items: [] }); break;
       case "clear-data": await this.nativeSession!.clearStorageData(); await this.nativeSession!.clearCache(); this.history.length = 0; writeObject(path.join(this.dataDirectory, "history.json"), { items: [] }); break;
