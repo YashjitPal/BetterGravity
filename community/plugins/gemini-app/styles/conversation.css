@@ -396,7 +396,7 @@
 }
 
 [data-testid="planner-response-text"] {
-  padding: 0 !important;
+  padding: 4px 8px !important;
 }
 
 [data-testid="planner-response-text"],
@@ -744,6 +744,11 @@
   font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
   color: #ffffff !important;
   letter-spacing: normal !important;
+}
+
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) .min-h-7:has(+ .p-3) > .font-sans:empty::before,
+:is([data-testid="planner-response-text"], [role="article"][aria-label="Agent response"]) div:has(.code-block) > .min-h-7 > .font-sans:empty::before {
+  content: "Code" !important;
 }
 
 /* Code block header action buttons container */
@@ -1515,11 +1520,18 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
 /* Wait for buffered text and its final fade, including late-mounted/future
  * actions. Keep the row's layout space and existing appearance transition.
  * Visibility also excludes hidden controls from keyboard focus/accessibility. */
-[data-testid="conversation-view"] .flex.items-start > [data-gemini-revealing="true"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] {
+[data-testid="conversation-view"] .flex.items-start > [data-gemini-revealing="true"] div.flex.w-full.items-start[data-gemini-turn-actions="true"],
+[data-testid="conversation-view"] .flex.items-start > [data-gemini-send-entering="true"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] {
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
   transition: none !important;
+}
+
+/* The working row follows the sent-message entrance. Keep its space, and let
+ * response text retain its independent fade if the provider answers early. */
+[data-testid="conversation-view"] [data-gemini-send-entering="true"] > [data-testid="agent-loading"] {
+  visibility: hidden !important;
 }
 
 /* Reorder buttons wrapper to the LEFT (order: 1) */
@@ -1788,4 +1800,11 @@ button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork
 
 [data-testid="toggle-aux-sidebar"]:active > span:first-child::before {
   transform: scaleX(-1) scale(0.9) !important;
+}
+
+/* Prevent SVG mask collapse on terminal menu item */
+[role="menu"] [role="menuitem"] svg g[mask],
+[role="menu"] [role="menuitem"] svg mask + g {
+  mask: none !important;
+  -webkit-mask: none !important;
 }

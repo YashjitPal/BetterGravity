@@ -124,6 +124,8 @@
   --gemini-composer-placeholder: #bdc1c6;
   --gemini-control-hover: #333537;
   --gemini-mic-hover: rgba(255, 255, 255, 0.08);
+  --gemini-mic-active-bg: #ea4335;
+  --gemini-mic-active-hover: #d93025;
   /* Workspace color default is Blue; its send button follows. */
   --gemini-send-bg: #1b3f95;
   --gemini-send-bg-hover: #153277;

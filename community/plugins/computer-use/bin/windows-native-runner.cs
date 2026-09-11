@@ -183,8 +183,10 @@ namespace WindowsComputerUse {
             up.u.mi.dwFlags = upFlag;
             up.u.mi.dwExtraInfo = (UIntPtr)0x12345;
             SendInput(1, new INPUT[] { down }, Marshal.SizeOf(typeof(INPUT)));
+            mouse_event(downFlag, 0, 0, 0, UIntPtr.Zero);
             Thread.Sleep(30);
             SendInput(1, new INPUT[] { up }, Marshal.SizeOf(typeof(INPUT)));
+            mouse_event(upFlag, 0, 0, 0, UIntPtr.Zero);
         }
 
         public static void SendKeyDown(ushort vk) {
@@ -193,6 +195,7 @@ namespace WindowsComputerUse {
             input.u.ki.dwFlags = 0;
             input.u.ki.dwExtraInfo = (UIntPtr)0x12345;
             SendInput(1, new INPUT[] { input }, Marshal.SizeOf(typeof(INPUT)));
+            keybd_event((byte)vk, 0, 0, UIntPtr.Zero);
         }
 
         public static void SendKeyUp(ushort vk) {
@@ -201,6 +204,7 @@ namespace WindowsComputerUse {
             input.u.ki.dwFlags = KEYEVENTF_KEYUP;
             input.u.ki.dwExtraInfo = (UIntPtr)0x12345;
             SendInput(1, new INPUT[] { input }, Marshal.SizeOf(typeof(INPUT)));
+            keybd_event((byte)vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
         }
 
         public static IntPtr FocusAppWindow(string appQuery) {

@@ -108,7 +108,7 @@
 /* Flatten the control row and every wrapper inside it, so the buttons become
  * grid items of the card itself. */
 [data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between,
-[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between div:not([role="status"]) {
+[data-testid="agent-input-box"] > .rounded-2xl.bg-card-border > .bg-card > .justify-between div:not([role="status"]):not(button *):not([data-testid="model-selector-trigger"] *) {
   display: contents !important;
 }
 
@@ -131,7 +131,10 @@
   justify-self: end;
 }
 
-[data-testid="agent-input-box"] button[aria-label="Record voice memo"] {
+[data-testid="agent-input-box"] button[aria-label="Record voice memo"],
+[data-testid="agent-input-box"] button[aria-label="Stop recording"],
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-record-tooltip"],
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-finalizing-tooltip"] {
   grid-area: mic;
   margin-bottom: 4px;
 }
@@ -143,7 +146,8 @@
 
 /* Two rows when expanded without tool chip: multiline draft, attachments, or text reaching model selector. */
 [data-testid="agent-input-box"][data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card,
-[data-testid="agent-input-box"]:has([data-testid="input-attachment"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+[data-testid="agent-input-box"]:has([data-testid="input-attachment"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card,
+[data-testid="agent-input-box"]:has(.border-b):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
   grid-template-columns: 32px minmax(0, 1fr) auto 32px 32px;
   grid-template-areas:
     "text text text text text"
@@ -382,6 +386,8 @@
  * All 32px discs with 24px glyphs. */
 [data-testid="agent-input-box"] button[aria-label="Add context"],
 [data-testid="agent-input-box"] button[aria-label="Record voice memo"],
+[data-testid="agent-input-box"] button[aria-label="Stop recording"],
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-record-tooltip"],
 [data-testid="agent-input-box"] [data-testid="send-button"] {
   width: 32px !important;
   height: 32px !important;
@@ -470,6 +476,47 @@
   content: "mic";
 }
 
+/* Active voice recording: Willow/Google Red disc with live animated waveform equalizer */
+[data-testid="agent-input-box"] button[aria-label="Stop recording"],
+[data-testid="agent-input-box"] button[data-tooltip-id="input-send-button-record-tooltip"][aria-label*="Stop"] {
+  background: var(--gemini-mic-active-bg, #ea4335) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+  transition: transform 150ms ease, background-color 150ms ease !important;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Stop recording"]:hover,
+[data-testid="agent-input-box"] button[data-tooltip-id="input-send-button-record-tooltip"][aria-label*="Stop"]:hover {
+  background: var(--gemini-mic-active-hover, #d93025) !important;
+  transform: scale(1.06);
+}
+
+/* Defensive layout rules for animated waveform equalizer inside recording button */
+[data-testid="agent-input-box"] button[aria-label="Stop recording"] > div,
+[data-testid="agent-input-box"] button[data-tooltip-id="input-send-button-record-tooltip"] > div,
+[data-testid="agent-input-box"] button [aria-hidden="true"] {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+[data-testid="agent-input-box"] button[aria-label="Stop recording"] > div > div,
+[data-testid="agent-input-box"] button[data-tooltip-id="input-send-button-record-tooltip"] > div > div,
+[data-testid="agent-input-box"] button [aria-hidden="true"] > div {
+  display: block !important;
+}
+
+/* Voice finalizing / transcribing status indicator */
+[data-testid="agent-input-box"] [data-tooltip-id="input-send-button-finalizing-tooltip"] {
+  grid-area: mic;
+  margin-bottom: 4px;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 /* The send disc: Willow Green, darker on hover, white arrow_upward. */
 [data-testid="agent-input-box"] [data-testid="send-button"] {
   background: var(--gemini-send-bg) !important;
@@ -509,7 +556,8 @@
 
 /* Two rows with nothing to send without tool chip: multiline draft, attachments, or text reaching model selector */
 [data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"]))[data-expanded="true"]:not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card,
-[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):has([data-testid="input-attachment"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):has([data-testid="input-attachment"]):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card,
+[data-testid="agent-input-box"]:not(:has([data-testid="send-button"]:not(:disabled))):not(:has([data-tooltip-id="input-send-button-cancel-tooltip"])):has(.border-b):not(:has([data-gemini-tool-chip])) > .rounded-2xl.bg-card-border > .bg-card {
   grid-template-columns: 32px minmax(0, 1fr) auto 32px;
   grid-template-areas:
     "text text text text"

@@ -30,7 +30,7 @@
           "with": "var bgFrame=0,bgSoon=function(){bgFrame||(bgFrame=requestAnimationFrame(function(){bgFrame=0;$2()}))};var $1=new ResizeObserver(bgSoon);$1.observe($3);Array.from($3.children).forEach($4=>$1.observe($4));"
         },
         {
-          "match": "(\\w+) instanceof Element&&(\\w+)\\.unobserve\\(\\1\\)\\}\\);(\\w+)\\(\\)\\}\\);(\\w+)\\.observe\\((\\w+),\\s*\\{childList:!0\\}\\);\\3\\(\\);return\\(\\)=>\\{\\2\\.disconnect\\(\\);\\4\\.disconnect\\(\\)\\}",
+          "match": "\\b(\\w+) instanceof Element&&(\\w+)\\.unobserve\\(\\1\\)\\}\\);(\\w+)\\(\\)\\}\\);(\\w+)\\.observe\\((\\w+),\\s*\\{childList:!0\\}\\);\\3\\(\\);return\\(\\)=>\\{\\2\\.disconnect\\(\\);\\4\\.disconnect\\(\\)\\}",
           "with": "$1 instanceof Element&&$2.unobserve($1)});bgSoon()});$4.observe($5,{childList:!0});$3();return()=>{bgFrame&&cancelAnimationFrame(bgFrame);$2.disconnect();$4.disconnect()}"
         }
       ]
@@ -60,12 +60,12 @@
       ]
     },
     {
-      "note": "Disable automatic following of growing responses and steps inside conversations while Gemini App is running. Preserve initial positioning, explicit jump-to-bottom, native user-scroll handling, and smooth/instant behavior. Remaining scroll requests are coalesced and all heights are read before any scrolling. The policy, batching helper, and explicit-jump callback are installed together by one guarded hook replacement; disabled Gemini App and unrelated viewports retain native following.",
+      "note": "Disable automatic following of growing responses and steps inside conversations while Gemini App is running. Preserve initial positioning, explicit jump-to-bottom, native user-scroll handling, and smooth/instant behavior. Remaining scroll requests are coalesced and all heights are read before any scrolling. The policy, batching helper, and explicit-jump callback are installed together by one guarded hook replacement; disabled Gemini App and unrelated viewports retain native following. A submitted turn owns initial positioning until its entrance completes; an explicit user jump interrupts that entrance before scrolling.",
       "find": "disableTemporarily",
       "replace": [
         {
           "match": "(var (\\w+)=\\(\\{threshold:\\w+=25,smoothScroll:(\\w+)=[\\s\\S]{1,1200}?)(\\w+)=\\(0,(\\w+)\\.useCallback\\)\\(\\(\\)=>\\{var (\\w+)=(\\w+)\\.current;\\6&&\\(\\3\\?\\6\\.scrollTo\\(\\{top:\\6\\.scrollHeight,behavior:\"smooth\"\\}\\):\\6\\.scrollTo\\(\\{top:\\6\\.scrollHeight,\\s*behavior:\"instant\"\\}\\)\\)\\},\\[\\3\\]\\)([\\s\\S]{1,1600}?)(\\w+=\\(0,\\5\\.useCallback\\)\\(\\(\\)=>\\{\\w+\\.current=!0;)\\4\\(\\)(\\},\\[\\4\\]\\);return\\{viewportRef:\\7,contentRef:\\w+,disableTemporarily:\\w+,forceScrollToBottom:\\w+\\}\\};)",
-          "with": "var bgScrollJobs=null,bgScrollSeen=new WeakSet();function bgScrollAllowed(node,manual){return manual||!globalThis.__bettergravityGeminiManualScroll||!node.closest('[data-testid=\"conversation-view\"]')}function bgScrollRun(){var jobs=bgScrollJobs;bgScrollJobs=null;var reads=[];jobs.forEach(function(job){if(job.ref.current===job.node&&job.node.isConnected&&bgScrollAllowed(job.node,job.manual))reads.push([job,job.node.scrollHeight])});for(var read of reads){var job=read[0];if(job.ref.current===job.node&&job.node.isConnected&&bgScrollAllowed(job.node,job.manual))job.node.scrollTo({top:read[1],behavior:job.smooth?\"smooth\":\"instant\"})}}function bgScrollSoon(ref,smooth,manual){var node=ref.current;if(!node)return;var initial=!bgScrollSeen.has(node);bgScrollSeen.add(node);manual=!!manual||initial;if(!bgScrollAllowed(node,manual))return;if(!bgScrollJobs){bgScrollJobs=new Map();queueMicrotask(bgScrollRun)}var previous=bgScrollJobs.get(ref);bgScrollJobs.set(ref,{ref:ref,node:node,smooth:smooth,manual:manual||!!(previous&&previous.node===node&&previous.manual)})}$1$4=(0,$5.useCallback)((bgManual)=>{bgScrollSoon($7,$3,bgManual)},[bgScrollSoon,$3])$8$9$4(!0)$10"
+          "with": "var bgScrollJobs=null,bgScrollSeen=new WeakSet();function bgScrollAllowed(node,manual){return !globalThis.__bettergravityGeminiSendEntrance?.ownsViewport(node)&&(manual||!globalThis.__bettergravityGeminiManualScroll||!node.closest('[data-testid=\"conversation-view\"]'))}function bgScrollRun(){var jobs=bgScrollJobs;bgScrollJobs=null;var reads=[];jobs.forEach(function(job){if(job.ref.current===job.node&&job.node.isConnected&&bgScrollAllowed(job.node,job.manual))reads.push([job,job.node.scrollHeight])});for(var read of reads){var job=read[0];if(job.ref.current===job.node&&job.node.isConnected&&bgScrollAllowed(job.node,job.manual))job.node.scrollTo({top:read[1],behavior:job.smooth?\"smooth\":\"instant\"})}}function bgScrollSoon(ref,smooth,manual){var node=ref.current;if(!node)return;manual===!0&&globalThis.__bettergravityGeminiSendEntrance?.interruptScroll(node);var initial=!bgScrollSeen.has(node);bgScrollSeen.add(node);manual=!!manual||initial;if(!bgScrollAllowed(node,manual))return;if(!bgScrollJobs){bgScrollJobs=new Map();queueMicrotask(bgScrollRun)}var previous=bgScrollJobs.get(ref);bgScrollJobs.set(ref,{ref:ref,node:node,smooth:smooth,manual:manual||!!(previous&&previous.node===node&&previous.manual)})}$1$4=(0,$5.useCallback)((bgManual)=>{bgScrollSoon($7,$3,bgManual)},[bgScrollSoon,$3])$8$9$4(!0)$10"
         }
       ]
     },
@@ -94,6 +94,20 @@
         {
           "match": "(var (\\w+)=(\\w+)\\.memo\\(\\(\\{)(markdown:\\w+,MermaidDiagram:[\\s\\S]{1,5500}?rehypePlugins:)(\\w+)(,urlTransform:\\w+,components:)(\\w+)(\\},\\w+\\),\\[)([\\w,]+)(\\]\\);return \\3\\.createElement\\(\"div\",\\{)(className:[\\s\\S]{1,9500}?\\}\\);\\2\\.displayName=\"CustomMarkdown\";)",
           "with": "$1bgGeminiReveal:bgGeminiReveal,$4(bgGeminiReveal?$5.concat(bgGeminiReveal.rehype):$5)$6(bgGeminiReveal?bgGeminiReveal.components:$7)$8$9,bgGeminiReveal$10ref:bgGeminiReveal?.ref,$11$2=(function(Native,components,React){var Wrapped=React.memo(function(props){var bridge=globalThis.__bettergravityGeminiReveal;return bridge?bridge.render(React,Native,components,props):React.createElement(Native,props)});Wrapped.displayName=\"CustomMarkdown\";return Wrapped})($2,$7,$3);"
+        }
+      ]
+    },
+    {
+      "note": "Let Gemini App own the scroll associated with a newly submitted user turn. Pass its conversation id to the entrance bridge so another pane, queued message, or history navigation cannot consume the submit. The native send callback remains the fallback when the plugin is disabled or no actual submit is armed. This does not delay the API request or follow generated output.",
+      "find": "lastStepType",
+      "replace": [
+        {
+          "match": "\\bfunction (\\w+)\\((\\w+),(\\w+),(\\w+)\\)\\{var (\\w+)=\\(0,(\\w+)\\.useRef\\)\\(\\{totalStepsLength:\\2,lastStepType:\\3\\}\\);\\(0,\\6\\.useEffect\\)\\(\\(\\)=>\\{var (\\w+)=\\3===(\\w+)\\.CortexStepType\\.USER_INPUT;\\2!==\\5\\.current\\.totalStepsLength&&\\7&&\\4\\?\\.\\(\\);\\5\\.current=\\{totalStepsLength:\\2,lastStepType:\\3\\}\\},\\[\\2,\\3,\\4\\]\\)\\}",
+          "with": "function $1($2,$3,$4,bgConversationId){var $5=(0,$6.useRef)({totalStepsLength:$2,lastStepType:$3});(0,$6.useEffect)(()=>{var $7=$3===$8.CortexStepType.USER_INPUT;if($2!==$5.current.totalStepsLength&&$7){var bgEntrance=globalThis.__bettergravityGeminiSendEntrance;(!bgEntrance||!bgEntrance.nativeSend(bgConversationId))&&$4?.()}$5.current={totalStepsLength:$2,lastStepType:$3}},[$2,$3,$4,bgConversationId])}"
+        },
+        {
+          "match": "\\b(\\w+)\\((\\w+)\\.totalStepsLength,\\2\\.lastStepType,(\\w+)\\)",
+          "with": "$1($2.totalStepsLength,$2.lastStepType,$3,$2.conversationId)"
         }
       ]
     }

@@ -1,0 +1,16 @@
+{
+  "product": "OpenAI Codex",
+  "version": "26.903.71938",
+  "sources": [
+    {
+      "file": "scripts/browser-client.mjs",
+      "sha256": "3fde147aa3779bfc112aa91cbab60fde99dc494f7de76c3766ffeb9b1dc7ccae"
+    },
+    {
+      "file": "scripts/browser-service.mjs",
+      "sha256": "4a4bea84bcbaa820a7f67cd8d3ce7aa01d5dfd1207367d9d43125ab2c5e1e381"
+    }
+  ],
+  "extraction": "Portable client and command schemas; embedded Playwright selector engine. Codex bootstrap replaced with BetterGravity transport. Console calls removed. No Codex service, telemetry, credentials, or native binaries included.",
+  "commandCount": 94
+}

@@ -14,12 +14,11 @@ concurrency:
 
 jobs:
   check:
-    # The patcher only ever runs on Windows, so Windows is the platform that
-    # matters. Linux is kept as the fast signal and to catch path assumptions.
+    # Windows and macOS are primary runtime platforms; Linux is the fast signal.
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -34,8 +33,20 @@ jobs:
       - run: pnpm check
 
   package:
-    # Proves the portable executable still builds. Only meaningful on Windows.
-    runs-on: windows-latest
+    # Proves packaged installers build on their target platforms.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: installer-windows
+            build: pnpm build:installer:win
+            path: release*/*.exe
+          - os: macos-latest
+            name: installer-macos
+            build: pnpm build:installer:mac
+            path: release*/*
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -46,13 +57,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build:installer
+      - run: ${{ matrix.build }}
       - uses: actions/upload-artifact@v4
         with:
-          name: installer
+          name: ${{ matrix.name }}
           # Matches directories.output in apps/installer/package.json. Kept as a
           # glob so the two cannot silently disagree again; if-no-files-found
           # turns any future mismatch into a failure rather than a silent skip.
-          path: release*/*.exe
+          path: ${{ matrix.path }}
           if-no-files-found: error
           retention-days: 7

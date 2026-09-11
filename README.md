@@ -11,7 +11,7 @@ build step.
 [![Checks](https://github.com/YashjitPal/BetterGravity/actions/workflows/ci.yml/badge.svg)](https://github.com/YashjitPal/BetterGravity/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Antigravity 2.x](https://img.shields.io/badge/Antigravity-2.x-FFC799)](https://antigravity.google)
-[![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078D4)](docs/installation.md)
+[![Platform: Windows | macOS](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078D4)](docs/installation.md)
 
 [Install](docs/installation.md) · [Make a theme](docs/themes.md) ·
 [Make a plugin](docs/plugins.md) · [How it works](docs/architecture.md)
@@ -39,7 +39,7 @@ build step.
 
 ## Install
 
-Windows, Antigravity 2.x.
+Windows & macOS, Antigravity 2.x.
 
 Download the installer from [releases](https://github.com/YashjitPal/BetterGravity/releases),
 run it, press **Install**. Then open Antigravity and find **BetterGravity** in

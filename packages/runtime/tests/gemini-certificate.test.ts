@@ -8,10 +8,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { integer, oid, sequence, tlv, utcTime } from "../src/main/gemini/der.js";
 import {
   certificateFiles,
+  checkTrust,
+  installTrust,
   loadOrMint,
   mintAuthority,
   mintLeaf,
   readTrustRecord,
+  removeTrust,
   thumbprintOf,
   writeTrustRecord
 } from "../src/main/gemini/certificate.js";
@@ -209,5 +212,22 @@ describe("serving TLS with it", () => {
     } finally {
       await new Promise<void>((resolve) => void server.close(() => resolve()));
     }
+  });
+});
+
+describe("platform trust routing", () => {
+  it("reports unsupported for non-supported platforms like linux", async () => {
+    const files = certificateFiles(temporaryDirectory());
+    const dummyThumbprint = "0123456789ABCDEF0123456789ABCDEF01234567";
+
+    expect(await checkTrust(dummyThumbprint, "linux")).toBe("unsupported");
+
+    const installResult = await installTrust(files, dummyThumbprint, "linux");
+    expect(installResult.state).toBe("unsupported");
+    expect(installResult.message).toMatch(/only be installed on Windows or macOS/);
+
+    const removeResult = await removeTrust(files, dummyThumbprint, "linux");
+    expect(removeResult.state).toBe("unsupported");
+    expect(removeResult.message).toMatch(/nothing to remove/);
   });
 });

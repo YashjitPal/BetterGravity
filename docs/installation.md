@@ -1,14 +1,24 @@
 # Installing BetterGravity
 
-Windows, Antigravity 2.x. Other platforms are not supported yet.
+Windows & macOS, Antigravity 2.x.
 
 ## Install
 
+### Windows
 1. Download `BetterGravity-Installer-<version>.exe` from the
    [releases page](https://github.com/YashjitPal/BetterGravity/releases).
 2. Run it. Windows SmartScreen will warn, because the build is not code-signed
    yet — choose **More info → Run anyway**.
 3. The installer finds Antigravity on its own. Press **Install**.
+4. Reopen Antigravity. BetterGravity is now in **Settings → BetterGravity**.
+
+### macOS
+1. Download `BetterGravity-Installer-<version>.dmg` from the
+   [releases page](https://github.com/YashjitPal/BetterGravity/releases).
+2. Open the DMG and launch BetterGravity Installer. If macOS Gatekeeper warns
+   that the developer cannot be verified, right-click (or Control-click) the app
+   and choose **Open**.
+3. The installer automatically discovers `/Applications/Antigravity.app`. Press **Install**.
 4. Reopen Antigravity. BetterGravity is now in **Settings → BetterGravity**.
 
 The installer closes Antigravity if it is running, backs up the original program
@@ -20,15 +30,18 @@ Run the installer again and press **Uninstall**. Antigravity is restored exactly
 as it was, byte for byte.
 
 Your themes, plugins, settings, and saved plugin data are kept, so reinstalling
-picks up where you left off. To remove those too, delete
-`%APPDATA%\BetterGravity`.
+picks up where you left off. To remove those too, delete:
+- Windows: `%APPDATA%\BetterGravity`
+- macOS: `~/Library/Application Support/BetterGravity`
 
 ## Where things are kept
 
 ```text
-%APPDATA%\BetterGravity\
-├── themes\           your .css files
-├── plugins\          one folder per plugin
+BetterGravity content directory:
+  Windows: %APPDATA%\BetterGravity\
+  macOS:   ~/Library/Application Support/BetterGravity/
+├── themes/           your .css files
+├── plugins/          one folder per plugin
 ├── settings.json     what is switched on
 ├── storage.json      data plugins have saved
 └── runtime.log       what the runtime did, and anything that failed
@@ -50,7 +63,8 @@ the installer will report **Antigravity changed** next time you open it, and
 
 **The installer says Antigravity was not found.**
 Use **Choose a different location** and pick the folder containing
-`Antigravity.exe`. Standard locations are checked automatically.
+`Antigravity.exe` (Windows) or `/Applications/Antigravity.app` (macOS). Standard
+locations are checked automatically.
 
 **It says the version has not been marked compatible.**
 BetterGravity is verified against Antigravity 2.x and refuses versions it has

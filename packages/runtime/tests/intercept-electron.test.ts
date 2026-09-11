@@ -43,6 +43,7 @@ it.runIf(process.platform === "win32")("releases chat streams beyond the HTTP/2 
     expect(result).toMatchObject({
       opened: 264, closed: 264, active: 0, binaryEcho: true,
       bundlePatched: true, relativeImport: true, navigationCancelled: true,
+      reloadKeepsUpdatedPatches: true, disabledPatchesStayNative: true,
       delayedHeadersCancelled: true, errors: []
     });
   } finally {

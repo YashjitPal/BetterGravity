@@ -172,6 +172,10 @@ first.
 
 Patches only run for **enabled plugins with developer mode on**, and the
 interceptor is not installed at all unless some plugin declares one.
+Once installed, it reads current declarations when local scripts load. Reload
+the window after changing a patch; editing its manifest does not replace code
+already running in that page. Starting with no enabled source-patching plugins
+still requires an app restart before the first one can take effect.
 
 **Anchoring on strings is the whole technique.** Closure mangles identifiers but
 cannot touch string literals, so `"Scheduled Tasks"`, `data-testid` values, and

@@ -1,0 +1,2859 @@
+[
+  {
+    "name": "list_browsers",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_browser",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_default_browser",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_documentation",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_browser_documentation",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_browser_for_url",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_tab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_tab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "close_tab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mark_tab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "handoff",
+            "deliverable"
+          ]
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_manual_handoff_request",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "runtime_config",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "name_session",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "selected_tab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_tabs",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tabs_content",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "urls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "content_type": {
+          "type": "string",
+          "enum": [
+            "html",
+            "text",
+            "domSnapshot"
+          ]
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "urls",
+        "content_type"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "webmcp_list_tools",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "webmcp_invoke_tool",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "tool_name": {
+          "type": "string"
+        },
+        "tool_description": {
+          "type": "string"
+        },
+        "tool_title": {
+          "type": "string"
+        },
+        "registration_id": {
+          "type": "string"
+        },
+        "input": {},
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "tool_name",
+        "registration_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "navigate_tab_url",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "url"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "navigate_tab_back",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "navigate_tab_forward",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "navigate_tab_reload",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_user_claim_tab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_user_get_tab_context",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "expected_url": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_user_open_tabs",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_user_history",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_dev_logs",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "debug",
+              "info",
+              "log",
+              "warn",
+              "error"
+            ]
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_get_js_dialog",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_handle_js_dialog",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "dismiss"
+          ]
+        },
+        "browser_id": {
+          "type": "string"
+        },
+        "dialog_id": {
+          "type": "string"
+        },
+        "prompt_text": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "browser_id",
+        "dialog_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_content_export",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_content_export_gsuite",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "pdf",
+            "md",
+            "xlsx",
+            "csv",
+            "docx",
+            "pptx"
+          ]
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "format"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_content_export_youtube_transcript",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_clipboard_read_text",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_clipboard_write_text",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "text"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_clipboard_read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_clipboard_write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "mime_type": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "base64": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "mime_type"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "presentation_style": {
+                "type": "string",
+                "enum": [
+                  "unspecified",
+                  "inline",
+                  "attachment"
+                ]
+              }
+            },
+            "required": [
+              "entries"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "items"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_screenshot",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "fullPage": {
+          "type": "boolean"
+        },
+        "cropX": {
+          "type": "number"
+        },
+        "cropY": {
+          "type": "number"
+        },
+        "cropWidth": {
+          "type": "number"
+        },
+        "cropHeight": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_ax_get_state",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string",
+          "enum": [
+            "axState",
+            "screenshot",
+            "axStateAndScreenshot"
+          ]
+        },
+        "disable_diffing": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "content"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_ax_action",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "click",
+                  "type": "string"
+                },
+                "target": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "array",
+                      "items": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  ]
+                },
+                "mouse_button": {
+                  "type": "string",
+                  "enum": [
+                    "left",
+                    "right",
+                    "middle",
+                    "l",
+                    "r",
+                    "m"
+                  ]
+                },
+                "click_count": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "kind",
+                "target"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "drag",
+                  "type": "string"
+                },
+                "from": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "to": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+              "required": [
+                "kind",
+                "from",
+                "to"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "perform_secondary_action",
+                  "type": "string"
+                },
+                "element_index": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "action": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "element_index",
+                "action"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "press_key",
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "key"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "scroll",
+                  "type": "string"
+                },
+                "target": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "array",
+                      "items": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  ]
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "up",
+                    "down",
+                    "left",
+                    "right",
+                    "u",
+                    "d",
+                    "l",
+                    "r"
+                  ]
+                },
+                "pages": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "kind",
+                "target",
+                "direction"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "select_text",
+                  "type": "string"
+                },
+                "element_index": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "text": {
+                  "type": "string"
+                },
+                "prefix": {
+                  "type": "string"
+                },
+                "suffix": {
+                  "type": "string"
+                },
+                "selection_type": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "cursor_before",
+                    "cursor_after"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "element_index",
+                "text"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "set_value",
+                  "type": "string"
+                },
+                "element_index": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "value": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "element_index",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "type_text",
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "action"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_evaluate",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "selector_mode": {
+          "const": "all",
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "script": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "script"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_click",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "button": {
+          "type": "number"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_download_media",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_double_click",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_keypress",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "keys"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_drag",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_move",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_scroll",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "scroll_x": {
+          "type": "number"
+        },
+        "scroll_y": {
+          "type": "number"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "x",
+        "y",
+        "scroll_x",
+        "scroll_y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cua_type",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "text"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "dom_cua_click",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "node_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "dom_cua_download_media",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "node_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "dom_cua_double_click",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "node_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "dom_cua_get_visible_dom",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "dom_cua_keypress",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "keys"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "dom_cua_scroll",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "scroll_x": {
+          "type": "number"
+        },
+        "scroll_y": {
+          "type": "number"
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "scroll_x",
+        "scroll_y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "dom_cua_type",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "text"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_click",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Alt",
+              "Control",
+              "ControlOrMeta",
+              "Meta",
+              "Shift"
+            ]
+          }
+        },
+        "button": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right",
+            "middle"
+          ]
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_dblclick",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Alt",
+              "Control",
+              "ControlOrMeta",
+              "Meta",
+              "Shift"
+            ]
+          }
+        },
+        "button": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right",
+            "middle"
+          ]
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_download_media",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_fill",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "replace": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector",
+        "value",
+        "replace"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_press",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector",
+        "value"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_press_sequentially",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector",
+        "value"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_wait_for",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "attached",
+            "detached",
+            "visible",
+            "hidden"
+          ]
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector",
+        "state"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_count",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_select_option",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "selections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector",
+        "selections"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_set_checked",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "checked": {
+          "type": "boolean"
+        },
+        "force": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector",
+        "checked"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_is_visible",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_is_enabled",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_all_text_contents",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_text_content",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_inner_text",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_get_attribute",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector",
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_locator_read_all",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "relative_selector": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_wait_for_url",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "wait_until": {
+          "type": "string",
+          "enum": [
+            "load",
+            "domcontentloaded",
+            "networkidle",
+            "commit"
+          ]
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "url"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_wait_for_load_state",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "load",
+            "domcontentloaded",
+            "networkidle"
+          ]
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_wait_for_timeout",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "timeout_ms"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_dom_snapshot",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_element_info",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "include_non_interactable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_element_screenshot",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "include_non_interactable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_wait_for_download",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_download_path",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "download_id": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "download_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_wait_for_file_chooser",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "playwright_file_chooser_set_files",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "file_chooser_id": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "file_chooser_id",
+        "files"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_bot_detection_report",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": [
+            "captcha_failed",
+            "access_denied",
+            "challenge_loop",
+            "unexpected_bot_error"
+          ]
+        },
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_cdp_call",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id",
+        "method"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_cdp_events",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "after_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "browser_id": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "tab_id": {
+          "type": "string"
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_browser_auth_handoff",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "autocomplete": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "selector": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "type",
+              "required",
+              "selector"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "selector": {
+                "type": "string"
+              },
+              "field_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "label"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 2
+        },
+        "qr_code": {
+          "const": true,
+          "type": "boolean"
+        },
+        "submit": {
+          "type": "object",
+          "properties": {
+            "selector": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "click",
+                "press_enter"
+              ]
+            }
+          },
+          "required": [
+            "selector",
+            "action"
+          ],
+          "additionalProperties": false
+        },
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "origin",
+        "fields",
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_page_assets_bundle",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "assetIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inventoryId": {
+          "type": "string"
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "font",
+              "image",
+              "stylesheet",
+              "video"
+            ]
+          }
+        },
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "inventoryId",
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "tab_page_assets_list",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "tab_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id",
+        "tab_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_management_call",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "args": {
+          "type": "array",
+          "items": {}
+        },
+        "browser_id": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "args",
+        "browser_id",
+        "method",
+        "namespace"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_management_get_audit_trail",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_visibility_get",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_visibility_set",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "browser_id",
+        "visible"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_viewport_reset",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "browser_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "browser_viewport_set",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "browser_id": {
+          "type": "string"
+        },
+        "height": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "browser_id",
+        "height",
+        "width"
+      ],
+      "additionalProperties": false
+    }
+  }
+]

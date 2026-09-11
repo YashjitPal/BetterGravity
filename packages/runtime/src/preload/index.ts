@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
   CHANNEL,
+  type BrowserPanelState,
   OVERLAY_ARGUMENT,
   type ContentKind,
   type DirectoryKey,
@@ -92,6 +93,7 @@ const geminiListeners = new Set<(status: GeminiStatus) => void>();
 const overlayStatusListeners = new Set<(status: OverlayStatus) => void>();
 const overlayMessageListeners = new Set<(message: unknown) => void>();
 const petsListeners = new Set<() => void>();
+const browserListeners = new Set<(state: BrowserPanelState) => void>();
 
 const bridge: RuntimeBridge = {
   getState: () => ipcRenderer.invoke(CHANNEL.getState),
@@ -125,6 +127,9 @@ const bridge: RuntimeBridge = {
   petsPrepare: owner => ipcRenderer.invoke(CHANNEL.petsPrepare, owner),
   petsOpenFolder: owner => ipcRenderer.invoke(CHANNEL.petsOpenFolder, owner),
   onPetsChanged: listener => { petsListeners.add(listener); },
+  browserRequest: (owner, action, args) => ipcRenderer.invoke(CHANNEL.browserRequest, owner, action, args),
+  browserBounds: (owner, bounds) => ipcRenderer.send(CHANNEL.browserBounds, owner, bounds),
+  onBrowserState: listener => { browserListeners.add(listener); },
   overlayOpen: (owner, surface: OverlaySurface) => ipcRenderer.invoke(CHANNEL.overlayOpen, owner, surface),
   overlayClose: (owner) => ipcRenderer.invoke(CHANNEL.overlayClose, owner),
   overlaySend: (message) => ipcRenderer.send(CHANNEL.overlaySend, message),
@@ -206,6 +211,12 @@ if (isOverlayWindow) {
   ipcRenderer.on(CHANNEL.petsChanged, () => {
     for (const listener of petsListeners) {
       try { listener(); } catch { /* Keep other pet-library subscribers active. */ }
+    }
+  });
+
+  ipcRenderer.on(CHANNEL.browserState, (_event, state: BrowserPanelState) => {
+    for (const listener of browserListeners) {
+      try { listener(state); } catch { /* A plugin listener must not block other subscribers. */ }
     }
   });
 

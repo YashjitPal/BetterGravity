@@ -34,28 +34,46 @@ function checkAndClearInterrupt() {
 
 let overlayStarted = false;
 
-function ensureOverlay() {
-  if (fs.existsSync(OVERLAY_BIN)) {
-    try {
-      const testSocket = net.createConnection({ port: 51830, host: "127.0.0.1" }, () => {
-        testSocket.destroy();
-      });
-      testSocket.on("error", () => {
-        try {
-          exec('cmd.exe /c "schtasks /create /tn \\"AntigravityScreenOverlay\\" /tr \\"\\"' + OVERLAY_BIN + '\\"\\" /sc once /st 00:00 /f /it >nul 2>&1 & schtasks /run /tn \\"AntigravityScreenOverlay\\" >nul 2>&1"');
-        } catch {}
-      });
-      testSocket.setTimeout(150, () => testSocket.destroy());
-    } catch {}
+function pingOverlay() {
+  return new Promise((resolve) => {
+    const s = net.createConnection({ port: 51830, host: "127.0.0.1" }, () => {
+      s.destroy();
+      resolve(true);
+    });
+    s.on("error", () => resolve(false));
+    s.setTimeout(150, () => {
+      s.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function ensureOverlay() {
+  if (!fs.existsSync(OVERLAY_BIN)) return;
+  const alive = await pingOverlay();
+  if (alive) return;
+
+  try {
+    const child = spawn(OVERLAY_BIN, [], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: false,
+    });
+    child.unref();
+  } catch {}
+
+  for (let i = 0; i < 15; i++) {
+    await new Promise((r) => setTimeout(r, 80));
+    if (await pingOverlay()) break;
   }
 }
 
 const STATUS_TEXT = "Antigravity is controlling...";
 
-export function notifyOverlay(x, y, status = STATUS_TEXT) {
+export async function notifyOverlay(x, y, status = STATUS_TEXT) {
+  await ensureOverlay();
   return new Promise((resolve) => {
     try {
-      ensureOverlay();
       const socket = net.createConnection({ port: 51830, host: "127.0.0.1" }, () => {
         const payload = (typeof x === "number" && typeof y === "number")
           ? { x, y, status }
@@ -67,7 +85,7 @@ export function notifyOverlay(x, y, status = STATUS_TEXT) {
         resolve();
       });
       socket.on("error", () => resolve());
-      socket.setTimeout(250, () => {
+      socket.setTimeout(300, () => {
         socket.destroy();
         resolve();
       });
@@ -95,7 +113,6 @@ export function notifyOverlayDone() {
 export function notifyOverlayIdle(status = STATUS_TEXT) {
   return new Promise((resolve) => {
     try {
-      ensureOverlay();
       const socket = net.createConnection({ port: 51830, host: "127.0.0.1" }, () => {
         socket.write(JSON.stringify({ action: "idle", status }) + "\n");
       });
@@ -190,7 +207,7 @@ export class WindowsNativeRunner {
     const y = Array.isArray(target) ? target[1] : 100;
     const appStr = (app && typeof app === "object") ? app.name || app.displayName || "" : String(app || "");
     await notifyOverlay(x, y, STATUS_TEXT);
-    await new Promise((r) => setTimeout(r, 180));
+    await new Promise((r) => setTimeout(r, 450));
     try {
       const res = await this.runCommand("click", {
         x,
@@ -276,7 +293,8 @@ export class WindowsNativeRunner {
   async pressKey({ key, app }) {
     checkAndClearInterrupt();
     const appStr = (app && typeof app === "object") ? app.name || app.displayName || "" : String(app || "");
-    notifyOverlay(null, null, STATUS_TEXT);
+    await notifyOverlay(null, null, STATUS_TEXT);
+    await new Promise((r) => setTimeout(r, 150));
     try {
       return await this.runCommand("press_key", {
         key,

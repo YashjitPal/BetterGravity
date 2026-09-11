@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-11T20:11:25.934Z",
+  "generatedAt": "2026-09-11T23:20:34.789Z",
   "entries": [
     {
       "id": "computer-use",
@@ -11,7 +11,7 @@
       "author": "OpenAI & BetterGravity Community",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/computer-use",
-      "bytes": 941775,
+      "bytes": 945107,
       "files": [
         {
           "name": "assets/agent-cursor.png",
@@ -65,13 +65,13 @@
         },
         {
           "name": "bin/windows-native-runner.cs",
-          "bytes": 31130,
-          "sha256": "6bd524cffef4db75da03cea4b70978eb294855824630091d764800f0b95e70ab"
+          "bytes": 31368,
+          "sha256": "1fd991dc3b34f88950810abd5c479653b7d9998bee5c67db6cb5d1ebc3db4830"
         },
         {
           "name": "bin/windows-native-runner.exe",
-          "bytes": 22016,
-          "sha256": "a4d467e79c5569e810998bf11039bee5db940268269ed8368e3071dec23da98e"
+          "bytes": 20992,
+          "sha256": "2ee01ac82ae9fd5147a46b1d8ad7e4aad8f3e82c5f17ef6a652b25a42083beb7"
         },
         {
           "name": "bin/windows-screen-overlay-debug.exe",
@@ -80,13 +80,13 @@
         },
         {
           "name": "bin/windows-screen-overlay.cs",
-          "bytes": 54006,
-          "sha256": "bbbacc83d535ba318bcde0d0b98bbb9eda2d0589b969d198e50dbf0b19c2acb4"
+          "bytes": 56660,
+          "sha256": "42adfc20aab9ef55677e769173d24d16e4532bebc8e42b60a82a6b1630bc992b"
         },
         {
           "name": "bin/windows-screen-overlay.exe",
-          "bytes": 40960,
-          "sha256": "b6b8c21427da083bad6752b877744e76fd54452a9ac5cdde4f82a82975224fff"
+          "bytes": 42496,
+          "sha256": "53e07bd9b863d22cc681e7abbf4a6a6c386792c3fc1209d688ba66d10f0843d8"
         },
         {
           "name": "core/approval-manager.js",
@@ -130,8 +130,8 @@
         },
         {
           "name": "core/windows-native-runner.js",
-          "bytes": 8907,
-          "sha256": "8dac46c28f2e6198d484d2a52c209749ced8811b92c70a928b1321df26d01140"
+          "bytes": 9104,
+          "sha256": "4961982ce434d0c2d1afc81daeb8416fd4c41aeebc106c7ab5c8042004bde3c1"
         },
         {
           "name": "cursor/agent-cursor.png",
@@ -160,8 +160,8 @@
         },
         {
           "name": "mcp-server.cjs",
-          "bytes": 4360,
-          "sha256": "1f2598916acd31e87a2aa84f92a2c1d262bce8900b8b7f5de9751247bc7a7cc4"
+          "bytes": 4359,
+          "sha256": "55919cc358b0ffae191f5f984fb0c479046cccbbe4d386fee037661a7684522c"
         },
         {
           "name": "package.json",
@@ -175,8 +175,8 @@
         },
         {
           "name": "skills/computer-use/scripts/run_action.js",
-          "bytes": 1680,
-          "sha256": "40c2188ed561678b778e30c435e885a604526edfd470912f0a92622e74c86a48"
+          "bytes": 1679,
+          "sha256": "60c8bceff98cea57dd6875f59c634670dd215c30b72c990a4879129cde96f42e"
         },
         {
           "name": "skills/computer-use/scripts/run-action.mjs",
@@ -185,13 +185,13 @@
         },
         {
           "name": "skills/computer-use/SKILL.md",
-          "bytes": 5053,
-          "sha256": "7f0ed7e9df778166ed03742a4a42e4e57a9fdd3681e2d84d2449f2fc1ffa6a6b"
+          "bytes": 5052,
+          "sha256": "9a1bdb624a316c842c696632a8765fddc5b0a9372b8edbc752b6fc7e8c8b1ed1"
         },
         {
           "name": "styles/computer-use.css",
-          "bytes": 6530,
-          "sha256": "838cd96e687c65dd11a10973e930e9ac30e659bd19ce8ef68229c256f03e18cc"
+          "bytes": 6264,
+          "sha256": "5c3b512172482d9b971cfa650f039c0643b54683bbdfaff55c6c1119bbefe8a6"
         },
         {
           "name": "tools/actions.js",
@@ -252,12 +252,12 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/fork-chat",
-      "bytes": 58281,
+      "bytes": 59539,
       "files": [
         {
           "name": "index.js",
-          "bytes": 42389,
-          "sha256": "b6bfc1833635738b5ad57e605505f9ab0ad57d0a55076b7640668f65e33fa20f"
+          "bytes": 43647,
+          "sha256": "813c5e5a89f344f386cefc870992fad24e54e392e72dda759b7e03d54427bc82"
         },
         {
           "name": "plugin.json",
@@ -308,7 +308,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 854597,
+      "bytes": 874506,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -327,18 +327,18 @@
         },
         {
           "name": "index.js",
-          "bytes": 347456,
-          "sha256": "93d712a40deeaf96a3862740ba5727e94c47d8e2e3b3afbd720191c2e6f98b18"
+          "bytes": 358479,
+          "sha256": "4adb67e5fa97269a6869865f6d02f724e9528a0e25963176bee6ee10a7ee5dc5"
         },
         {
           "name": "plugin.json",
-          "bytes": 21181,
-          "sha256": "e6100296217b01654a69888d8d6f465b03150a7a6ae772f9170e1c4198cc03ed"
+          "bytes": 22959,
+          "sha256": "af18f2a0757b5a8d36ba7177da8966fa16cafd7a3a299e648bf267880cc7d506"
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 72838,
-          "sha256": "0e449c16fc4870f1fa47e741d33aec3d1961a04c6b1673e9e66b1add01e27a93"
+          "bytes": 73821,
+          "sha256": "b8720be29c73c5f491a466c1fc8fbb293a4bb849746aa5e0374574b9ddfb92c1"
         },
         {
           "name": "styles/dialog.css",
@@ -352,8 +352,8 @@
         },
         {
           "name": "styles/history.css",
-          "bytes": 8394,
-          "sha256": "72dc20a14502bc91cc5ffd581ac150407fcdd8942a2f617a69e2b14448696e97"
+          "bytes": 11335,
+          "sha256": "5b57cebd8e13b6c8ca4eb5ae1d010eee1b4a2d36835d7531840135c2f6a7cd88"
         },
         {
           "name": "styles/home-composer.css",
@@ -377,8 +377,8 @@
         },
         {
           "name": "styles/prompt-box.css",
-          "bytes": 33182,
-          "sha256": "58292ae88f6b0e57f1d53f007b073021d8f851248975516931852e0e48f0b27a"
+          "bytes": 35846,
+          "sha256": "442efe2acb57a19c15851feae0b0d671f1d95b65718e1432fd1d39201e596168"
         },
         {
           "name": "styles/schedules.css",
@@ -387,8 +387,8 @@
         },
         {
           "name": "styles/sidebar.css",
-          "bytes": 123979,
-          "sha256": "dabcd2c23c4bd44b3fdd5c35a9669c1ef1e39618030c4f35789b3170704fc15b"
+          "bytes": 124426,
+          "sha256": "e2d3887be5dbc076d908439c201c9449cb1294c65b0588cda61b41ae11f4b9cd"
         },
         {
           "name": "styles/skills-tab.css",
@@ -397,13 +397,66 @@
         },
         {
           "name": "styles/tokens.css",
-          "bytes": 8049,
-          "sha256": "b91d927c00d90d79811f62d852e9408b72e4c2a6084787e36857335f505e1d61"
+          "bytes": 8122,
+          "sha256": "b1618889349e81c54453a075f0a79260039d8eb81b66973b0526f321f0698e68"
         },
         {
           "name": "styles/tooltip.css",
           "bytes": 6727,
           "sha256": "de930a2e37493ba4d2c84fddde9f9a3d9267c5e4024cec912dee7dbb500e5f20"
+        }
+      ]
+    },
+    {
+      "id": "in-built-browser",
+      "kind": "plugin",
+      "name": "In Built Browser",
+      "description": "A tabbed browser in the right sidebar, shared with your model. Open websites and localhost, inspect pages, use browser computer controls, and leave visual feedback. Browser tools exist only while this plugin is enabled.",
+      "version": "1.0.0",
+      "author": "BetterGravity Community",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/in-built-browser",
+      "bytes": 422450,
+      "files": [
+        {
+          "name": "index.js",
+          "bytes": 37,
+          "sha256": "bcd5a037deedda6a24b803b1e703eb78c0b36d8a47e590c0a4abc407a1c319ad"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 449,
+          "sha256": "5163284613a1253129776032ce14a28fb5dab9e470d122a46b15fa20d58b68f4"
+        },
+        {
+          "name": "styles/browser.css",
+          "bytes": 37,
+          "sha256": "cba8a3632525942983ca65b31fb0a9042ab1661b3a1cce210d64527f26ead967"
+        },
+        {
+          "name": "vendor/api.json",
+          "bytes": 59294,
+          "sha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f"
+        },
+        {
+          "name": "vendor/codex-browser-client.mjs",
+          "bytes": 150079,
+          "sha256": "41d89112e4c173cdc8dc3c7401aea2c5f7fd503bc8fd80e5cfe097c9402f50ad"
+        },
+        {
+          "name": "vendor/command-contracts.json",
+          "bytes": 57693,
+          "sha256": "eeae1da36074b0fbdcc4f95c16a639ea4663b3a181d3229a8e5e2b03b5640592"
+        },
+        {
+          "name": "vendor/playwright-injected.js",
+          "bytes": 154236,
+          "sha256": "a04240e66def7ac4f43e003501c968ce722cae1b18848c028e4d95eca117d4d0"
+        },
+        {
+          "name": "vendor/provenance.json",
+          "bytes": 625,
+          "sha256": "4a6185526dd13a9e5a83ead702cbe22f8fdec9bbc4aec1e8e19827b680ca5e00"
         }
       ]
     },
@@ -416,7 +469,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/pets",
-      "bytes": 1478074,
+      "bytes": 1485950,
       "files": [
         {
           "name": "assets/rocky.webp",
@@ -425,8 +478,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 226415,
-          "sha256": "346a5c9cfd4c9eb34eb83b0ca1aed6b68ac0e43df286324431551e732abfef53"
+          "bytes": 234291,
+          "sha256": "d3ccc93016b58007b81a1b5f6ca0491fbfd6f84c8a0a0122d95950ba323b215b"
         },
         {
           "name": "plugin.json",

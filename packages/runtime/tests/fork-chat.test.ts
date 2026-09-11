@@ -197,8 +197,9 @@ describe("Fork Chat plugin functionality", () => {
     const menuEl = document.createElement("div");
     menuEl.setAttribute("role", "menu");
     menuEl.innerHTML = `
-      <div role="menuitem">
-        <span><svg></svg><span>Fork</span></span>
+      <div role="menuitem" class="flex justify-between">
+        <span class="flex items-center gap-1.5 min-w-0 flex-1 truncate">Fork</span>
+        <span class="flex shrink-0 pl-2 opacity-50"><svg class="chevron"></svg></span>
       </div>
       <div role="menuitem">
         <span>Create fork in current workspace</span>
@@ -219,8 +220,16 @@ describe("Fork Chat plugin functionality", () => {
     const items = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
     expect(items[0]?.textContent).toContain("Copy session");
     expect(items[0]?.textContent).not.toContain("Fork");
+    // Verify leading copy icon exists in label span and chevron exists in shrink-0 span
+    const labelSvg = items[0]?.querySelector("span.min-w-0 svg");
+    const chevronSvg = items[0]?.querySelector("span.shrink-0 svg");
+    expect(labelSvg).toBeTruthy();
+    expect(chevronSvg).toBeTruthy();
+
     expect(items[1]?.textContent).toContain("In current workspace");
+    expect(items[1]?.querySelector("svg")).toBeTruthy();
     expect(items[2]?.textContent).toContain("In shared workspace");
+    expect(items[2]?.querySelector("svg")).toBeTruthy();
   });
 
   it("decorates user messages with a Fork button between Copy and Undo", () => {

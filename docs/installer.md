@@ -76,17 +76,19 @@ open it, and Reapply puts things back.
 ## Building it
 
 ```text
+# Windows portable executable:
 pnpm build:installer
+# Or macOS DMG / ZIP:
+pnpm --filter @bettergravity/installer build:desktop:mac
 ```
 
-The portable executable is written to
-`release-<version>/BetterGravity-Installer-<version>.exe`, which is ignored by
-Git. Local builds are unsigned until release signing is configured, so Windows
-SmartScreen will warn on first run.
+Packaged installers are written to `release/` (or `release-<version>/`), which
+is ignored by Git. Local builds are unsigned until release signing is configured,
+so Windows SmartScreen and macOS Gatekeeper will warn on first run.
 
 ## Supported platforms
 
-Windows, Antigravity 2.x. The patcher is written against that line specifically:
-a launcher shell that serves its UI from a loopback language server, with a
-single window-creation path. A new major version needs that re-verified before
-the compatibility gate moves.
+Windows & macOS, Antigravity 2.x. The patcher is written against that line
+specifically: a launcher shell that serves its UI from a loopback language
+server, with a single window-creation path. A new major version needs that
+re-verified before the compatibility gate moves.

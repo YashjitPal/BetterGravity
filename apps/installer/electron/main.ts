@@ -47,8 +47,9 @@ function createWindow(): void {
 
 ipcMain.handle(INSTALLER_CHANNEL.chooseDirectory, async () => {
   const result = await dialog.showOpenDialog({
-    title: "Choose the Antigravity installation folder",
-    properties: ["openDirectory", "dontAddToRecent"]
+    title: "Choose the Antigravity installation folder or application bundle",
+    properties: ["openDirectory", "openFile", "dontAddToRecent", "treatPackageAsDirectory"],
+    ...(process.platform === "darwin" ? { filters: [{ name: "Applications", extensions: ["app"] }] } : {})
   });
   return result.canceled ? undefined : result.filePaths[0];
 });

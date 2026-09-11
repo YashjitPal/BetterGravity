@@ -142,17 +142,50 @@ namespace ComputerUseOverlay {
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SetThreadDesktop(IntPtr hDesktop);
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct STARTUPINFO {
+            public int cb;
+            public string lpReserved;
+            public string lpDesktop;
+            public string lpTitle;
+            public int dwX, dwY, dwXSize, dwYSize, dwXCountChars, dwYCountChars, dwFillAttribute, dwFlags;
+            public short wShowWindow, cbReserved2;
+            public IntPtr lpReserved2, hStdInput, hStdOutput, hStdError;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PROCESS_INFORMATION {
+            public IntPtr hProcess, hThread;
+            public int dwProcessId, dwThreadId;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool CreateProcess(
+            string lpApplicationName, string lpCommandLine,
+            IntPtr lpProcessAttributes, IntPtr lpThreadAttributes,
+            bool bInheritHandles, uint dwCreationFlags,
+            IntPtr lpEnvironment, string lpCurrentDirectory,
+            ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr GetThreadDesktop(int dwThreadId);
+
+        [DllImport("kernel32.dll")]
+        private static extern int GetCurrentThreadId();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool GetUserObjectInformation(IntPtr hObj, int nIndex, StringBuilder pvInfo, int nLength, out int lpnLengthNeeded);
+
+        private static string GetDesktopName(IntPtr handle) {
+            if (handle == IntPtr.Zero) return "(null)";
+            StringBuilder sb = new StringBuilder(256);
+            int len;
+            GetUserObjectInformation(handle, 2, sb, 256, out len);
+            return sb.ToString();
+        }
+
         public static void AttachToInteractiveDesktop() {
-            try {
-                IntPtr hwinsta = OpenWindowStation("WinSta0", false, 0x037F);
-                if (hwinsta != IntPtr.Zero) {
-                    SetProcessWindowStation(hwinsta);
-                    IntPtr hdesk = OpenDesktop("Default", 0, false, 0x01FF);
-                    if (hdesk != IntPtr.Zero) {
-                        SetThreadDesktop(hdesk);
-                    }
-                }
-            } catch {}
+            // Process runs directly in interactive session
         }
 
         // Low-level Windows Hooks for physical user input suppression
@@ -305,7 +338,6 @@ namespace ComputerUseOverlay {
             "YCuRLd9NcZjw7572n657lsf5/TlZyA/Q9N3TljZhaAsAAAAABJRU5ErkJggg==";
 
         public OverlayWindow() {
-            AttachToInteractiveDesktop();
             _currentInstance = this;
             SetProcessDPIAware();
 
@@ -321,6 +353,8 @@ namespace ComputerUseOverlay {
             Top = 0;
             Width = screenWidth;
             Height = screenHeight;
+            Visibility = Visibility.Visible;
+            Opacity = 1.0;
 
             mainCanvas = new Canvas {
                 Width = screenWidth,
@@ -1103,7 +1137,7 @@ namespace ComputerUseOverlay {
         }
 
         public void ShowActive(string status = null) {
-            Dispatcher.Invoke(() => {
+            Action act = () => {
                 BeginAnimation(UIElement.OpacityProperty, null);
                 try {
                     File.Delete(@"C:\Users\Yashjit 2\AppData\Roaming\BetterGravity\plugins\computer-use\interrupt.signal");
@@ -1126,7 +1160,13 @@ namespace ComputerUseOverlay {
                     idleFadeTimer.Stop();
                     idleFadeTimer.Start();
                 }
-            });
+            };
+
+            if (Dispatcher.CheckAccess()) {
+                act();
+            } else {
+                Dispatcher.BeginInvoke(act);
+            }
         }
 
         public void FadeOut() {
@@ -1164,7 +1204,6 @@ namespace ComputerUseOverlay {
 
         private void StartTcpListener() {
             listenerThread = new Thread(() => {
-                AttachToInteractiveDesktop();
                 try {
                     listener = new TcpListener(IPAddress.Loopback, 51830);
                     listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
@@ -1221,12 +1260,10 @@ namespace ComputerUseOverlay {
 
         [STAThread]
         public static void Main(string[] args) {
-            AttachToInteractiveDesktop();
             try {
-                // If already running, notify and exit
                 using (TcpClient client = new TcpClient()) {
                     IAsyncResult ar = client.BeginConnect("127.0.0.1", 51830, null, null);
-                    bool success = ar.AsyncWaitHandle.WaitOne(100);
+                    bool success = ar.AsyncWaitHandle.WaitOne(80);
                     if (success && client.Connected) {
                         client.EndConnect(ar);
                         using (NetworkStream stream = client.GetStream())
@@ -1239,8 +1276,27 @@ namespace ComputerUseOverlay {
             } catch {}
 
             try {
+                IntPtr hdesk = GetThreadDesktop(GetCurrentThreadId());
+                string currentDesk = GetDesktopName(hdesk);
+                if (!string.IsNullOrEmpty(currentDesk) && !currentDesk.Equals("Default", StringComparison.OrdinalIgnoreCase) && !currentDesk.Equals("(null)", StringComparison.OrdinalIgnoreCase)) {
+                    STARTUPINFO si = new STARTUPINFO();
+                    si.cb = Marshal.SizeOf(si);
+                    si.lpDesktop = @"WinSta0\Default";
+                    PROCESS_INFORMATION pi;
+                    string exePath = Process.GetCurrentProcess().MainModule.FileName;
+                    string cmd = "\"" + exePath + "\"";
+                    bool ok = CreateProcess(exePath, cmd, IntPtr.Zero, IntPtr.Zero, false, 0x01000000, IntPtr.Zero, null, ref si, out pi);
+                    if (!ok) {
+                        ok = CreateProcess(exePath, cmd, IntPtr.Zero, IntPtr.Zero, false, 0, IntPtr.Zero, null, ref si, out pi);
+                    }
+                    if (ok) return;
+                }
+            } catch {}
+
+            try {
                 Application app = new Application();
                 OverlayWindow win = new OverlayWindow();
+                win.Show();
                 app.Run(win);
             } catch {}
         }

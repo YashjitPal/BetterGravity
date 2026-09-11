@@ -21,7 +21,11 @@ export function spawnGuardian(runtimeCodeDirectory: string, logFile: string): bo
   }
 
   // resources/.bettergravity/runtime -> the installation root.
-  const installationPath = path.resolve(runtimeCodeDirectory, "..", "..", "..");
+  // On macOS, resources is inside Contents/Resources, so 3 levels up is Contents.
+  let installationPath = path.resolve(runtimeCodeDirectory, "..", "..", "..");
+  if (path.basename(installationPath) === "Contents") {
+    installationPath = path.dirname(installationPath);
+  }
 
   try {
     const child = spawn(process.execPath, [script, installationPath, logFile], {

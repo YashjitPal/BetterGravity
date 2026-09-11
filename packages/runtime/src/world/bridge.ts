@@ -1,5 +1,6 @@
 import type {
   AccountProfile,
+  BrowserPanelState,
   CatalogEntry,
   CatalogResult,
   ContentKind,
@@ -52,6 +53,9 @@ export interface RuntimeBridge {
   petsPrepare(owner: string): Promise<{ skillPath: string; directory: string }>;
   petsOpenFolder(owner: string): Promise<void>;
   onPetsChanged(listener: () => void): void;
+  browserRequest?(owner: string, action: string, args: Record<string, unknown>): Promise<unknown>;
+  browserBounds?(owner: string, bounds: Record<string, unknown>): void;
+  onBrowserState?(listener: (state: BrowserPanelState) => void): void;
   /** `owner` is the plugin id; the main process uses it to police who may close. */
   overlayOpen(owner: string, surface: OverlaySurface): Promise<OverlayStatus>;
   overlayClose(owner: string): Promise<OverlayStatus>;

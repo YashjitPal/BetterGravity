@@ -13,13 +13,13 @@ const patches: PluginPatches[] = [{
 const streamUrl = "https://127.0.0.1:4567/StreamAgentStateUpdates";
 const bundleUrl = "https://127.0.0.1:4567/assets/main.js?v=1";
 
-async function intercept(sets = patches) {
+async function intercept(sets = patches, readLatest?: () => readonly PluginPatches[]) {
   let handler!: (request: Request) => Response | Promise<Response>;
   const session = {
     protocol: { handle: vi.fn((_scheme, next) => { handler = next; }) }
   };
   const { installSourceInterceptor } = await import("../src/main/intercept.js");
-  expect(installSourceInterceptor(session as unknown as Session, sets)).toBe(true);
+  expect(installSourceInterceptor(session as unknown as Session, sets, readLatest)).toBe(true);
   return async (request: Request) => handler(request);
 }
 
@@ -164,16 +164,65 @@ describe("source interceptor transport", () => {
 });
 
 describe("source interception", () => {
-  it("patches a bundle and discards its stale content length", async () => {
+  it("uses updated declarations on window reload even when the host bundle is unchanged", async () => {
+    let current: readonly PluginPatches[] = patches;
+    const handle = await intercept(patches, () => current);
+    fetchMock.mockImplementation(async () => new Response("/* bundle-anchor */ original"));
+    const reload = async () => (await handle(new Request(bundleUrl))).text();
+    expect(await reload()).toBe("/* bundle-anchor */ patched");
+
+    current = [{ pluginId: "test", patches: [{
+      find: "bundle-anchor", replace: [{ match: "original", with: "fade-restored" }]
+    }] }];
+    expect(await reload()).toBe("/* bundle-anchor */ fade-restored");
+    expect(await reload()).toBe("/* bundle-anchor */ fade-restored");
+
+    current = [];
+    expect(await reload()).toBe("/* bundle-anchor */ original");
+    current = patches;
+    expect(await reload()).toBe("/* bundle-anchor */ patched");
+  });
+
+  it("reads declarations only for local bundle requests, never for streaming text or remote scripts", async () => {
+    const readLatest = vi.fn(() => patches);
+    const handle = await intercept(patches, readLatest);
+    fetchMock.mockImplementation(async () => new Response("/* bundle-anchor */ original"));
+    await (await handle(new Request(streamUrl, { method: "POST", body: "stream" }))).text();
+    await (await handle(new Request("https://example.com/main.js"))).text();
+    expect(readLatest).not.toHaveBeenCalled();
+    await (await handle(new Request(bundleUrl))).text();
+    expect(readLatest).toHaveBeenCalledOnce();
+  });
+
+  it("patches a bundle without retaining HTTP validators or an older browser-cached revision", async () => {
     const handle = await intercept();
-    fetchMock.mockResolvedValue(new Response("/* bundle-anchor */ original", {
-      headers: { "content-type": "text/javascript", "content-length": "28" }
-    }));
-    const response = await handle(new Request(bundleUrl));
+    fetchMock.mockImplementation(async (_url, options) => {
+      expect(options.cache).toBe("no-store");
+      expect(options.headers.has("if-none-match")).toBe(false);
+      expect(options.headers.has("if-modified-since")).toBe(false);
+      return new Response("/* bundle-anchor */ original", { headers: {
+        "content-type": "text/javascript", "content-length": "28",
+        "etag": '"native-source"', "last-modified": "Fri, 11 Sep 2026 00:00:00 GMT", "cache-control": "public, max-age=3600"
+      } });
+    });
+    const response = await handle(new Request(bundleUrl, { headers: {
+      "if-none-match": '"native-source"', "if-modified-since": "Fri, 11 Sep 2026 00:00:00 GMT"
+    } }));
 
     expect(await response.text()).toBe("/* bundle-anchor */ patched");
     expect(response.headers.get("content-type")).toBe("text/javascript");
     expect(response.headers.has("content-length")).toBe(false);
+    expect(response.headers.has("etag")).toBe(false);
+    expect(response.headers.has("last-modified")).toBe(false);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("serves the native bundle safely if refreshing declarations fails", async () => {
+    const handle = await intercept(patches, () => { throw new Error("unreadable declarations"); });
+    fetchMock.mockResolvedValue(new Response("/* bundle-anchor */ original"));
+    expect(await (await handle(new Request(bundleUrl))).text()).toBe("/* bundle-anchor */ original");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining("serving Antigravity's own bundle"), expect.any(Error));
   });
 
   it("leaves remote JavaScript and unsuccessful responses unchanged", async () => {

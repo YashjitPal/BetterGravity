@@ -20,6 +20,21 @@ async function settle() {
   for (let i = 0; i < 4; i++) await Promise.resolve();
 }
 
+it("matches the scroll-edge hook quickly after a long embedded asset", () => {
+  const prefix = `const embeddedAsset="${"a".repeat(256 * 1024)}";`;
+  const hook = `function watch(scroller){var update=()=>{};var resize=new ResizeObserver(update);resize.observe(scroller);Array.from(scroller.children).forEach(child=>resize.observe(child));var mutations=new MutationObserver(nodes=>{nodes.forEach(node=>{node instanceof Element&&resize.unobserve(node)});update()});mutations.observe(scroller,{childList:!0});update();return()=>{resize.disconnect();mutations.disconnect()}}`;
+  const started = performance.now();
+  const result = apply("startThreshold", prefix + hook);
+  const elapsed = performance.now() - started;
+  expect(result).toContain(prefix);
+  expect(result).toContain("new ResizeObserver(bgSoon)");
+  expect(result).toContain("bgFrame&&cancelAnimationFrame(bgFrame)");
+  expect(() => new Function(result)).not.toThrow();
+  // Without the leading word boundary the search retries from every character
+  // inside the asset, taking seconds before it ever reaches the hook.
+  expect(elapsed).toBeLessThan(500);
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -193,6 +208,36 @@ function scrollViewport(conversation = true) {
 }
 
 describe("Gemini App native output scrolling", () => {
+  it("lets an entrance own initial positioning and hands an explicit jump back to the user", async () => {
+    vi.stubGlobal("__bettergravityGeminiManualScroll", {});
+    const viewport = scrollViewport(), scroll = scrollFactory()({ viewport: viewport.ref });
+    let owned = true;
+    const entrance = { ownsViewport: (node: Element) => owned && node === viewport.node, interruptScroll: vi.fn(() => { owned = false; }) };
+    vi.stubGlobal("__bettergravityGeminiSendEntrance", entrance);
+    scroll.automatic(); await settle();
+    expect(viewport.read).not.toHaveBeenCalled();
+    expect(viewport.node.scrollTo).not.toHaveBeenCalled();
+    owned = false;
+    scroll.automatic(); await settle();
+    expect(viewport.node.scrollTo).not.toHaveBeenCalled();
+    owned = true;
+    scroll.manual(); await settle();
+    expect(entrance.interruptScroll).toHaveBeenCalledExactlyOnceWith(viewport.node);
+    expect(viewport.node.scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 600, behavior: "instant" });
+    vi.mocked(viewport.node.scrollTo).mockClear();
+    scroll.automatic(); await settle();
+    expect(viewport.node.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("drops a queued initial scroll if the send entrance claims the viewport before flushing", async () => {
+    const viewport = scrollViewport(), scroll = scrollFactory()({ viewport: viewport.ref });
+    scroll.automatic();
+    vi.stubGlobal("__bettergravityGeminiSendEntrance", { ownsViewport: () => true });
+    await settle();
+    expect(viewport.read).not.toHaveBeenCalled();
+    expect(viewport.node.scrollTo).not.toHaveBeenCalled();
+  });
+
   it("reads current heights together and preserves instant and smooth scrolling", async () => {
     const createScroll = scrollFactory();
     const events: string[] = [];

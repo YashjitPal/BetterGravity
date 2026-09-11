@@ -3571,6 +3571,8 @@ const UNPIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20
 
 const ARCHIVE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 -960 960 960" fill="currentColor" class="shrink-0"><path d="M480-256.16L626.15-402.31L584-444.46l-74,74v-178H450v178l-74-74l-42.15,42.15L480-256.16ZM200-643.85v431.54q0,5.39 3.46,8.85t8.85,3.46H747.69q5.39,0 8.85-3.46t3.46-8.85V-643.85H200ZM215.39-140q-29.92,0-52.65-22.73T140-215.39V-679.77q0-12.85 4.12-24.5t12.35-21.5l56.15-67.92q9.85-12.85 24.62-19.58T268.46-820h422.3q16.46,0 31.42,6.73T747-793.69L803.54-725q8.23,9.85 12.35,21.69T820-678.61v463.23q0,29.92-22.73,52.65T744.61-140H215.39Zm0.23-563.84H744l-43.62-51.92q-1.92-1.92-4.42-3.08T690.77-760H268.85q-2.69,0-5.19,1.15t-4.42,3.08l-43.62,51.92ZM480-421.92Z"/></svg>`;
 
+const TERMINAL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" class="shrink-0"><path fill-rule="evenodd" clip-rule="evenodd" d="M4.02975 19.9703C4.38308 20.3234 4.80908 20.5 5.30775 20.5H18.6923C19.1909 20.5 19.6169 20.3234 19.9703 19.9703C20.3234 19.6169 20.5 19.1909 20.5 18.6923V5.30775C20.5 4.80908 20.3234 4.38308 19.9703 4.02975C19.6169 3.67658 19.1909 3.5 18.6923 3.5H5.30775C4.80908 3.5 4.38308 3.67658 4.02975 4.02975C3.67658 4.38308 3.5 4.80908 3.5 5.30775V18.6923C3.5 19.1909 3.67658 19.6169 4.02975 19.9703ZM5.09625 5.09625C5.16025 5.03208 5.23075 5 5.30775 5H18.6923C18.7693 5 18.8398 5.03208 18.9038 5.09625C18.9679 5.16025 19 5.23075 19 5.30775V18.6923C19 18.7693 18.9679 18.8398 18.9038 18.9038C18.8398 18.9679 18.7693 19 18.6923 19H5.30775C5.23075 19 5.16025 18.9679 5.09625 18.9038C5.03208 18.8398 5 18.7693 5 18.6923V5.30775C5 5.23075 5.03208 5.16025 5.09625 5.09625Z" fill="currentColor"></path><path d="M11.25 15.8122C11.0375 15.8122 10.8594 15.7403 10.7158 15.5965C10.5719 15.4526 10.5 15.2745 10.5 15.062C10.5 14.8493 10.5719 14.6712 10.7158 14.5277C10.8594 14.384 11.0375 14.3122 11.25 14.3122H15.25C15.4625 14.3122 15.6406 14.3841 15.7842 14.528C15.9281 14.6718 16 14.85 16 15.0625C16 15.2751 15.9281 15.4532 15.7842 15.5967C15.6406 15.7404 15.4625 15.8122 15.25 15.8122H11.25Z" fill="currentColor"></path><path d="M7.223 8.49222L8.72689 9.99995L7.22795 11.4915C7.07928 11.6401 7.00495 11.8167 7.00495 12.0212C7.00495 12.2257 7.07928 12.4023 7.22795 12.551C7.37661 12.6996 7.5517 12.774 7.7532 12.774C7.95453 12.774 8.1307 12.6996 8.2817 12.551L10.2076 10.6327C10.3883 10.4519 10.4786 10.2409 10.4786 9.99995C10.4786 9.75895 10.3883 9.54803 10.2076 9.3672L8.27675 7.43272C8.12575 7.28405 7.94959 7.20972 7.74825 7.20972C7.54675 7.20972 7.37166 7.28405 7.223 7.43272C7.07433 7.58138 7 7.75797 7 7.96247C7 8.16697 7.07433 8.34355 7.223 8.49222Z" fill="currentColor"></path></svg>`;
+
 function createConvMenuItem(id, iconSvg, text, onClick) {
   const item = document.createElement('div');
   item.id = id;
@@ -3643,7 +3645,7 @@ function enhanceConversationMenu(menu) {
   const hasConvItems = !!menu.querySelector('[data-testid*="conversation-"]') ||
                        Array.from(menu.querySelectorAll('[role="menuitem"]')).some(el => {
                          const t = (el.textContent || '').trim().toLowerCase();
-                         return t === 'rename' || t === 'delete' || t.startsWith('pin') || t.startsWith('unpin') || t.includes('unread') || t.includes('read') || t.includes('fork');
+                         return t === 'rename' || t === 'delete' || t.startsWith('pin') || t.startsWith('unpin') || t.includes('unread') || t.includes('read') || t.includes('fork') || t === 'terminal';
                        });
 
   if (!hasConvItems && !isConvTrigger && !isTitlebarTrigger) return;
@@ -3660,6 +3662,36 @@ function enhanceConversationMenu(menu) {
 
   menu.setAttribute('data-gemini-conversation-menu', 'true');
   menu.classList.remove('animate-slideIn');
+
+  // Ensure Terminal menu item has an unmasked, reliable icon
+  const termItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el =>
+    el.textContent?.trim().toLowerCase() === 'terminal'
+  );
+  if (termItem) {
+    const svg = termItem.querySelector('svg');
+    if (!svg) {
+      termItem.insertAdjacentHTML('afterbegin', TERMINAL_SVG);
+    } else {
+      const mask = svg.querySelector('mask');
+      if (mask) mask.remove();
+      const g = svg.querySelector('g[mask]');
+      if (g) g.removeAttribute('mask');
+    }
+  }
+
+  // Ensure Fork conversation menu item icon is valid (both in row kebab and titlebar menu)
+  const forkItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el =>
+    el.textContent?.trim().toLowerCase().includes('fork conversation')
+  );
+  if (forkItem) {
+    const brokenPath = forkItem.querySelector('svg path[d*="<svg"]');
+    if (brokenPath) {
+      const match = brokenPath.getAttribute('d').match(/d=["']([^"']+)["']/);
+      if (match) {
+        brokenPath.setAttribute('d', match[1]);
+      }
+    }
+  }
 
   if (!row) return;
 
@@ -3717,20 +3749,6 @@ function enhanceConversationMenu(menu) {
     );
   } else {
     menu.querySelector('#gemini-menu-item-archive')?.remove();
-  }
-
-  // 3. Ensure Fork conversation menu item icon is valid
-  const forkItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el =>
-    el.textContent?.trim().toLowerCase().includes('fork conversation')
-  );
-  if (forkItem) {
-    const brokenPath = forkItem.querySelector('svg path[d*="<svg"]');
-    if (brokenPath) {
-      const match = brokenPath.getAttribute('d').match(/d=["']([^"']+)["']/);
-      if (match) {
-        brokenPath.setAttribute('d', match[1]);
-      }
-    }
   }
 }
 
@@ -6537,138 +6555,317 @@ function sampleEmphasisedEase(t) {
   return axis(0, 1, Math.min(1, Math.max(0, u)));
 }
 
-let pendingSentPromptGlide = null;
+/**
+ * Willow's send choreography, using the host's existing last-turn reserve.
+ * The first turn rises 200px over 500ms. Later short turns spend one eased
+ * timeline on their entrance offset, then scrolling; long replies already
+ * provide enough distance for native smooth scrolling. Only the new turn is
+ * translated. History moves through scrolling, never artificial transforms.
+ *
+ * A real submit arms the shared DOM observer. There is no additional subtree
+ * observer or token-driven scan. During the short follow-up glide, geometry is
+ * read together before writes, and only refreshed after a resize. First-turn
+ * and interruption transforms run as compositor animations, without a JS loop.
+ */
+function createGeminiSendEntrance(environment) {
+  const doc = environment.document;
+  const VIEW = '[data-testid="conversation-view"]';
+  const USER = '[data-testid="user-input-step"]';
+  const ARTICLE = '[role="article"][aria-label="User message"]';
+  const EASING = "cubic-bezier(0.2, 0, 0, 1)";
+  const motion = environment.matchMedia?.("(prefers-reduced-motion: reduce)");
+  const now = () => environment.performance.now();
+  const quiet = () => !!motion?.matches || doc.visibilityState === "hidden";
+  let pending = null;
+  let active = null;
+  let claim = null;
+  let disposed = false;
 
-function cancelSentPromptGlide() {
-  if (!pendingSentPromptGlide) return;
-  if (pendingSentPromptGlide.timer) {
-    window.clearTimeout(pendingSentPromptGlide.timer);
+  function clearPending() {
+    if (pending) environment.clearTimeout(pending.timer);
+    pending = null;
   }
-  if (pendingSentPromptGlide.watcher) {
-    pendingSentPromptGlide.watcher.disconnect();
+
+  function mainStep(step) {
+    return !step.closest('[data-testid="pending-user-messages"], [role="article"][aria-label="Agent response"]') &&
+      step.closest(ARTICLE);
   }
-  pendingSentPromptGlide = null;
+
+  function stepsIn(view) {
+    return view ? Array.from(view.querySelectorAll(USER)).filter(mainStep) : [];
+  }
+
+  function matches(view) {
+    if (!pending || !view) return false;
+    if (pending.view?.isConnected && view !== pending.view) return false;
+    if (pending.id && view.dataset.cascadeId !== pending.id) return false;
+    if (!pending.first && environment.location?.pathname !== pending.route) return false;
+    return !pending.pane?.isConnected || pending.pane.contains(view);
+  }
+
+  function detach(run) {
+    run.resize?.disconnect();
+    run.scroller.removeEventListener("wheel", run.interrupt);
+    run.scroller.removeEventListener("touchstart", run.interrupt);
+    run.scroller.removeEventListener("pointerdown", run.interrupt);
+    run.scroller.removeEventListener("keydown", run.keydown);
+    run.scroller.removeEventListener("scrollend", run.finishScroll);
+  }
+
+  function finish(run) {
+    if (active !== run) return;
+    active = null;
+    detach(run);
+    environment.cancelAnimationFrame(run.frame);
+    environment.clearTimeout(run.timer);
+    if (run.nativeScroll && run.scroller.isConnected) {
+      // Stop an in-flight smooth scroll at the position already on screen.
+      run.scroller.scrollTo({ top: run.scroller.scrollTop, behavior: "instant" });
+    }
+    if (run.animation) {
+      run.animation.onfinish = run.animation.oncancel = null;
+      run.animation.cancel();
+    }
+    run.group.removeAttribute("data-gemini-send-entering");
+  }
+
+  function cancel() {
+    clearPending();
+    claim = null;
+    if (active) finish(active);
+  }
+
+  function arm(composer) {
+    if (disposed || !composer?.isConnected) return;
+    cancel();
+    const view = composer.closest(VIEW);
+    const before = new Set(stepsIn(view));
+    const id = view?.dataset.cascadeId;
+    pending = {
+      view, before, first: before.size === 0,
+      id: id && id !== "conversation" ? id : null,
+      pane: composer.closest('.group\\/pane'),
+      route: environment.location?.pathname,
+      timer: environment.setTimeout(clearPending, 4000)
+    };
+  }
+
+  function animate(run, offset, duration) {
+    run.offset = offset;
+    run.duration = duration;
+    run.animation = run.group.animate([
+      { transform: `translateY(${offset}px)` }, { transform: "translateY(0px)" }
+    ], { duration, easing: EASING });
+    run.animation.onfinish = () => finish(run);
+    run.animation.oncancel = () => finish(run);
+    environment.clearTimeout(run.timer);
+    run.timer = environment.setTimeout(() => finish(run), duration + 150);
+  }
+
+  function interrupt(run) {
+    if (active !== run || !run.ownsScroll) return;
+    run.ownsScroll = false;
+    detach(run);
+    environment.cancelAnimationFrame(run.frame);
+    if (run.nativeScroll) {
+      finish(run);
+      return;
+    }
+    let offset = run.offset;
+    if (!run.frameDriven && run.animation) {
+      offset *= 1 - sampleEmphasisedEase(Math.min(1, Number(run.animation.currentTime || 0) / run.duration));
+    }
+    if (run.animation) {
+      run.animation.onfinish = run.animation.oncancel = null;
+      run.animation.cancel();
+    }
+    if (offset < 1 || quiet()) finish(run);
+    else animate(run, offset, 120);
+  }
+
+  function mount(step) {
+    if (disposed || !pending || pending.before.has(step) || !step?.isConnected) return false;
+    const article = mainStep(step);
+    const view = step.closest(VIEW);
+    const group = article?.parentElement;
+    const scroller = group?.closest(".overflow-y-auto");
+    // Only the latest real turn in the submitting pane may consume the arm.
+    // Queued messages, subagents, and history arriving during navigation cannot.
+    if (!article || !matches(view) || !scroller || scroller === view || group.parentElement?.nextElementSibling) return false;
+
+    const first = pending.first;
+    clearPending();
+    claim = { step: new WeakRef(step), id: view.dataset.cascadeId, until: now() + 1500 };
+
+    // All initial geometry is read before an animation or scroll is written.
+    const viewport = scroller.getBoundingClientRect();
+    const rect = group.getBoundingClientRect();
+    const startTop = scroller.scrollTop;
+    // Preserve Gemini App's existing resting inset; only the motion changes.
+    const inset = parseFloat(environment.getComputedStyle(scroller).paddingTop) || 0;
+    let destination = Math.max(0, rect.top - viewport.top + startTop - inset);
+    if (first) destination = 0;
+    if (quiet() || !viewport.height || !rect.height || typeof group.animate !== "function") {
+      scroller.scrollTo({ top: destination, behavior: "instant" });
+      return true;
+    }
+
+    const offset = first ? 200 : Math.max(0, Math.round(viewport.bottom - rect.top));
+    const total = offset + Math.max(0, destination - startTop);
+    if (!first && total < 1) return true;
+    const duration = Math.min(520, Math.max(240, 240 + total * 0.28));
+    const run = active = {
+      group, scroller, view, id: view.dataset.cascadeId, offset, duration,
+      frame: 0, timer: 0, animation: null, resize: null,
+      ownsScroll: true, nativeScroll: false, frameDriven: false, dirty: false,
+      interrupt: null, keydown: null, finishScroll: null
+    };
+    run.interrupt = () => interrupt(run);
+    run.keydown = event => {
+      if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key) &&
+          !event.target.closest('input, textarea, [contenteditable="true"]')) interrupt(run);
+    };
+    run.finishScroll = () => { run.nativeScroll = false; finish(run); };
+    scroller.addEventListener("wheel", run.interrupt, { passive: true });
+    scroller.addEventListener("touchstart", run.interrupt, { passive: true });
+    scroller.addEventListener("pointerdown", run.interrupt, { passive: true });
+    scroller.addEventListener("keydown", run.keydown);
+    group.setAttribute("data-gemini-send-entering", "true");
+
+    try {
+      if (first) {
+        if (startTop !== 0) scroller.scrollTo({ top: 0, behavior: "instant" });
+        animate(run, 200, 500);
+      } else if (!offset) {
+        // After a long response the bubble already begins below the viewport.
+        run.nativeScroll = true;
+        scroller.addEventListener("scrollend", run.finishScroll);
+        run.timer = environment.setTimeout(() => finish(run), 1200);
+        scroller.scrollTo({ top: destination, behavior: "smooth" });
+      } else {
+        run.frameDriven = true;
+        // A paused compositor animation avoids style-attribute mutations on each
+        // frame. One timeline controls its playhead and the scroll handoff.
+        run.animation = group.animate([
+          { transform: `translateY(${offset}px)` }, { transform: "translateY(0px)" }
+        ], { duration: 1, fill: "both", easing: "linear" });
+        run.animation.pause();
+        run.animation.currentTime = 0;
+        if (environment.ResizeObserver) {
+          run.resize = new environment.ResizeObserver(() => { run.dirty = true; });
+          run.resize.observe(scroller);
+          run.resize.observe(group);
+          run.resize.observe(group.parentElement.parentElement);
+        }
+        const started = now();
+        const frame = time => {
+          if (active !== run) return;
+          if (!group.isConnected || !view.isConnected || quiet()) { finish(run); return; }
+          // Read before changing the playhead/scroll. Text arriving below the
+          // bubble cannot restart the timeline or rewind a browser anchor shift.
+          const top = scroller.scrollTop;
+          if (run.dirty) {
+            const viewportRect = scroller.getBoundingClientRect();
+            const groupRect = group.getBoundingClientRect();
+            destination = Math.max(0, groupRect.top - run.offset - viewportRect.top + top - inset);
+            run.dirty = false;
+          }
+          const progress = Math.min(1, (time - started) / duration);
+          const travelled = total * sampleEmphasisedEase(progress);
+          const remaining = Math.max(0, offset - travelled);
+          const scrollLeg = total - offset;
+          const scrollProgress = scrollLeg === 0 ? 1 : Math.min(1, Math.max(0, travelled - offset) / scrollLeg);
+          const next = startTop + Math.max(0, destination - startTop) * scrollProgress;
+          run.offset = remaining;
+          run.animation.currentTime = 1 - remaining / offset;
+          if (next > top) scroller.scrollTop = next;
+          if (progress < 1) run.frame = environment.requestAnimationFrame(frame);
+          else finish(run);
+        };
+        run.frame = environment.requestAnimationFrame(frame);
+        run.timer = environment.setTimeout(() => finish(run), duration + 150);
+      }
+    } catch (_) {
+      // A missing/failed animation must never leave the working row hidden.
+      finish(run);
+      scroller.scrollTo({ top: destination, behavior: "instant" });
+    }
+    return true;
+  }
+
+  function nativeSend(id) {
+    if (disposed) return false;
+    if (active?.id === id) {
+      if (!active.group.parentElement?.nextElementSibling) return true;
+      finish(active);
+    }
+    // React's send effect can run before the shared observer's microtask. Claim
+    // that same newly committed turn here, before native jump-to-bottom runs.
+    if (pending) {
+      const scope = pending.pane?.isConnected ? pending.pane : doc;
+      const view = Array.from(scope.querySelectorAll(VIEW)).find(node => node.dataset.cascadeId === id && matches(node));
+      const step = stepsIn(view).at(-1);
+      if (step && mount(step)) return true;
+    }
+    const step = claim?.step.deref();
+    return !!(claim?.id === id && now() < claim.until && step?.isConnected &&
+      !step.closest(ARTICLE)?.parentElement?.parentElement?.nextElementSibling);
+  }
+
+  function ownsViewport(node) {
+    if (disposed) return false;
+    if (active?.ownsScroll && active.scroller === node) return true;
+    // Also suppress the initial follow request between the commit and observer.
+    return !!pending && matches(node.closest(VIEW));
+  }
+
+  function interruptScroll(node) {
+    if (pending && matches(node.closest(VIEW))) clearPending();
+    if (active?.scroller === node) interrupt(active);
+  }
+
+  const onMotion = () => {
+    if (quiet()) {
+      if (active) finish(active);
+    }
+  };
+  motion?.addEventListener("change", onMotion);
+  doc.addEventListener("visibilitychange", onMotion);
+  return {
+    arm, mount, nativeSend, ownsViewport, interruptScroll, cancel,
+    dispose() {
+      disposed = true;
+      cancel();
+      motion?.removeEventListener("change", onMotion);
+      doc.removeEventListener("visibilitychange", onMotion);
+    }
+  };
 }
 
-/**
- * Sent-prompt entrance animation: the new user bubble glides from where the
- * composer was to its resting position near the top of the conversation view,
- * while the previous conversation thread smoothly glides upward to make room.
- *
- * Runs entirely on Chromium's GPU compositor thread (cubic-bezier(0.2, 0, 0, 1))
- * without JavaScript layout reflows, scroll thrashing, or dropped frames.
- */
-function armSentPromptGlide() {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const box = document.querySelector(COMPOSER_BOX) || document.querySelector(INPUT_BOX);
-  if (!box) return;
+const geminiSendEntrance = createGeminiSendEntrance(window);
+window.__bettergravityGeminiSendEntrance = geminiSendEntrance;
+plugin.dom.observe('[data-testid="user-input-step"]', step => geminiSendEntrance.mount(step));
+plugin.onDispose(() => {
+  geminiSendEntrance.dispose();
+  if (window.__bettergravityGeminiSendEntrance === geminiSendEntrance) delete window.__bettergravityGeminiSendEntrance;
+});
 
-  cancelSentPromptGlide();
-  const rect = box.getBoundingClientRect();
-  if (rect.height === 0 || rect.width === 0) return;
+function cancelSentPromptGlide() {
+  geminiSendEntrance.cancel();
+}
 
-  const fromTop = rect.top;
-  const existingCount = document.querySelectorAll('[data-testid="user-input-step"]').length;
-
-  const launchGlide = (step) => {
-    try {
-      if (!step || step.dataset.geminiGlided) return;
-      step.dataset.geminiGlided = "true";
-      cancelSentPromptGlide();
-
-      const currTurn = step.closest('.flex.items-start') || step.closest('[role="article"]') || step;
-      const card = step.closest('[role="article"]') || currTurn;
-      const currentScroller =
-        step.closest('.overflow-y-auto') ||
-        document.querySelector('[data-testid="conversation-view"] .overflow-y-auto');
-
-      if (!card || !currTurn || !currentScroller) return;
-
-      const restingTop = card.getBoundingClientRect().top;
-      const distance = Math.round(fromTop - restingTop);
-
-      if (Math.abs(distance) < 20) return;
-
-      // Willow's signature layout transition timing: 240ms base + distance factor, clamped to 480ms max
-      const duration = Math.min(480, Math.max(260, 240 + Math.abs(distance) * 0.20));
-      const easing = "cubic-bezier(0.2, 0, 0, 1)";
-
-      const activeAnims = [];
-
-      // 1. Animate the new user prompt card ascending from the composer dock position
-      const animPrompt = card.animate(
-        [
-          { transform: `translateY(${distance}px)` },
-          { transform: "translateY(0px)" }
-        ],
-        { duration, easing, fill: "none" }
-      );
-      activeAnims.push(animPrompt);
-
-      // 2. Animate previous visible message turn(s) sliding up in 100% unified lockstep
-      const turnsList = currTurn.parentElement;
-      if (turnsList) {
-        const turns = Array.from(turnsList.children);
-        const currIndex = turns.indexOf(currTurn);
-        const prevTurns = currIndex > 0 ? turns.slice(0, currIndex) : [];
-
-        for (const pt of prevTurns) {
-          const r = pt.getBoundingClientRect();
-          if (r.bottom >= -distance && r.top <= window.innerHeight) {
-            const animPrev = pt.animate(
-              [
-                { transform: `translateY(${distance}px)` },
-                { transform: "translateY(0px)" }
-              ],
-              { duration, easing, fill: "none" }
-            );
-            activeAnims.push(animPrev);
-          }
-        }
-      }
-
-      const onInterrupt = () => {
-        for (const a of activeAnims) {
-          try { a.cancel(); } catch (_) {}
-        }
-        card.style.transform = '';
-        currentScroller.removeEventListener('wheel', onInterrupt);
-        currentScroller.removeEventListener('touchstart', onInterrupt);
-      };
-      currentScroller.addEventListener('wheel', onInterrupt, { passive: true, once: true });
-      currentScroller.addEventListener('touchstart', onInterrupt, { passive: true, once: true });
-    } catch (_) {}
-  };
-
-  const watcher = new MutationObserver(() => {
-    try {
-      const steps = document.querySelectorAll('[data-testid="user-input-step"]');
-      if (steps.length <= existingCount) return;
-
-      const step = steps[steps.length - 1];
-      launchGlide(step);
-    } catch (_) {}
-  });
-
-  watcher.observe(document.documentElement, { childList: true, subtree: true });
-  pendingSentPromptGlide = {
-    watcher,
-    timer: window.setTimeout(cancelSentPromptGlide, 4000)
-  };
-
-  // Immediate check in case React updated synchronously before MutationObserver registered
-  try {
-    const currentSteps = document.querySelectorAll('[data-testid="user-input-step"]');
-    if (currentSteps.length > existingCount) {
-      launchGlide(currentSteps[currentSteps.length - 1]);
-    }
-  } catch (_) {}
+function armSentPromptGlide(target) {
+  const box = target?.closest(COMPOSER_BOX) || target?.closest(INPUT_BOX) ||
+    document.querySelector(COMPOSER_BOX) || document.querySelector(INPUT_BOX);
+  const send = box?.querySelector(SEND_BUTTON);
+  if (send?.disabled || send?.getAttribute("aria-disabled") === "true") return;
+  if (box) geminiSendEntrance.arm(box);
 }
 
 function isComposerSubmitButton(target) {
   if (!target || !(target instanceof Element)) return false;
   const btn = target.closest('button');
-  if (!btn) return false;
+  if (!btn?.closest(COMPOSER_BOX) || btn.disabled || btn.getAttribute('aria-disabled') === 'true') return false;
 
   const label = (btn.getAttribute('aria-label') || '').toLowerCase();
   const testId = (btn.getAttribute('data-testid') || '').toLowerCase();
@@ -6685,15 +6882,7 @@ function isComposerSubmitButton(target) {
 function onComposerSubmitKey(event) {
   if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
   const target = event.target instanceof Element ? event.target : null;
-  if (
-    !target?.closest(COMPOSER_BOX) &&
-    !target?.closest(INPUT_BOX) &&
-    !target?.closest('.tiptap') &&
-    !target?.closest('[contenteditable="true"]') &&
-    !target?.closest('[aria-label="Message input"]')
-  ) {
-    return;
-  }
+  if (!target?.closest(COMPOSER_BOX)) return;
 
   const currentTool = getSelectedTool();
   if (currentTool) {
@@ -6722,7 +6911,7 @@ function onComposerSubmitKey(event) {
   }
 
   armComposerSlide();
-  armSentPromptGlide();
+  armSentPromptGlide(target);
 }
 
 function onComposerSubmitClick(event) {
@@ -6756,7 +6945,7 @@ function onComposerSubmitClick(event) {
     }
 
     armComposerSlide();
-    armSentPromptGlide();
+    armSentPromptGlide(target);
     return;
   }
   // Opening a conversation from the sidebar is the one navigation that must not
@@ -6888,6 +7077,8 @@ const WILLOW_LANGUAGE_LABELS = {
   md: "Markdown",
   php: "PHP",
   plaintext: "Code",
+  text: "Code",
+  txt: "Code",
   python: "Python",
   py: "Python",
   ruby: "Ruby",
@@ -6905,6 +7096,13 @@ const WILLOW_LANGUAGE_LABELS = {
 };
 
 function formatCodeBlockLanguage(el) {
+  const trimmed = el.textContent.trim();
+  if (!trimmed) {
+    if (el.dataset.geminiFormatted === "Code") return;
+    el.textContent = "Code";
+    el.dataset.geminiFormatted = "Code";
+    return;
+  }
   for (const node of el.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
       const raw = node.data.trim();

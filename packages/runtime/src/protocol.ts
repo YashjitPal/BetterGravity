@@ -7,6 +7,7 @@ import type { CatalogEntry } from "@bettergravity/marketplace";
 
 export type { CatalogEntry, CatalogFile } from "@bettergravity/marketplace";
 export type { PetCreationProgress, PetLibraryState, PetRecord, PetSprite } from "@bettergravity/plugin-api";
+export type { BrowserPanelState, BrowserTabState } from "@bettergravity/plugin-api";
 
 export const CHANNEL = {
   getState: "bettergravity:get-state",
@@ -37,6 +38,9 @@ export const CHANNEL = {
   petsPrepare: "bettergravity:pets-prepare",
   petsOpenFolder: "bettergravity:pets-open-folder",
   petsChanged: "bettergravity:pets-changed",
+  browserRequest: "bettergravity:browser-request",
+  browserBounds: "bettergravity:browser-bounds",
+  browserState: "bettergravity:browser-state",
   overlayOpen: "bettergravity:overlay-open",
   overlayClose: "bettergravity:overlay-close",
   overlayInteractive: "bettergravity:overlay-interactive",

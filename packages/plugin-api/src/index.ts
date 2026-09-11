@@ -767,9 +767,48 @@ export interface PluginContext {
   readonly account: PluginAccount;
   readonly overlay: PluginOverlay;
   readonly pets: PluginPets;
+  readonly browser: PluginBrowser;
   /**
    * Registers cleanup to run when the plugin is disabled. Injected code cannot
    * be truly unloaded, so this is how a plugin undoes its own visible effects.
    */
   onDispose(cleanup: () => void): void;
+}
+
+export interface BrowserTabState {
+  readonly id: string;
+  readonly title: string;
+  readonly url: string;
+  readonly loading: boolean;
+  readonly canGoBack: boolean;
+  readonly canGoForward: boolean;
+  readonly zoom: number;
+  readonly error: string | null;
+  readonly favicon: string | null;
+}
+
+export interface BrowserPanelState {
+  readonly browserId: string;
+  readonly context: string;
+  readonly enabled: boolean;
+  readonly visible: boolean;
+  readonly tabs: readonly BrowserTabState[];
+  readonly activeTabId: string | null;
+  readonly activity: string | null;
+  readonly paused: boolean;
+  readonly developerMode: boolean;
+  readonly viewport: { readonly width: number; readonly height: number } | null;
+  readonly permission: { readonly id: string; readonly origin: string; readonly description: string } | null;
+  readonly dialog: { readonly id: string; readonly type: string; readonly message: string; readonly defaultPrompt: string } | null;
+  readonly selection: Record<string, unknown> | null;
+  readonly annotations: readonly Record<string, unknown>[];
+  readonly downloads: readonly { readonly id: string; readonly filename: string; readonly state: string; readonly received: number; readonly total: number }[];
+}
+
+/** Only the enabled In Built Browser plugin may operate this native surface. */
+export interface PluginBrowser {
+  readonly available: boolean;
+  request(action: string, args?: Record<string, unknown>): Promise<unknown>;
+  setBounds(bounds: { context: string; x: number; y: number; width: number; height: number; visible: boolean }): void;
+  onStateChanged(listener: (state: BrowserPanelState) => void): Unpatch;
 }

@@ -3,7 +3,7 @@
  *
  * This is the one capability that needs the main process: by the time a plugin
  * runs in the page, the application's script has already been parsed. So
- * patches are declared statically in plugin.json, read before the page loads,
+ * patches are declared statically in plugin.json, read as the page's scripts load,
  * and applied to the response on its way to the renderer.
  *
  * The bundle is compiled by Closure Compiler, so identifiers are mangled and the

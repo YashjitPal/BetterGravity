@@ -8,6 +8,10 @@ const FORK_ICON_SVG = `<svg viewBox="0 -960 960 960" fill="currentColor"><path d
 const WORKSPACE_ICON_SVG = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>';
 const BRANCH_ICON_SVG = FORK_ICON_SVG;
 const COPY_ICON_SVG = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>';
+const COPY_MENU_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="text-secondary-foreground shrink-0"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>';
+const WORKSPACE_MENU_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="text-secondary-foreground shrink-0"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>';
+const BRANCH_MENU_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="text-secondary-foreground shrink-0"><path d="${FORK_ICON_PATH}"/></svg>`;
+const CHEVRON_RIGHT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -960 960 960" fill="currentColor"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"/></svg>';
 
 /* ── Settings ────────────────────────────────────────────────────────────── */
 const settings = plugin.settings.define({
@@ -479,34 +483,38 @@ function decorateMenus(root = document.body) {
     const text = (item.textContent || "").trim();
 
     // 1. Reframe parent "Fork" menu item in the three dot menu as "Copy session"
-    if (text === "Fork" || (text.startsWith("Fork") && !text.includes("workspace") && !text.includes("worktree") && !text.includes("message") && !text.includes("conversation"))) {
-      const spans = item.querySelectorAll("span");
-      for (let j = 0; j < spans.length; j += 1) {
-        if ((spans[j].textContent || "").trim() === "Fork") {
-          spans[j].textContent = "Copy session";
-          break;
-        }
-      }
-      const svg = item.querySelector("svg");
-      if (svg && !item.dataset.forkCopyDecorated) {
+    if (
+      text === "Fork" ||
+      text === "Copy session" ||
+      (text.startsWith("Fork") && !text.includes("workspace") && !text.includes("worktree") && !text.includes("message") && !text.includes("conversation"))
+    ) {
+      const labelSpan = item.querySelector("span.min-w-0") || item.querySelector("span:not(.shrink-0)");
+      if (labelSpan && (!item.dataset.forkCopyDecorated || !labelSpan.querySelector("svg"))) {
         item.dataset.forkCopyDecorated = "true";
-        svg.outerHTML = COPY_ICON_SVG;
+        labelSpan.innerHTML = `${COPY_MENU_ICON_SVG}<span>Copy session</span>`;
+      }
+      const chevronSpan = item.querySelector("span.shrink-0");
+      if (chevronSpan && (!item.dataset.forkChevronDecorated || !chevronSpan.querySelector("svg"))) {
+        item.dataset.forkChevronDecorated = "true";
+        chevronSpan.innerHTML = CHEVRON_RIGHT_SVG;
+      }
+    }
+
+    // Unmask Terminal menu item icon if masked by fragile SVG mask
+    if (text === "Terminal") {
+      const svg = item.querySelector("svg");
+      if (svg) {
+        const mask = svg.querySelector("mask");
+        if (mask) mask.remove();
+        const g = svg.querySelector("g[mask]");
+        if (g) g.removeAttribute("mask");
       }
     }
 
     // 2. Reframe submenu options:
     if (text.includes("current workspace") && !item.dataset.forkOptionDecorated) {
       item.dataset.forkOptionDecorated = "true";
-      const spans = item.querySelectorAll("span");
-      for (let j = 0; j < spans.length; j += 1) {
-        if ((spans[j].textContent || "").includes("current workspace")) {
-          spans[j].textContent = "In current workspace";
-          break;
-        }
-      }
-      if (!item.querySelector("svg")) {
-        item.insertAdjacentHTML("afterbegin", WORKSPACE_ICON_SVG);
-      }
+      item.innerHTML = `${WORKSPACE_MENU_ICON_SVG}<span class="truncate">In current workspace</span>`;
       item.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -517,16 +525,7 @@ function decorateMenus(root = document.body) {
       }, true);
     } else if (text.includes("shared workspace") && !item.dataset.forkOptionDecorated) {
       item.dataset.forkOptionDecorated = "true";
-      const spans = item.querySelectorAll("span");
-      for (let j = 0; j < spans.length; j += 1) {
-        if ((spans[j].textContent || "").includes("shared workspace")) {
-          spans[j].textContent = "In shared workspace";
-          break;
-        }
-      }
-      if (!item.querySelector("svg")) {
-        item.insertAdjacentHTML("afterbegin", BRANCH_ICON_SVG);
-      }
+      item.innerHTML = `${BRANCH_MENU_ICON_SVG}<span class="truncate">In shared workspace</span>`;
       item.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();

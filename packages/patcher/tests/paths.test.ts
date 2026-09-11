@@ -20,6 +20,27 @@ describe("installationPaths", () => {
     expect(paths.runtimeCode.startsWith(paths.runtimeRoot)).toBe(true);
     expect(paths.backups.startsWith(paths.runtimeRoot)).toBe(true);
   });
+
+  it("resolves macOS application bundle layouts inside Contents", () => {
+    const macPaths = installationPaths(path.join("/", "Applications", "Antigravity.app"));
+    expect(macPaths.resources).toBe(path.join("/", "Applications", "Antigravity.app", "Contents", "Resources"));
+    expect(macPaths.executable).toBe(path.join("/", "Applications", "Antigravity.app", "Contents", "MacOS", "Antigravity"));
+    expect(path.basename(macPaths.currentAsar)).toBe("app.asar");
+    expect(macPaths.currentAsar).toBe(path.join(macPaths.resources, "app.asar"));
+    expect(macPaths.originalAsar).toBe(path.join(macPaths.resources, "_app.asar"));
+    expect(macPaths.runtimeRoot).toBe(path.join(macPaths.resources, ".bettergravity"));
+  });
+
+  it("normalizes nested Contents or Resources paths for macOS bundles", () => {
+    const bundle = path.join("/", "Applications", "Antigravity.app");
+    const fromContents = installationPaths(path.join(bundle, "Contents"));
+    const fromResources = installationPaths(path.join(bundle, "Contents", "Resources"));
+
+    expect(fromContents.root).toBe(bundle);
+    expect(fromContents.resources).toBe(path.join(bundle, "Contents", "Resources"));
+    expect(fromResources.root).toBe(bundle);
+    expect(fromResources.resources).toBe(path.join(bundle, "Contents", "Resources"));
+  });
 });
 
 // Regression: the patcher reads through original-fs, which cannot see inside an

@@ -2,6 +2,7 @@ import type { PluginContext, PluginSettingsSchema, PluginStorage } from "@better
 import type { PluginRecord } from "../protocol.js";
 import { SETTING_PREFIX } from "../protocol.js";
 import { createAccountTools } from "./account.js";
+import { createBrowserTools } from "./browser.js";
 import { createDomUtilities } from "./dom.js";
 import { createGeminiTools } from "./gemini.js";
 import { desugarHas } from "./has.js";
@@ -164,6 +165,7 @@ export function createPluginContext(record: PluginRecord, dependencies: ContextD
       account: createAccountTools(),
       overlay: createOverlayTools(record.id, track),
       pets: createPetTools(record.id, track),
+      browser: createBrowserTools(record.id, track),
       onDispose: track
     },
     dispose: () => {

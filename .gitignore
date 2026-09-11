@@ -25,6 +25,7 @@ Thumbs.db
 # Generated installer and release artifacts
 *.dmg
 *.exe
+!community/**/*.exe
 *.msi
 *.zip
 *.app/

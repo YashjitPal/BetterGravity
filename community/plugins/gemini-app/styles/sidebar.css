@@ -312,11 +312,11 @@ div.bg-border.flex-shrink-0.w-\[1px\] {
  * the font for the same shape. Hide whatever the button nests inside its span
  * rather than the svg alone — the svg sits under an `absolute inset-0` wrapper,
  * so hiding the wrapper is what actually removes it. */
-[data-testid="sidebar-toggle"] > span:first-child > * {
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"] > span:first-child > * {
   display: none !important;
 }
 
-[data-testid="sidebar-toggle"] > span:first-child {
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"] > span:first-child {
   width: 24px !important;
   height: 24px !important;
   display: flex !important;
@@ -324,7 +324,7 @@ div.bg-border.flex-shrink-0.w-\[1px\] {
   justify-content: center !important;
 }
 
-[data-testid="sidebar-toggle"] > span:first-child::before {
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"] > span:first-child::before {
   content: "side_nav" !important;
   font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", "Material Symbols Rounded", sans-serif !important;
   font-variation-settings: var(--gemini-icon-axes, "FILL" 0, "wght" 300, "GRAD" 0, "ROND" 100, "opsz" 24) !important;
@@ -346,13 +346,13 @@ div.bg-border.flex-shrink-0.w-\[1px\] {
   transition: transform 200ms ease !important;
 }
 
-[data-testid="sidebar-toggle"]:active > span:first-child::before {
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"]:active > span:first-child::before {
   transform: scale(0.9) !important;
 }
 
 /* Closed, Willow's rail hides the close toggle completely: the collapsed logo
  * button assumes the expand role with `side_nav_expand` on hover. */
-[data-testid="sidebar-toggle"][aria-expanded="false"],
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"][aria-expanded="false"],
 html[data-sidebar-collapsed="true"] [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] ~ * [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"],
 div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * [data-testid="sidebar-toggle"][aria-label="Toggle Sidebar"] {
@@ -366,7 +366,7 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
  * `top-1.5` = 6, `h-10 w-10 rounded-full text-[#e3e3e3] hover:bg-white/[0.08]`.
  * Willow's staged reveal: lands 50ms before the 300ms width settles (250ms delay)
  * so the button never paints over a rail that is still narrower than itself. */
-[data-testid="sidebar-toggle"] {
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"] {
   position: absolute !important;
   left: 234px !important;
   top: 6px !important;
@@ -389,7 +389,7 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
   transition: background-color 150ms ease, color 150ms ease !important;
 }
 
-[data-testid="sidebar-toggle"]:hover {
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"]:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
   color: var(--gemini-body-text, #e3e3e3) !important;
 }
@@ -415,7 +415,7 @@ div:has(> [role="navigation"][aria-label="Sidebar"][data-collapsed="true"]) ~ * 
  * The bar is the window's drag region, so the pair has to opt out of it or a
  * click would move the window instead of going back; each menu wrapper carries
  * the same `no-drag`. z-index clears the toolbar's own 50. */
-[data-testid="sidebar-toggle"] + div:has([aria-label="Go Back"]),
+[data-testid="sidebar-toggle"][aria-label*="Toggle Sidebar"] + div:has([aria-label="Go Back"]),
 div:has(> button[aria-label="Go Back"]) {
   position: fixed !important;
   left: var(--gemini-history-arrows-left, 284px) !important;
@@ -2318,6 +2318,13 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   color: rgb(227, 227, 227) !important;
   fill: currentColor !important;
   flex-shrink: 0 !important;
+}
+
+/* Prevent SVG mask collapse on terminal menu item */
+[role="menu"] [role="menuitem"] svg g[mask],
+[role="menu"] [role="menuitem"] svg mask + g {
+  mask: none !important;
+  -webkit-mask: none !important;
 }
 
 /* Menu Item Labels */

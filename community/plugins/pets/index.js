@@ -3610,17 +3610,31 @@ function formatActivityDetail(raw, toolName) {
   if (tn === "generate_image") return "Generating image";
   if (tn === "invoke_subagent" || tn === "manage_subagents" || tn === "define_subagent") return "Running subagent";
   if (tn === "ask_question") return "Waiting for input";
+  if (tn === "run_command") {
+    if (typeof raw === "string" && raw.trim()) {
+      const s = raw.trim();
+      if (/\b(tests?|vitest|jest|pytest)\b/i.test(s)) return "Running tests";
+      if (/\b(build|bundle|compile)\b/i.test(s)) return "Building project";
+    }
+    return "Running command";
+  }
 
   if (typeof raw !== "string") return "";
   const s = raw.trim();
   if (!s) return "";
 
+  if (s === "Running tests" || s === "Running command" || s === "Running subagent" ||
+      s === "Using browser" || s === "Editing files" || s === "Analyzing files" ||
+      s === "Searching codebase" || s === "Generating image" || s === "Building project") {
+    return s;
+  }
+
   if (/subagent/i.test(s)) return "Running subagent";
 
   // 1. Commands & tests first so commands with file paths aren't confused with file viewing
-  if (/^Run\b|^Running\b|^Ran\b|^Execut/i.test(s) || /command\s+execution/i.test(s) || /^(node|pnpm|npm|git|bash|powershell)\b/i.test(s)) {
-    const clean = s.replace(/\s+/g, " ");
-    if (/\b(test|vitest|jest|pytest)\b/i.test(clean)) return "Running tests";
+  if (/^Run\b|^Running\b|^Ran\b|^Execut|^Task:\b|^Checked\b/i.test(s) || /command\s+execution/i.test(s) || /^(node|pnpm|npm|git|bash|powershell)\b/i.test(s)) {
+    const clean = s.replace(/^Task:\s*/i, "").replace(/\s+/g, " ");
+    if (/\b(tests?|vitest|jest|pytest)\b/i.test(clean)) return "Running tests";
     if (/\b(build|bundle|compile)\b/i.test(clean)) return "Building project";
     if (clean.length <= 40 && /^Running:\s*\S+/i.test(clean)) return clean;
     return "Running command";
@@ -3753,19 +3767,19 @@ function getOnScreenActivityDetail() {
     while (fiber) {
       const p = fiber.memoizedProps;
       if (p?.subagents && Array.isArray(p.subagents) && p.subagents.length > 0) {
-        const activeSub = p.subagents.find((s) => !s.completedAtMs && !s.killed && !s.terminatedEarly && (s.status === 2 || s.isRunning === true));
+        const activeSub = p.subagents.find((s) => !s.completedAtMs && !s.killed && !s.terminatedEarly && (s.step?.status === 2 || s.status === 2 || s.isRunning === true) && s.step?.status !== 3 && s.step?.status !== 6 && s.step?.status !== 7);
         if (activeSub) {
-          const subDesc = activeSub.liveToolSummary || activeSub.toolSummary || activeSub.subagentName;
-          const formatted = formatActivityDetail(subDesc, activeSub.toolName);
+          const subDesc = activeSub.taskSnapshot?.description || activeSub.taskSnapshot?.toolSummary || activeSub.liveToolSummary || activeSub.toolSummary || activeSub.subagentName;
+          const formatted = formatActivityDetail(subDesc, activeSub.taskSnapshot?.toolName || activeSub.toolName);
           if (formatted && formatted !== "Thinking") return formatted;
           return "Running subagent";
         }
       }
       if (p?.tasks && Array.isArray(p.tasks) && p.tasks.length > 0) {
-        const activeTask = p.tasks.find((t) => !t.completedAtMs && !t.killed && !t.terminatedEarly && (t.status === 2 || t.isRunning === true));
+        const activeTask = p.tasks.find((t) => !t.completedAtMs && !t.killed && !t.terminatedEarly && (t.step?.status === 2 || t.status === 2 || t.isRunning === true) && t.step?.status !== 3 && t.step?.status !== 6 && t.step?.status !== 7);
         if (activeTask) {
-          const desc = activeTask.liveToolSummary || activeTask.toolSummary || activeTask.taskName;
-          const formatted = formatActivityDetail(desc, activeTask.toolName);
+          const desc = activeTask.taskSnapshot?.description || activeTask.taskSnapshot?.toolSummary || activeTask.taskSnapshot?.taskName || activeTask.liveToolSummary || activeTask.toolSummary || activeTask.taskName || activeTask.description;
+          const formatted = formatActivityDetail(desc, activeTask.taskSnapshot?.toolName || activeTask.toolName);
           if (formatted) return formatted;
           return "Running command";
         }
@@ -3832,6 +3846,18 @@ function getOnScreenActivityDetail() {
     }
   }
 
+  // 4. Fallback to AgentStatesManager for active conversation
+  const currentId = document.querySelector(VIEW)?.getAttribute("data-cascade-id") ||
+                    document.querySelector('[data-testid="agent-input-box"]')?.getAttribute("data-cascade-id");
+  if (currentId) {
+    const manager = findAgentStatesManager();
+    if (manager) {
+      const st = getProviderState(manager, currentId);
+      const act = extractActivityFromState(st);
+      if (act) return act;
+    }
+  }
+
   return "";
 }
 
@@ -3847,6 +3873,14 @@ function readDetail(read) {
     const formatted = formatActivityDetail(read.detail);
     if (formatted) return formatted;
     return read.detail.trim();
+  }
+  if (!read.onScreen && read.status === "running") {
+    const manager = findAgentStatesManager();
+    if (manager && read.key) {
+      const st = getProviderState(manager, read.key);
+      const act = extractActivityFromState(st);
+      if (act) return act;
+    }
   }
   if (read.onScreen && read.status === "running") {
     return summaryText();
@@ -3947,6 +3981,112 @@ function findRouter() {
   return null;
 }
 
+function findAgentStatesManager() {
+  for (const selector of [
+    '[data-testid="agent-input-box"]',
+    '[data-testid="running-items-panel"]',
+    '[data-testid="conversation-view"]',
+    ROW_LIST,
+    "#root",
+    "body"
+  ]) {
+    const anchor = document.querySelector(selector);
+    if (!anchor) continue;
+    let fiber = findFiber(anchor);
+    for (let depth = 0; fiber && depth < 36; depth += 1, fiber = fiber.return) {
+      let dep = fiber.dependencies?.firstContext;
+      for (let i = 0; dep && i < 32; i += 1, dep = dep.next) {
+        if (typeof dep.memoizedValue?.getAgentStates === "function") {
+          return dep.memoizedValue;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function getProviderState(manager, cascadeId) {
+  if (!manager) return null;
+  let provider = null;
+  if (typeof manager.peek === "function") {
+    try {
+      provider = manager.peek(cascadeId);
+    } catch {}
+  }
+  if (!provider && typeof manager.getAgentStates === "function") {
+    try {
+      const map = manager.getAgentStates();
+      provider = map?.get?.(cascadeId)?.provider;
+    } catch {}
+  }
+  return provider?.getState?.() || null;
+}
+
+function extractActivityFromState(st) {
+  if (!st || typeof st !== "object") return null;
+
+  // 1. Background tasks
+  if (Array.isArray(st.backgroundTasks) && st.backgroundTasks.length > 0) {
+    for (const t of st.backgroundTasks) {
+      const status = t.step?.status ?? (t.status ?? 2);
+      const isRunning = (status === 2 || status === 9 || t.isRunning === true) &&
+        status !== 3 && status !== 6 && status !== 7 &&
+        !t.completedAtMs && !t.killed && !t.terminatedEarly;
+      if (isRunning) {
+        const desc = t.taskSnapshot?.description || t.taskSnapshot?.toolSummary || t.taskSnapshot?.taskName ||
+                     t.liveToolSummary || t.toolSummary || t.taskName || t.description;
+        const toolName = t.taskSnapshot?.toolName || t.toolName;
+        const formatted = formatActivityDetail(desc, toolName);
+        return formatted || "Running command";
+      }
+    }
+  }
+
+  // 2. Background commands
+  if (Array.isArray(st.backgroundCommands) && st.backgroundCommands.length > 0) {
+    const activeCmd = st.backgroundCommands.find((c) => !c.completed && !c.killed);
+    if (activeCmd) {
+      const formatted = formatActivityDetail(activeCmd.command || activeCmd.description);
+      return formatted || "Running command";
+    }
+  }
+
+  // 3. Subagent states
+  if (st.subagentStates && typeof st.subagentStates === "object") {
+    const activeSubs = Object.values(st.subagentStates).filter((s) => s && !s.killed && !s.fullyIdle);
+    if (activeSubs.length > 0) {
+      const sub = activeSubs[0];
+      const subDesc = sub.latestStep?.metadata?.toolSummary || sub.latestStep?.metadata?.toolAction || sub.subagentName;
+      const formatted = formatActivityDetail(subDesc, sub.latestStep?.metadata?.toolName);
+      return (formatted && formatted !== "Thinking") ? formatted : "Running subagent";
+    }
+  }
+
+  // 4. TrajectorySlice steps
+  if (Array.isArray(st.trajectorySlice?.stepsInSlice)) {
+    const steps = st.trajectorySlice.stepsInSlice;
+    for (let i = steps.length - 1; i >= Math.max(0, steps.length - 5); i--) {
+      const step = steps[i];
+      if (step.status === 2 || step.status === 8 || step.status === 9) {
+        const desc = step.step?.value?.args?.toolAction ||
+                     step.step?.value?.args?.toolSummary ||
+                     step.metadata?.toolAction ||
+                     step.metadata?.toolSummary ||
+                     step.step?.value?.result?.stepRenderInfo?.title;
+        const toolName = step.metadata?.toolCall?.name || step.metadata?.toolName;
+        if (desc || toolName) {
+          const formatted = formatActivityDetail(desc, toolName);
+          if (formatted && formatted !== "Thinking") {
+            return formatted;
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 function toTimestampMs(timeObj) {
   if (!timeObj) return 0;
   if (typeof timeObj === "number") return timeObj;
@@ -4035,6 +4175,28 @@ function readRows() {
   const waitingDetailsByRoot = new Map();
   const runningDetailsByRoot = new Map();
 
+  const manager = findAgentStatesManager();
+  if (manager && typeof manager.getAgentStates === "function") {
+    try {
+      const statesMap = manager.getAgentStates();
+      if (statesMap && typeof statesMap.entries === "function") {
+        for (const [cascadeId, item] of statesMap.entries()) {
+          const st = item?.provider?.getState?.();
+          if (!st) continue;
+          const act = extractActivityFromState(st);
+          if (act) {
+            runningDetailsByRoot.set(cascadeId, act);
+            if (act === "Running subagent") {
+              subagentActivityByRoot.set(cascadeId, true);
+            }
+          }
+        }
+      }
+    } catch {
+      // Defensive
+    }
+  }
+
   const runningPanel = document.querySelector('[data-testid="running-items-panel"]');
   if (runningPanel) {
     let fiber = findFiber(runningPanel);
@@ -4043,18 +4205,18 @@ function readRows() {
       const cascadeId = p?.cascadeId;
       if (cascadeId && typeof cascadeId === "string") {
         if (p?.subagents && Array.isArray(p.subagents)) {
-          const activeSub = p.subagents.find((s) => !s.completedAtMs && !s.killed && !s.terminatedEarly && (s.status === 2 || s.isRunning === true));
+          const activeSub = p.subagents.find((s) => !s.completedAtMs && !s.killed && !s.terminatedEarly && (s.step?.status === 2 || s.status === 2 || s.isRunning === true) && s.step?.status !== 3 && s.step?.status !== 6 && s.step?.status !== 7);
           if (activeSub) {
-            const subDesc = activeSub.liveToolSummary || activeSub.toolSummary || activeSub.subagentName;
-            const formatted = formatActivityDetail(subDesc, activeSub.toolName);
+            const subDesc = activeSub.taskSnapshot?.description || activeSub.taskSnapshot?.toolSummary || activeSub.liveToolSummary || activeSub.toolSummary || activeSub.subagentName;
+            const formatted = formatActivityDetail(subDesc, activeSub.taskSnapshot?.toolName || activeSub.toolName);
             runningDetailsByRoot.set(cascadeId, (formatted && formatted !== "Thinking") ? formatted : "Running subagent");
           }
         }
         if (p?.tasks && Array.isArray(p.tasks)) {
-          const activeTask = p.tasks.find((t) => !t.completedAtMs && !t.killed && !t.terminatedEarly && (t.status === 2 || t.isRunning === true));
+          const activeTask = p.tasks.find((t) => !t.completedAtMs && !t.killed && !t.terminatedEarly && (t.step?.status === 2 || t.status === 2 || t.isRunning === true) && t.step?.status !== 3 && t.step?.status !== 6 && t.step?.status !== 7);
           if (activeTask) {
-            const desc = activeTask.liveToolSummary || activeTask.toolSummary || activeTask.taskName;
-            const formatted = formatActivityDetail(desc, activeTask.toolName);
+            const desc = activeTask.taskSnapshot?.description || activeTask.taskSnapshot?.toolSummary || activeTask.taskSnapshot?.taskName || activeTask.liveToolSummary || activeTask.toolSummary || activeTask.taskName || activeTask.description;
+            const formatted = formatActivityDetail(desc, activeTask.taskSnapshot?.toolName || activeTask.toolName);
             runningDetailsByRoot.set(cascadeId, formatted || "Running command");
           }
         }
@@ -4082,7 +4244,18 @@ function readRows() {
           const isRunning = (s.status === 2 || s.notFullyIdle === true) && !(Array.isArray(s.waitingSteps) && s.waitingSteps.length > 0);
 
           if (isSubagent && rootId && isRunning) {
-            subagentActivityByRoot.set(rootId, true);
+            const hasSubSpec = !!(s.trajectoryMetadata?.subagentSpec || s.summary === "<original_task>");
+            if (hasSubSpec) {
+              subagentActivityByRoot.set(rootId, true);
+              if (!runningDetailsByRoot.has(rootId)) {
+                runningDetailsByRoot.set(rootId, "Running subagent");
+              }
+            } else {
+              const formatted = formatActivityDetail(s.summary || s.title);
+              if (!runningDetailsByRoot.has(rootId)) {
+                runningDetailsByRoot.set(rootId, formatted || "Running command");
+              }
+            }
           }
 
           if (Array.isArray(s.waitingSteps) && s.waitingSteps.length > 0) {
@@ -4116,6 +4289,12 @@ function readRows() {
       detail = runningDetailsByRoot.get(id);
     } else if (waitingDetailsByRoot.has(id)) {
       detail = waitingDetailsByRoot.get(id);
+    }
+
+    if (status === "running" && !detail && manager) {
+      const st = getProviderState(manager, id);
+      const act = extractActivityFromState(st);
+      if (act) detail = act;
     }
 
     // The thread on screen only ever speaks for itself, and only when what it has
@@ -4174,6 +4353,11 @@ function readRows() {
       } else if (isRunning) {
         status = "running";
         detail = runningDetailsByRoot.get(id) || "";
+        if (!detail && manager) {
+          const st = getProviderState(manager, id);
+          const act = extractActivityFromState(st);
+          if (act) detail = act;
+        }
       } else if (onScreen && current.status !== "" && PRIORITY[current.status] < PRIORITY[status]) {
         status = current.status;
       } else {

@@ -26,6 +26,7 @@ const stopped: string[] = [];
 let pet: PetActions;
 let enableSend = true;
 let hostState: unknown;
+let agentStatesManager: unknown;
 
 function showConversation(key: string | null): HTMLTextAreaElement {
   history.replaceState(null, "", key === null ? "/" : `/c/${key}`);
@@ -73,6 +74,7 @@ beforeEach(() => {
   stopped.length = 0;
   enableSend = true;
   hostState = undefined;
+  agentStatesManager = undefined;
   showConversation("previous");
 
   // Run the actual community plugin with its pet hidden. The fixture supplies
@@ -86,8 +88,13 @@ beforeEach(() => {
     },
     storage: { get: (key: string, fallback: unknown) => key === "shown" ? false : fallback },
     react: {
-      getFiber: () => hostState === undefined ? undefined : ({
-        dependencies: { firstContext: { memoizedValue: { store: { getState: () => hostState } } } }
+      getFiber: () => (hostState === undefined && agentStatesManager === undefined) ? undefined : ({
+        dependencies: {
+          firstContext: {
+            memoizedValue: hostState !== undefined ? { store: { getState: () => hostState } } : agentStatesManager,
+            next: hostState !== undefined && agentStatesManager !== undefined ? { memoizedValue: agentStatesManager } : undefined
+          }
+        }
       })
     },
     log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -260,6 +267,91 @@ describe("Pets activity updates", () => {
     expect(current).toBeDefined();
     expect(current?.status).toBe("review");
     expect(current?.subtitle).toBe("");
+  });
+
+  it("reports Running command for off-screen threads with background task trajectories rather than Thinking or Running subagent", () => {
+    addThread("background-chat", null);
+    hostState = {
+      trajectorySummaries: {
+        summaries: {
+          "child-task-1": {
+            status: 2,
+            notFullyIdle: true,
+            waitingSteps: [],
+            summary: "Task: pnpm test",
+            trajectoryMetadata: {
+              rootConversationId: "background-chat"
+            }
+          }
+        }
+      }
+    };
+    const entries = pet.readEntries() as { key: string; status: string; subtitle: string }[];
+    const bg = entries.find((e) => e.key === "background-chat");
+    expect(bg).toBeDefined();
+    expect(bg?.status).toBe("running");
+    expect(bg?.subtitle).toBe("Running tests");
+  });
+
+  it("reports Running subagent for off-screen threads with child subagent trajectories", () => {
+    addThread("background-chat-2", null);
+    hostState = {
+      trajectorySummaries: {
+        summaries: {
+          "subagent-1": {
+            status: 2,
+            notFullyIdle: true,
+            waitingSteps: [],
+            summary: "<original_task>",
+            trajectoryMetadata: {
+              rootConversationId: "background-chat-2",
+              subagentSpec: { role: "researcher" }
+            }
+          }
+        }
+      }
+    };
+    const entries = pet.readEntries() as { key: string; status: string; subtitle: string }[];
+    const bg = entries.find((e) => e.key === "background-chat-2");
+    expect(bg).toBeDefined();
+    expect(bg?.status).toBe("running");
+    expect(bg?.subtitle).toBe("Running subagent");
+  });
+
+  it("reports Running command for off-screen threads via AgentStatesManager without jumping from Thinking", () => {
+    addThread("bg-worker", null);
+    agentStatesManager = {
+      getAgentStates: () => new Map([
+        ["bg-worker", {
+          provider: {
+            getState: () => ({
+              backgroundTasks: [
+                {
+                  step: { status: 2 },
+                  taskSnapshot: { description: "Running git status", toolName: "run_command" }
+                }
+              ]
+            })
+          }
+        }]
+      ]),
+      peek: (id: string) => id === "bg-worker" ? {
+        getState: () => ({
+          backgroundTasks: [
+            {
+              step: { status: 2 },
+              taskSnapshot: { description: "Running git status", toolName: "run_command" }
+            }
+          ]
+        })
+      } : null
+    };
+
+    const entries = pet.readEntries() as { key: string; status: string; subtitle: string }[];
+    const bg = entries.find((e) => e.key === "bg-worker");
+    expect(bg).toBeDefined();
+    expect(bg?.status).toBe("running");
+    expect(bg?.subtitle).toBe("Running command");
   });
 });
 

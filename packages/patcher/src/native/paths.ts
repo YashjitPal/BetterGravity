@@ -18,12 +18,30 @@ export interface InstallationPaths {
 export const RUNTIME_DIRECTORY_NAME = ".bettergravity";
 export const MARKER_NAME = ".bettergravity.json";
 
-export function installationPaths(root: string): InstallationPaths {
-  const resources = path.join(root, "resources");
+function normalizeRoot(root: string): string {
+  const normalized = path.normalize(root);
+  if (path.basename(normalized) === "Resources" && path.basename(path.dirname(normalized)) === "Contents") {
+    return path.dirname(path.dirname(normalized));
+  }
+  if (path.basename(normalized) === "Contents") {
+    return path.dirname(normalized);
+  }
+  return normalized;
+}
+
+function isMacAppBundle(root: string): boolean {
+  return root.endsWith(".app") || fs.existsSync(path.join(root, "Contents", "Resources"));
+}
+
+export function installationPaths(targetRoot: string): InstallationPaths {
+  const root = normalizeRoot(targetRoot);
+  const isMac = isMacAppBundle(root);
+  const resources = isMac ? path.join(root, "Contents", "Resources") : path.join(root, "resources");
+  const executable = isMac ? path.join(root, "Contents", "MacOS", "Antigravity") : path.join(root, "Antigravity.exe");
   const runtimeRoot = path.join(resources, RUNTIME_DIRECTORY_NAME);
   return {
     root,
-    executable: path.join(root, "Antigravity.exe"),
+    executable,
     resources,
     currentAsar: path.join(resources, "app.asar"),
     originalAsar: path.join(resources, "_app.asar"),
@@ -35,6 +53,14 @@ export function installationPaths(root: string): InstallationPaths {
 }
 
 function candidateRoots(): readonly string[] {
+  if (process.platform === "darwin") {
+    const home = process.env.HOME;
+    return [
+      "/Applications/Antigravity.app",
+      home && path.join(home, "Applications", "Antigravity.app")
+    ].filter((candidate): candidate is string => typeof candidate === "string");
+  }
+
   const { LOCALAPPDATA, ProgramFiles } = process.env;
   const programFilesX86 = process.env["ProgramFiles(x86)"];
   return [

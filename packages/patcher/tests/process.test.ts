@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseProcessIds } from "../src/native/process.js";
+import { parseDarwinProcessIds, parseProcessIds } from "../src/native/process.js";
 
 describe("parseProcessIds", () => {
   it("reads the ids PowerShell prints, one per line", () => {
@@ -27,5 +27,33 @@ describe("parseProcessIds", () => {
 
   it("can exclude every match", () => {
     expect(parseProcessIds("111\n", [111])).toEqual([]);
+  });
+});
+
+describe("parseDarwinProcessIds", () => {
+  const targetApp = "/Applications/Antigravity.app";
+  const psOutput = [
+    "  101 /Applications/Antigravity.app/Contents/MacOS/Antigravity",
+    "  102 /Applications/Antigravity.app/Contents/Frameworks/Antigravity Helper.app/Contents/MacOS/Antigravity Helper --type=renderer",
+    "  201 /usr/libexec/opendirectoryd",
+    "  301 /Users/test/Applications/Antigravity.app/Contents/MacOS/Antigravity",
+    "  401 /Applications/Antigravity.app/Contents/MacOS/Antigravity --node-guardian"
+  ].join("\n");
+
+  it("matches processes running out of the specific app bundle", () => {
+    expect(parseDarwinProcessIds(psOutput, targetApp)).toEqual([101, 102, 401]);
+  });
+
+  it("excludes process ids passed in the exclusion list", () => {
+    expect(parseDarwinProcessIds(psOutput, targetApp, [401])).toEqual([101, 102]);
+  });
+
+  it("ignores unrelated apps and distinct installations elsewhere", () => {
+    expect(parseDarwinProcessIds(psOutput, "/Users/test/Applications/Antigravity.app")).toEqual([301]);
+    expect(parseDarwinProcessIds(psOutput, "/Applications/NonExistent.app")).toEqual([]);
+  });
+
+  it("returns nothing for empty ps output", () => {
+    expect(parseDarwinProcessIds("", targetApp)).toEqual([]);
   });
 });

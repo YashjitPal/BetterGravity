@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
-  "description": "The BetterGravity Windows installer.",
+  "description": "The BetterGravity installer.",
   "author": "BetterGravity Contributors",
   "scripts": {
     "dev": "vite",
     "build": "pnpm typecheck && vite build && node build-electron.mjs",
-    "build:desktop": "pnpm build && electron-builder --win portable",
+    "build:desktop": "pnpm build && electron-builder",
+    "build:desktop:win": "pnpm build && electron-builder --win portable",
+    "build:desktop:mac": "pnpm build && electron-builder --mac",
     "start:desktop": "electron dist-electron/main.cjs",
     "dev:desktop": "cross-env BG_DEV_SERVER_URL=http://127.0.0.1:4173 electron dist-electron/main.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
@@ -46,6 +48,7 @@
       "package.json"
     ],
     "win": {
+      "artifactName": "BetterGravity-Installer-${version}.${ext}",
       "target": [
         {
           "target": "portable",
@@ -55,6 +58,29 @@
         }
       ],
       "requestedExecutionLevel": "asInvoker"
+    },
+    "mac": {
+      "artifactName": "BetterGravity-Installer-${version}-${arch}.${ext}",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "dmg": {
+        "title": "BetterGravity Installer ${version}"
+      }
     }
   }
 }

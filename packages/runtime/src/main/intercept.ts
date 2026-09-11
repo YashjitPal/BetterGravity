@@ -49,6 +49,7 @@ async function passThrough(request: Request): Promise<Response> {
   const options: RequestInit & { duplex?: "half"; bypassCustomProtocolHandlers?: boolean } = {
     method: request.method,
     headers: request.headers,
+    cache: request.cache,
     body: request.body,
     signal: controller.signal,
     bypassCustomProtocolHandlers: true,
@@ -119,22 +120,29 @@ async function passThrough(request: Request): Promise<Response> {
  * end with Antigravity loading exactly as it would without BetterGravity. The
  * interceptor is not installed at all unless a plugin actually declares patches.
  */
-export function installSourceInterceptor(session: Session, sets: readonly PluginPatches[]): boolean {
+export function installSourceInterceptor(
+  session: Session,
+  sets: readonly PluginPatches[],
+  readLatest?: () => readonly PluginPatches[]
+): boolean {
   if (installed || sets.length === 0) return false;
 
-  const patchKey = signature(sets);
-  const declared = sets.flatMap((set) => set.patches.map(() => set.pluginId));
-  logger.info(`Source patching enabled: ${declared.length} patch(es) from ${new Set(declared).size} plugin(s).`);
+  let active = { sets, key: signature(sets), succeeded: new Set<string>() };
+  const announce = () => {
+    const declared = active.sets.flatMap((set) => set.patches.map(() => set.pluginId));
+    logger.info(`Source patching enabled: ${declared.length} patch(es) from ${new Set(declared).size} plugin(s).`);
+  };
+  announce();
 
   // Reported once, after the served files have settled, so a plugin only hears
   // about its patch when it matched nothing anywhere.
-  const succeeded = new Set<string>();
   let summaryTimer: NodeJS.Timeout | undefined;
-  const scheduleSummary = () => {
+  const scheduleSummary = (selection: typeof active) => {
+    if (selection !== active) return;
     if (summaryTimer) clearTimeout(summaryTimer);
     summaryTimer = setTimeout(() => {
-      for (const { pluginId } of sets) {
-        if (!succeeded.has(pluginId)) {
+      for (const { pluginId } of selection.sets) {
+        if (!selection.succeeded.has(pluginId)) {
           logger.error(`Source patches from ${pluginId} matched nothing. Antigravity has probably changed since they were written.`);
         }
       }
@@ -149,15 +157,46 @@ export function installSourceInterceptor(session: Session, sets: readonly Plugin
       if (!isBundle(request.url)) return passThrough(request);
 
       try {
-        const response = await passThrough(request);
+        // A plugin can be updated while Electron remains open. Reading only
+        // at process startup made a window reload silently lose newer hooks.
+        // This runs only for local scripts, never chat RPCs or arriving tokens.
+        if (readLatest) {
+          const latest = readLatest();
+          const key = signature(latest);
+          if (key !== active.key) {
+            if (summaryTimer) clearTimeout(summaryTimer);
+            active = { sets: latest, key, succeeded: new Set<string>() };
+            cache.clear();
+            announce();
+          }
+        }
+        const selection = active;
+
+        // HTTP validators describe the unmodified host file. A 304 or a cached
+        // response must not keep an older patch revision alive after reload.
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.delete("if-none-match");
+        requestHeaders.delete("if-modified-since");
+        const response = await passThrough(new Request(request, { headers: requestHeaders, cache: "no-store" }));
         if (!response.ok) return response;
 
+        const headers = new Headers(response.headers);
+        headers.delete("content-length");
+        headers.delete("etag");
+        headers.delete("last-modified");
+        headers.set("cache-control", "no-store");
+        // A disabled plugin must also leave the next reload able to enable its
+        // hooks. Stream native bytes without letting Chromium cache that state.
+        if (selection.sets.length === 0) {
+          return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+        }
+
         const source = await response.text();
-        const key = `${patchKey}:${crypto.createHash("sha256").update(source).digest("hex")}`;
+        const key = `${selection.key}:${crypto.createHash("sha256").update(source).digest("hex")}`;
 
         let patched = cache.get(key);
         if (patched === undefined) {
-          const outcome = applySourcePatches(source, sets);
+          const outcome = applySourcePatches(source, selection.sets);
 
           // A missing anchor only means this patch targets a different file, and
           // several are served. Real problems are reported at once; anchors are
@@ -165,19 +204,19 @@ export function installSourceInterceptor(session: Session, sets: readonly Plugin
           for (const failure of outcome.failures) {
             if (failure.kind !== "anchor") logger.error(`Source patch from ${failure.pluginId} did not apply: ${failure.reason}`);
           }
-          for (const pluginId of outcome.applied) succeeded.add(pluginId);
+          for (const pluginId of outcome.applied) selection.succeeded.add(pluginId);
           if (outcome.applied.length > 0) {
             logger.info(`Patched ${new URL(request.url).pathname} for ${outcome.applied.join(", ")}.`);
           }
-          scheduleSummary();
+          scheduleSummary(selection);
 
           patched = outcome.source;
-          if (cache.size >= MAX_CACHE_ENTRIES) cache.clear();
-          cache.set(key, patched);
+          if (selection === active) {
+            if (cache.size >= MAX_CACHE_ENTRIES) cache.clear();
+            cache.set(key, patched);
+          }
         }
 
-        const headers = new Headers(response.headers);
-        headers.delete("content-length");
         return new Response(patched, { status: response.status, statusText: response.statusText, headers });
       } catch (error) {
         logger.error("Source patching failed; serving Antigravity's own bundle.", error);

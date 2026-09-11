@@ -346,7 +346,7 @@ of regular expressions applied to the bundle before the page runs it. Failed
 replacements are reported; successful replacements can still apply, so validate
 the complete result, especially when replacements depend on each other.
 
-Six patches in the Gemini App plugin remove repeated or unused work in these
+Source patches in the Gemini App plugin remove repeated or unused work in these
 native components.
 
 **The colour table.** Antigravity keeps its sixteen theme colours in one object,
@@ -441,9 +441,55 @@ If you write one of these yourself: match against the things a minifier cannot
 rename — property names, string literals, CSS variable names — and reach mangled
 local names with a backreference rather than by writing them down, because they
 change with every Antigravity release. Check offline that your expression matches
-**exactly once** against the real bundle before you ship it. And know that a new
-`patches` block only takes effect when Antigravity restarts; editing CSS is live,
-this is not.
+**exactly once** against the real bundle before you ship it. When source patching
+is already active, a window reload reads the current enabled plugins' patches.
+CSS and plugin scripts still update live; changing a source patch does not
+replace code that has already executed in the current page. Enabling the first
+source-patching plugin after starting without any still requires an app restart.
+
+## Sent-message entrance
+
+Gemini App follows Willow's send sequence without moving earlier message cards
+individually. A new conversation's first turn rises 200 px over 500 ms on
+`cubic-bezier(0.2, 0, 0, 1)`. A later short turn uses one timeline for its
+entrance offset and the subsequent scroll, with duration
+`min(520, max(240, 240 + distance * 0.28))`. A long previous reply already
+provides enough distance, so that path uses native smooth scrolling.
+
+Keep the host's existing last-turn height reserve and the theme's settled top
+inset. Do not add temporary spacers or translate the previous turns. The shared
+DOM observer claims a new user step only after a submit in that composer;
+queued messages, subagent messages, other panes, and navigation do not consume
+it. The native send hook passes its conversation id to the same bridge before
+requesting a jump to the bottom. The follow-output hook also yields initial
+positioning while this entrance owns the viewport. Completion never re-enables
+automatic following of generated text or steps.
+
+First-turn movement and the 120 ms interruption settle use compositor
+animations. A short follow-up has one frame loop controlling a paused
+animation's playhead and scroll position. It does not mutate style attributes
+every frame, walk old turns, or create another subtree observer. Initial
+geometry is read together; a temporary resize observer invalidates cached
+geometry only when sizes change. Read that geometry before writes and never
+write a smaller scroll position over a browser anchor adjustment.
+
+The working indicator waits for the entrance. Response actions wait for both
+the entrance and any pending text fade. These are independent marks on the
+existing turn: finishing one must not clear the other. CSS visibility keeps
+the rows' layout space. The API request and response text processing continue
+throughout the entrance.
+
+Wheel, touch, pointer, and scrolling-key input take control immediately, with
+a short settle for any remaining visual offset. An explicit jump-to-bottom
+also interrupts the entrance. Navigation, removal, reduced motion, window
+visibility, and disposal must release animations, frame requests, observers,
+listeners, timers, and the entrance mark. A failed animation must reveal the
+working row and retain usable native positioning.
+
+Regression checks cover first and later sends, fast completion, changed
+geometry, interruption, native-scroll handoff, and history exclusions. An
+isolated replay uses Antigravity's actual scroller and theme to verify the
+settled geometry and that response growth does not resume automatic scrolling.
 
 ## Streaming text reveal
 
@@ -508,6 +554,23 @@ The source patch installs its bridge and optional renderer arguments in one
 guarded replacement. A version mismatch leaves the original renderer intact;
 an absent plugin also uses the original renderer. Check the real host bundle
 for exactly one match and valid JavaScript before deployment.
+
+A missing fade can also mean the renderer hook was never loaded. An older
+runtime captured patch declarations once at process startup, so reloading a
+window after updating Gemini App restored older host code even though the new
+plugin script and fade CSS were present. The interceptor now refreshes enabled
+declarations only for local script requests and invalidates its source cache
+when those declarations change. Script responses omit native HTTP validators
+and use `no-store`, including while patches are disabled, so Chromium cannot
+retain an obsolete revision. There is no extra work on streamed text or chat
+requests. An isolated Electron test checks updated hooks across ordinary
+reloads, disabling, and re-enabling without restarting its process.
+
+The scroll-edge patch's cleanup pattern also needs a leading word boundary.
+Without it, searching a host bundle containing long embedded assets retries a
+match at every character inside a token. Reading and replacing that one match
+took about 19 seconds in the installed bundle. The boundary keeps the replacement
+identical while making the search linear in those assets' length.
 
 ## The short version
 

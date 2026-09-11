@@ -66,6 +66,7 @@ directly. These are the equivalents that do work here.
 - Code signing, so Windows stops warning on first run.
 - The separately installed Antigravity IDE, which is a different application
   from the launcher this patches and needs its own approach.
-- macOS and Linux, once there is a reason to believe the host layout matches.
+- macOS support for application bundle layout, process management, and Keychain certificate trust. **Done.**
+- Linux, once there is a reason to believe the host layout matches.
 - A safe mode that starts Antigravity with every plugin disabled, for recovering
   from a plugin that misbehaves badly enough to make the panel unreachable.

@@ -385,18 +385,42 @@ export interface TrustOutcome {
   readonly message: string;
 }
 
-/**
- * Whether the authority is in this account's root store. Windows only: Go reads
- * the platform store there, and Antigravity ships nowhere else.
- */
-export async function checkTrust(thumbprint: string, platform: string = process.platform): Promise<TrustState> {
-  if (platform !== "win32") return "unsupported";
-  const { output } = await powershell(`Test-Path -LiteralPath ${quote(`Cert:\\CurrentUser\\Root\\${thumbprint}`)}`);
-  return /^true$/im.test(output) ? "trusted" : "untrusted";
+const SECURITY_TIMEOUT_MS = 30_000;
+
+function security(args: readonly string[]): Promise<{ readonly ok: boolean; readonly output: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      "security",
+      args,
+      { timeout: SECURITY_TIMEOUT_MS, maxBuffer: 1024 * 1024 },
+      (error, stdout, stderr) => resolve({ ok: !error, output: `${stdout ?? ""}\n${stderr ?? ""}`.trim() })
+    );
+  });
 }
 
 /**
- * Adds the authority to `Cert:\CurrentUser\Root`. This is the one moment the
+ * Whether the authority is in this account's root store. Windows and macOS: Go reads
+ * the platform store there, and Antigravity ships on these platforms.
+ */
+export async function checkTrust(thumbprint: string, platform: string = process.platform): Promise<TrustState> {
+  if (platform === "win32") {
+    const { output } = await powershell(`Test-Path -LiteralPath ${quote(`Cert:\\CurrentUser\\Root\\${thumbprint}`)}`);
+    return /^true$/im.test(output) ? "trusted" : "untrusted";
+  }
+
+  if (platform === "darwin") {
+    const { ok, output } = await security(["find-certificate", "-a", "-c", AUTHORITY_NAME, "-Z"]);
+    if (!ok) return "untrusted";
+    const cleanedOutput = output.replace(/\s+/g, "").toUpperCase();
+    const cleanedThumbprint = thumbprint.replace(/\s+/g, "").toUpperCase();
+    return cleanedOutput.includes(cleanedThumbprint) ? "trusted" : "untrusted";
+  }
+
+  return "unsupported";
+}
+
+/**
+ * Adds the authority to the platform's user trust store. This is the one moment the
  * feature changes anything outside its own directory, and it follows the plugin
  * being switched on — the runtime installs the authority while something asks for
  * the translator and calls {@link removeTrust} when nothing does.
@@ -409,30 +433,56 @@ export async function installTrust(
   thumbprint: string,
   platform: string = process.platform
 ): Promise<TrustOutcome> {
-  if (platform !== "win32") {
-    return { state: "unsupported", message: "The certificate can only be installed on Windows." };
+  if (platform === "win32") {
+    const target = quote(files.authorityCer);
+    // Import-Certificate is the ordinary route; the store API is the fallback for
+    // an installation whose PKI module is unavailable.
+    const attempt = await powershell(
+      "$ErrorActionPreference='Stop'; " +
+        `try { Import-Certificate -FilePath ${target} -CertStoreLocation Cert:\\CurrentUser\\Root | Out-Null } ` +
+        "catch { $store=New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','CurrentUser'); " +
+        "$store.Open('ReadWrite'); " +
+        `$store.Add((New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(${target}))); ` +
+        "$store.Close() }"
+    );
+
+    const state = await checkTrust(thumbprint, platform);
+    if (state === "trusted") {
+      writeTrustRecord(files, thumbprint);
+      return { state, message: "The certificate is trusted for your account." };
+    }
+
+    forgetTrustRecord(files);
+    return { state, message: attempt.output ? firstLine(attempt.output) : "Windows did not accept the certificate." };
   }
 
-  const target = quote(files.authorityCer);
-  // Import-Certificate is the ordinary route; the store API is the fallback for
-  // an installation whose PKI module is unavailable.
-  const attempt = await powershell(
-    "$ErrorActionPreference='Stop'; " +
-      `try { Import-Certificate -FilePath ${target} -CertStoreLocation Cert:\\CurrentUser\\Root | Out-Null } ` +
-      "catch { $store=New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','CurrentUser'); " +
-      "$store.Open('ReadWrite'); " +
-      `$store.Add((New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(${target}))); ` +
-      "$store.Close() }"
-  );
+  if (platform === "darwin") {
+    const home = process.env.HOME ?? "";
+    const primaryKeychain = path.join(home, "Library", "Keychains", "login.keychain-db");
+    const fallbackKeychain = path.join(home, "Library", "Keychains", "login.keychain");
+    const keychain = fs.existsSync(primaryKeychain) ? primaryKeychain : fallbackKeychain;
 
-  const state = await checkTrust(thumbprint, platform);
-  if (state === "trusted") {
-    writeTrustRecord(files, thumbprint);
-    return { state, message: "The certificate is trusted for your account." };
+    const attempt = await security([
+      "add-trusted-cert",
+      "-d",
+      "-r",
+      "trustRoot",
+      "-k",
+      keychain,
+      files.authorityCer
+    ]);
+
+    const state = await checkTrust(thumbprint, platform);
+    if (state === "trusted") {
+      writeTrustRecord(files, thumbprint);
+      return { state, message: "The certificate is trusted in your keychain." };
+    }
+
+    forgetTrustRecord(files);
+    return { state, message: attempt.output ? firstLine(attempt.output) : "macOS did not accept the certificate." };
   }
 
-  forgetTrustRecord(files);
-  return { state, message: attempt.output ? firstLine(attempt.output) : "Windows did not accept the certificate." };
+  return { state: "unsupported", message: "The certificate can only be installed on Windows or macOS." };
 }
 
 /** Takes it back out again, so switching the plugin off undoes what it added. */
@@ -441,16 +491,25 @@ export async function removeTrust(
   thumbprint: string,
   platform: string = process.platform
 ): Promise<TrustOutcome> {
-  if (platform !== "win32") {
-    return { state: "unsupported", message: "There is nothing to remove on this platform." };
+  if (platform === "win32") {
+    await powershell(
+      `Remove-Item -LiteralPath ${quote(`Cert:\\CurrentUser\\Root\\${thumbprint}`)} -Force -ErrorAction SilentlyContinue`
+    );
+    forgetTrustRecord(files);
+    const state = await checkTrust(thumbprint, platform);
+    return state === "trusted"
+      ? { state, message: "Windows would not remove the certificate." }
+      : { state, message: "The certificate is no longer trusted." };
   }
 
-  await powershell(
-    `Remove-Item -LiteralPath ${quote(`Cert:\\CurrentUser\\Root\\${thumbprint}`)} -Force -ErrorAction SilentlyContinue`
-  );
-  forgetTrustRecord(files);
-  const state = await checkTrust(thumbprint, platform);
-  return state === "trusted"
-    ? { state, message: "Windows would not remove the certificate." }
-    : { state, message: "The certificate is no longer trusted." };
+  if (platform === "darwin") {
+    await security(["delete-certificate", "-t", "-c", AUTHORITY_NAME]);
+    forgetTrustRecord(files);
+    const state = await checkTrust(thumbprint, platform);
+    return state === "trusted"
+      ? { state, message: "macOS would not remove the certificate." }
+      : { state, message: "The certificate is no longer trusted." };
+  }
+
+  return { state: "unsupported", message: "There is nothing to remove on this platform." };
 }

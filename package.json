@@ -13,6 +13,8 @@
     "clean": "node scripts/clean-generated.mjs",
     "build": "pnpm -r --if-present build",
     "build:installer": "pnpm build && pnpm --filter @bettergravity/installer build:desktop",
+    "build:installer:win": "pnpm build && pnpm --filter @bettergravity/installer build:desktop:win",
+    "build:installer:mac": "pnpm build && pnpm --filter @bettergravity/installer build:desktop:mac",
     "start:installer": "pnpm --filter @bettergravity/installer start:desktop",
     "patch": "node scripts/dev-patch.mjs",
     "typecheck": "pnpm -r --if-present typecheck",

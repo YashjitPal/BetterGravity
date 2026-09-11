@@ -77,8 +77,16 @@ app.whenReady().then(async () => {
         response.writeHead(204);
         response.end();
       } else if (url.pathname === '/assets/main.js') {
-        const source = 'window.bundleValue="bundle-anchor:original";';
-        response.writeHead(200, { 'content-type': 'text/javascript', 'content-length': String(Buffer.byteLength(source)) });
+        if (request.headers['if-none-match']) {
+          response.writeHead(304);
+          response.end();
+          return;
+        }
+        const source = 'window.bundleValue="bundle-anchor:original";window.fadeEnabled=false;';
+        response.writeHead(200, {
+          'content-type': 'text/javascript', 'content-length': String(Buffer.byteLength(source)),
+          'cache-control': 'public, max-age=3600', 'etag': '"unchanged-host-bundle"'
+        });
         response.end(source);
       } else if (url.pathname === '/assets/module.js') {
         response.writeHead(200, { 'content-type': 'text/javascript' });
@@ -101,15 +109,38 @@ app.whenReady().then(async () => {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const origin = `https://127.0.0.1:${server.address().port}`;
-  assert.equal(installSourceInterceptor(session.defaultSession, [{
+  const initialPatches = [{
     pluginId: 'transport-regression',
     patches: [{ find: 'bundle-anchor', replace: [{ match: 'original', with: 'patched-successfully' }] }]
-  }]), true);
+  }];
+  let currentPatches = initialPatches;
+  assert.equal(installSourceInterceptor(session.defaultSession, initialPatches, () => currentPatches), true);
 
   window = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, backgroundThrottling: false } });
   await window.loadURL(origin);
   assert.equal(await window.webContents.executeJavaScript('window.bundleValue'), 'bundle-anchor:patched-successfully');
   result.bundlePatched = true;
+  assert.equal(await window.webContents.executeJavaScript('window.fadeEnabled'), false);
+  const reload = () => new Promise(resolve => {
+    window.webContents.once('did-finish-load', resolve);
+    window.webContents.reload();
+  });
+  currentPatches = [{ ...initialPatches[0], patches: [...initialPatches[0].patches, {
+    find: 'window.fadeEnabled', replace: [{ match: 'window.fadeEnabled=false', with: 'window.fadeEnabled=true' }]
+  }] }];
+  await reload();
+  assert.equal(await window.webContents.executeJavaScript('window.bundleValue'), 'bundle-anchor:patched-successfully');
+  assert.equal(await window.webContents.executeJavaScript('window.fadeEnabled'), true);
+  const updatedPatches = currentPatches;
+  currentPatches = [];
+  await reload();
+  assert.equal(await window.webContents.executeJavaScript('window.bundleValue'), 'bundle-anchor:original');
+  assert.equal(await window.webContents.executeJavaScript('window.fadeEnabled'), false);
+  currentPatches = updatedPatches;
+  await reload();
+  assert.equal(await window.webContents.executeJavaScript('window.fadeEnabled'), true);
+  result.reloadKeepsUpdatedPatches = true;
+  result.disabledPatchesStayNative = true;
   const imported = await window.webContents.executeJavaScript('import("/assets/module.js").then(module => ({value: module.value, sourceUrl: module.sourceUrl}))');
   assert.deepEqual(imported, { value: 'relative-import-kept', sourceUrl: `${origin}/assets/module.js` });
   result.relativeImport = true;

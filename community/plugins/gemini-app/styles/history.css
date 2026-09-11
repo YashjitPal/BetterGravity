@@ -171,9 +171,95 @@
   color: #e3e3e3 !important;
 }
 
-/* Suppress secondary subtitle (folder icon and project name) */
+/* Workspace / Project Subtitle (clean inline indicator on right of title) */
 [data-testid="conversation-row-history"] span.text-xs.text-muted-foreground {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.15px !important;
+  -webkit-font-smoothing: antialiased !important;
+  color: rgba(255, 255, 255, 0.52) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  width: auto !important;
+  max-width: 180px !important;
+  margin-right: 12px !important;
+  transition: color 0.15s ease !important;
+  user-select: none !important;
+}
+
+[data-testid="conversation-row-history"]:hover span.text-xs.text-muted-foreground {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-testid="conversation-row-history"] span.text-xs.text-muted-foreground svg {
+  width: 14px !important;
+  height: 14px !important;
+  opacity: 0.72 !important;
+  color: currentColor !important;
+  flex-shrink: 0 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+[data-testid="conversation-row-history"]:hover span.text-xs.text-muted-foreground svg {
+  opacity: 0.95 !important;
+}
+
+[data-testid="conversation-row-history"] span.text-xs.text-muted-foreground span {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Suppress workspace indicator when conversation is outside of project */
+[data-testid="conversation-row-history"][data-subtext="Outside of Project"] span.text-xs.text-muted-foreground,
+[data-testid="conversation-row-history"][data-subtext*="Outside of Project" i] span.text-xs.text-muted-foreground {
   display: none !important;
+}
+
+/* Row content flex layout to place workspace next to timestamp */
+[data-testid="conversation-row-history"] > div.grow {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  min-width: 0 !important;
+}
+
+[data-testid="conversation-row-history"] > div.grow > div.flex-col {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 16px !important;
+  min-width: 0 !important;
+}
+
+[data-testid="conversation-row-history"] span.truncate.text-sm {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* Ensure right actions slot has adequate width so hover buttons do not collide */
+[data-testid="conversation-row-history"] > div.pointer-events-auto {
+  min-width: 36px !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+
+[data-testid="conversation-row-history"]:has(button[aria-label*="Stop"]) > div.pointer-events-auto {
+  min-width: 64px !important;
 }
 
 /* Timestamp / Date on Right */
