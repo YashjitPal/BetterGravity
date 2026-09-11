@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-11T23:20:34.789Z",
+  "generatedAt": "2026-09-11T23:27:32.927Z",
   "entries": [
     {
       "id": "computer-use",
@@ -416,7 +416,7 @@
       "author": "BetterGravity Community",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/in-built-browser",
-      "bytes": 422450,
+      "bytes": 433139,
       "files": [
         {
           "name": "index.js",
@@ -424,9 +424,29 @@
           "sha256": "bcd5a037deedda6a24b803b1e703eb78c0b36d8a47e590c0a4abc407a1c319ad"
         },
         {
+          "name": "mcp-server.cjs",
+          "bytes": 4822,
+          "sha256": "8bce0d1676f409050cbfdb355649b8650cc66fe34c6812f8218f9377dfa59032"
+        },
+        {
           "name": "plugin.json",
           "bytes": 449,
           "sha256": "5163284613a1253129776032ce14a28fb5dab9e470d122a46b15fa20d58b68f4"
+        },
+        {
+          "name": "scripts/browser-client.mjs",
+          "bytes": 1979,
+          "sha256": "81781120c12a0e7646a89c61b685df0437a397b1392e704384aee372c4ea90fb"
+        },
+        {
+          "name": "scripts/run-action.mjs",
+          "bytes": 1110,
+          "sha256": "6b48dd636a2a3d046342aec65e830a3fb79243b2fa5592bd7a5ca608b2d0b8b6"
+        },
+        {
+          "name": "skills/in-built-browser/SKILL.md",
+          "bytes": 2778,
+          "sha256": "2876cb6ff2eae7159f9a8102402f9d2b2f74043338a5221da62e65c327c4b056"
         },
         {
           "name": "styles/browser.css",
