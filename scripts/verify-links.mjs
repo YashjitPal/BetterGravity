@@ -6,7 +6,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 const root = path.dirname(import.meta.dirname);
-const skip = new Set(["node_modules", ".git", "dist", "dist-electron", "release", "coverage"]);
+const skip = new Set(["node_modules", ".git", "dist", "dist-electron", "release", "coverage", "output"]);
 
 function markdownFiles(directory) {
   const found = [];

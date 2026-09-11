@@ -517,6 +517,12 @@ function apply(pill) {
 const observers = new WeakMap();
 const observed = new Set();
 
+/** Page listeners must leave with this instance when the plugin reloads. */
+function listenToPage(target, type, listener, options) {
+  target.addEventListener(type, listener, options);
+  plugin.onDispose(() => target.removeEventListener(type, listener, options));
+}
+
 /** Refs whose element has been collected, dropped in a batch now and then. */
 function pruneObserved() {
   if (observed.size < 512) return;
@@ -559,6 +565,11 @@ function remember(element, disposer) {
   observers.set(element, disposer);
   observed.add(new WeakRef(element));
   pruneObserved();
+}
+
+function listenToElement(element, type, listener, options) {
+  element.addEventListener(type, listener, options);
+  remember(element, { disconnect: () => element.removeEventListener(type, listener, options) });
 }
 
 plugin.dom.observe(PILL_SELECTOR, (pill) => {
@@ -896,6 +907,18 @@ function setLastSelectedProjectId(projId) {
   } catch {}
 }
 
+const newConversationCallbacks = new WeakMap();
+
+function isNewConversationCallback(fn) {
+  if (typeof fn !== 'function') return false;
+  let matches = newConversationCallbacks.get(fn);
+  if (matches === undefined) {
+    matches = fn.toString().includes('AGENT_MANAGER_HOME');
+    newConversationCallbacks.set(fn, matches);
+  }
+  return matches;
+}
+
 function getGoToNewConversation() {
   if (typeof activeGoToNewConversation === 'function') {
     return activeGoToNewConversation;
@@ -915,7 +938,7 @@ function getGoToNewConversation() {
       while (h) {
         const v = h.memoizedState;
         const fn = typeof v === 'function' ? v : (Array.isArray(v) && typeof v[0] === 'function' ? v[0] : null);
-        if (typeof fn === 'function' && fn.toString().includes('AGENT_MANAGER_HOME')) {
+        if (isNewConversationCallback(fn)) {
           activeGoToNewConversation = fn;
           return fn;
         }
@@ -1008,6 +1031,10 @@ function navigateToExperienceNewConversation(exp) {
  * once no longer holds the text in `title` — dropping only that would leave the
  * active tab still offering to switch to itself.
  */
+// observe() also mounts existing elements during a live reload. The top-chip
+// state is initialized later in this file, before its own initial reconciliation.
+let topChipsReady = false;
+
 function markExperience(pill, selected, shouldRerender = true) {
   setStoredExperience(selected);
   pill.dataset.geminiExperience = selected;
@@ -1045,7 +1072,7 @@ function markExperience(pill, selected, shouldRerender = true) {
   if (scroller) scroller.scrollTop = 0;
 
   ensureScrollNav();
-  if (typeof reconcileTopChips === "function") {
+  if (topChipsReady) {
     reconcileTopChips();
   }
   if (shouldRerender) {
@@ -1174,6 +1201,165 @@ function navRow(id) {
   return btn;
 }
 
+function triggerNativeProjectAction(actionText) {
+  let orig = document.querySelector('[data-testid="sidebar-add-project-button"]');
+  if (!orig) {
+    const scroller = document.querySelector('[data-testid="conversation-list-sidebar"]');
+    if (scroller) scroller.scrollTop = 0;
+    orig = document.querySelector('[data-testid="sidebar-add-project-button"]');
+  }
+  if (!orig) return;
+
+  const obs = new MutationObserver(() => {
+    const btns = Array.from(document.querySelectorAll('button.main-row-trigger'));
+    const target = btns.find(b => b.innerText.toLowerCase().includes(actionText.toLowerCase()));
+    if (target) {
+      obs.disconnect();
+      target.click();
+    }
+  });
+
+  obs.observe(document.body, { childList: true, subtree: true });
+  orig.click();
+
+  setTimeout(() => obs.disconnect(), 2000);
+}
+
+function openNewProjectDialog() {
+  const existing = document.getElementById('gemini-new-project-dialog-host');
+  if (existing) {
+    existing.querySelector('.willow-gdlg-option-card')?.focus();
+    return;
+  }
+
+  const host = document.createElement('div');
+  host.id = 'gemini-new-project-dialog-host';
+  host.className = 'willow-gdlg-host';
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'willow-gdlg-backdrop';
+  backdrop.setAttribute('aria-hidden', 'true');
+
+  const surface = document.createElement('div');
+  surface.className = 'willow-gdlg-surface';
+  surface.setAttribute('role', 'dialog');
+  surface.setAttribute('aria-modal', 'true');
+  surface.setAttribute('aria-label', 'New project');
+  surface.tabIndex = -1;
+  surface.style.maxWidth = '460px';
+
+  const title = document.createElement('h2');
+  title.className = 'willow-gdlg-title';
+  title.textContent = 'New project';
+
+  const content = document.createElement('div');
+  content.className = 'willow-gdlg-content';
+  content.style.paddingTop = '20px';
+
+  const list = document.createElement('div');
+  list.className = 'willow-gdlg-options-list';
+
+  // Option 1: New project
+  const optNewProj = document.createElement('button');
+  optNewProj.type = 'button';
+  optNewProj.className = 'willow-gdlg-option-card';
+  optNewProj.innerHTML = `
+    <div class="willow-gdlg-option-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        <line x1="12" y1="11" x2="12" y2="17"></line>
+        <line x1="9" y1="14" x2="15" y2="14"></line>
+      </svg>
+    </div>
+    <div class="willow-gdlg-option-info">
+      <span class="willow-gdlg-option-title">New Project</span>
+      <span class="willow-gdlg-option-desc">Open or choose an existing project folder</span>
+    </div>
+  `;
+
+  // Option 2: Quick start
+  const optQuickStart = document.createElement('button');
+  optQuickStart.type = 'button';
+  optQuickStart.className = 'willow-gdlg-option-card';
+  optQuickStart.innerHTML = `
+    <div class="willow-gdlg-option-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+    </div>
+    <div class="willow-gdlg-option-info">
+      <span class="willow-gdlg-option-title">Quick Start</span>
+      <span class="willow-gdlg-option-desc">Start immediately with an empty scratch workspace</span>
+    </div>
+  `;
+
+  list.appendChild(optNewProj);
+  list.appendChild(optQuickStart);
+  content.appendChild(list);
+
+  const actions = document.createElement('div');
+  actions.className = 'willow-gdlg-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'willow-gdlg-pill';
+  cancelBtn.innerHTML = '<span class="willow-gdlg-pill__label">Cancel</span>';
+
+  actions.appendChild(cancelBtn);
+
+  surface.appendChild(title);
+  surface.appendChild(content);
+  surface.appendChild(actions);
+
+  host.appendChild(backdrop);
+  host.appendChild(surface);
+  document.body.appendChild(host);
+
+  let isClosing = false;
+  const closeDialog = (callback) => {
+    if (isClosing) return;
+    isClosing = true;
+    window.removeEventListener('keydown', onKeyDown, true);
+    backdrop.classList.add('willow-gdlg-backdrop--closing');
+    backdrop.classList.remove('willow-gdlg-backdrop--shown');
+    surface.classList.remove('willow-gdlg-surface--shown');
+    setTimeout(() => {
+      host.remove();
+      if (callback) callback();
+    }, 120);
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      e.preventDefault();
+      closeDialog();
+    }
+  };
+  window.addEventListener('keydown', onKeyDown, true);
+
+  backdrop.addEventListener('click', () => closeDialog());
+  cancelBtn.addEventListener('click', () => closeDialog());
+
+  optNewProj.addEventListener('click', () => {
+    closeDialog(() => {
+      triggerNativeProjectAction('New Project');
+    });
+  });
+
+  optQuickStart.addEventListener('click', () => {
+    closeDialog(() => {
+      triggerNativeProjectAction('Quick Start');
+    });
+  });
+
+  requestAnimationFrame(() => {
+    backdrop.classList.add('willow-gdlg-backdrop--shown');
+    surface.classList.add('willow-gdlg-surface--shown');
+    optNewProj.focus();
+  });
+}
+
 function ensureNewProjectRow(block) {
   let newProjectBtn = document.getElementById('gemini-new-project-button');
   if (!newProjectBtn) {
@@ -1191,13 +1377,7 @@ function ensureNewProjectRow(block) {
     `;
     newProjectBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      let orig = document.querySelector('[data-testid="sidebar-add-project-button"]');
-      if (!orig) {
-        const scroller = document.querySelector('[data-testid="conversation-list-sidebar"]');
-        if (scroller) scroller.scrollTop = 0;
-        orig = document.querySelector('[data-testid="sidebar-add-project-button"]');
-      }
-      if (orig) orig.click();
+      openNewProjectDialog();
     });
   }
   if (newProjectBtn.parentElement !== block) block.appendChild(newProjectBtn);
@@ -2022,7 +2202,7 @@ function ensureSkillsRow(block) {
   if (row.parentElement !== block) block.appendChild(row);
 }
 
-document.addEventListener('click', (e) => {
+listenToPage(document, 'click', (e) => {
   const target = e.target;
   if (!target || !target.closest) return;
   if (
@@ -2053,20 +2233,20 @@ document.addEventListener('click', (e) => {
   }
 }, true);
 
-window.addEventListener('popstate', () => {
+listenToPage(window, 'popstate', () => {
   cancelSentPromptGlide();
   if (isSkillsViewOpen()) {
     closeSkillsView();
   }
 });
 
-document.addEventListener('pointerdown', (e) => {
+listenToPage(document, 'pointerdown', (e) => {
   if (activeKebabPopover && !activeKebabPopover.contains(e.target) && !e.target.closest('.spark-row-action-menu__trigger')) {
     closeActiveKebabPopover();
   }
 }, true);
 
-document.addEventListener('keydown', (e) => {
+listenToPage(document, 'keydown', (e) => {
   if (e.key === 'Escape') {
     closeActiveKebabPopover();
     const uploadDialog = document.querySelector('.spark-upload-dialog-backdrop');
@@ -2111,6 +2291,8 @@ function isPinnedTopNavItem(node) {
   return false;
 }
 
+const observedTopNavs = new WeakSet();
+
 function ensureScrollNav() {
   const collapsed = isSidebarCollapsed();
   const topNav = document.querySelector('[role="navigation"][aria-label="Sidebar"] > .px-2 > div.flex-col') ||
@@ -2118,8 +2300,8 @@ function ensureScrollNav() {
   const scroller = document.querySelector(LIST_SELECTOR);
   if (!topNav && !scroller) return;
 
-  if (topNav && !topNav.__geminiNavObserved) {
-    topNav.__geminiNavObserved = true;
+  if (topNav && !observedTopNavs.has(topNav)) {
+    observedTopNavs.add(topNav);
     const topNavObserver = new MutationObserver(() => ensureScrollNav());
     topNavObserver.observe(topNav, { childList: true });
     remember(topNav, topNavObserver);
@@ -2227,18 +2409,23 @@ function ensureScrollNav() {
  * ended up dimming the same row twice (its comment at Sidebar.tsx:1912-1917).
  * Antigravity's structure has the same shape, so this goes in the same place.
  * ------------------------------------------------------------------------- */
-function ensureTopFade(scroller) {
+function ensureTopFade(scroller, readScroll = true) {
   const holder = scroller.parentElement;
   if (!holder) return;
   let fade = document.getElementById('gemini-top-fade');
+  // Replacing virtualised rows does not change this flag; an actual scroll
+  // reports its new position through the scroll listener below. Reading here
+  // after every row replacement forced a layout of the whole page each time.
+  const scrolled = readScroll || !fade?.hasAttribute('data-scrolled')
+    ? String(scroller.scrollTop > 5)
+    : null;
   if (!fade) {
     fade = document.createElement('div');
     fade.id = 'gemini-top-fade';
     fade.setAttribute('aria-hidden', 'true');
   }
   if (fade.parentElement !== holder) holder.appendChild(fade);
-  const scrolled = String(scroller.scrollTop > 5);
-  if (fade.dataset.scrolled !== scrolled) fade.dataset.scrolled = scrolled;
+  if (scrolled !== null && fade.dataset.scrolled !== scrolled) fade.dataset.scrolled = scrolled;
 }
 
 plugin.dom.observe(SIDEBAR_SELECTOR, (sidebar) => {
@@ -2255,7 +2442,7 @@ plugin.dom.observe(SIDEBAR_SELECTOR, (sidebar) => {
 plugin.dom.observe(TOGGLE_SELECTOR, (toggle) => {
   const sidebar = document.querySelector(SIDEBAR_SELECTOR);
   if (sidebar) syncSidebarState(sidebar);
-  toggle.addEventListener("click", () => {
+  listenToElement(toggle, "click", () => {
     const sb = document.querySelector(SIDEBAR_SELECTOR);
     if (sb) {
       const willCollapse = toggle.getAttribute("aria-expanded") !== "false";
@@ -2287,7 +2474,7 @@ plugin.dom.observe(LIST_SELECTOR, (scroller) => {
   // the block has to be put back in front of it.
   const children = new MutationObserver(() => {
     ensureScrollNav();
-    ensureTopFade(scroller);
+    ensureTopFade(scroller, false);
     const sidebar = scroller.closest(SIDEBAR_SELECTOR);
     if (sidebar) {
       ensureExperienceSwitch(sidebar);
@@ -2469,6 +2656,8 @@ function findHeaderRow(btn) {
   return candidate || btn.closest('.group\\/header, div[class*="group/header"]') || btn.parentElement?.parentElement;
 }
 
+const cleanedHeaderRows = new WeakSet();
+
 function cleanHeaderActions(btn) {
   const row = findHeaderRow(btn);
   if (!row) return;
@@ -2509,12 +2698,20 @@ function cleanHeaderActions(btn) {
   };
 
   hideThreeDots();
-  if (!row.dataset.geminiCleaned) {
+  if (!cleanedHeaderRows.has(row)) {
+    cleanedHeaderRows.add(row);
     row.dataset.geminiCleaned = "true";
     row.addEventListener('mouseenter', hideThreeDots, { passive: true });
     const obs = new MutationObserver(hideThreeDots);
     obs.observe(row, { childList: true });
-    remember(row, obs);
+    remember(row, {
+      disconnect: () => {
+        row.removeEventListener('mouseenter', hideThreeDots);
+        cleanedHeaderRows.delete(row);
+        delete row.dataset.geminiCleaned;
+        obs.disconnect();
+      }
+    });
   }
 }
 
@@ -2588,8 +2785,9 @@ function isProjectExpanded(btn) {
 }
 
 function writeProjectExpandedState(btn, expanded) {
-  btn.dataset.projectExpanded = expanded ? 'true' : 'false';
-  btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  const value = expanded ? 'true' : 'false';
+  if (btn.dataset.projectExpanded !== value) btn.dataset.projectExpanded = value;
+  if (btn.getAttribute('aria-expanded') !== value) btn.setAttribute('aria-expanded', value);
 }
 
 function updateProjectExpandedState(btn) {
@@ -2650,7 +2848,7 @@ plugin.dom.observe(HEADERBTN_SELECTOR, (btn) => {
   observer.observe(btn, { childList: true });
   remember(btn, observer);
 
-  btn.addEventListener('click', () => {
+  listenToElement(btn, 'click', () => {
     // Blur immediately on click to prevent focus from keeping the plus button visible
     btn.blur();
     const scroller = document.querySelector('[data-testid="conversation-list-sidebar"]');
@@ -2668,7 +2866,7 @@ plugin.dom.observe(HEADERBTN_SELECTOR, (btn) => {
     }, 250);
   });
 
-  btn.addEventListener('mouseup', () => {
+  listenToElement(btn, 'mouseup', () => {
     btn.blur();
   });
 });
@@ -2683,6 +2881,34 @@ plugin.dom.observe('[role="navigation"][aria-label="Sidebar"]', (sidebar) => {
   };
   sidebar.addEventListener('mouseover', onHover, { passive: true });
   remember(sidebar, { disconnect: () => sidebar.removeEventListener('mouseover', onHover) });
+});
+
+/* ---------------------------------------------------------------------------
+ * Project conversation list expand/collapse toggle ("All conversations" / "Show less")
+ * ------------------------------------------------------------------------- */
+const PROJECT_CONV_TOGGLE_SELECTOR = '[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button';
+
+function syncProjectConvToggle(btn) {
+  const text = (btn.textContent || '').trim().toLowerCase();
+  const isExpanded = /less|collapse|fewer/i.test(text);
+  const val = String(isExpanded);
+  if (btn.dataset.geminiExpanded !== val) {
+    btn.dataset.geminiExpanded = val;
+  }
+}
+
+plugin.dom.observe(PROJECT_CONV_TOGGLE_SELECTOR, (btn) => {
+  syncProjectConvToggle(btn);
+  const observer = new MutationObserver(() => syncProjectConvToggle(btn));
+  observer.observe(btn, { subtree: true, childList: true, characterData: true });
+  const onClick = () => queueMicrotask(() => syncProjectConvToggle(btn));
+  btn.addEventListener('click', onClick);
+  remember(btn, {
+    disconnect: () => {
+      btn.removeEventListener('click', onClick);
+      observer.disconnect();
+    }
+  });
 });
 
 /* ---------------------------------------------------------------------------
@@ -2743,6 +2969,12 @@ function checkUrlForProjectSwitch() {
       if (pill) markExperience(pill, 'work', true);
     }
     return;
+  } else if (section === 'outside-of-project') {
+    if (getStoredExperience() === 'work') {
+      const pill = document.querySelector('#gemini-experience-switch');
+      if (pill) markExperience(pill, 'chat', true);
+    }
+    return;
   }
 
   const m = window.location.pathname.match(/\/c\/([a-zA-Z0-9_-]+)/);
@@ -2754,6 +2986,12 @@ function checkUrlForProjectSwitch() {
       if (getStoredExperience() === 'chat') {
         const pill = document.querySelector('#gemini-experience-switch');
         if (pill) markExperience(pill, 'work', true);
+      }
+    } else if (conversationProjectMap.size > 0) {
+      const isProjectChat = conversationProjectMap.has(cid) || conversationProjectMap.has(cid + ':groupId');
+      if (!isProjectChat && getStoredExperience() === 'work') {
+        const pill = document.querySelector('#gemini-experience-switch');
+        if (pill) markExperience(pill, 'chat', true);
       }
     }
   }
@@ -2805,7 +3043,7 @@ function readProjectMap(cJb) {
   while (h) {
     const val = h.memoizedState;
     const fn = typeof val === 'function' ? val : (Array.isArray(val) && typeof val[0] === 'function' ? val[0] : null);
-    if (typeof fn === 'function' && fn.toString().includes('AGENT_MANAGER_HOME')) {
+    if (isNewConversationCallback(fn)) {
       activeGoToNewConversation = fn;
     }
     if (Array.isArray(val)) {
@@ -3067,7 +3305,7 @@ function listFiberFor(scroller) {
   return null;
 }
 
-/** The fibers whose type this replaced, so switching the plugin off puts them back. */
+/** Keep live wrappers restorable without retaining unmounted React trees. */
 const wrappedFibers = new Set();
 const ORIGINAL = '__geminiOriginal';
 
@@ -3098,11 +3336,16 @@ function wrapItems(fiber) {
   // type is what React calls; elementType is what it reconciles on. Rule 2.
   fiber.type = wrapper;
   if (fiber.alternate) fiber.alternate.type = wrapper;
-  wrappedFibers.add(fiber);
+  wrappedFibers.add(new WeakRef(fiber));
+  if (wrappedFibers.size >= 512) {
+    for (const ref of wrappedFibers) if (!ref.deref()) wrappedFibers.delete(ref);
+  }
 }
 
 function unwrapItems() {
-  for (const fiber of wrappedFibers) {
+  for (const ref of wrappedFibers) {
+    const fiber = ref.deref();
+    if (!fiber) continue;
     for (const target of [fiber, fiber.alternate]) {
       const original = target?.type?.[ORIGINAL];
       if (original) target.type = original;
@@ -3128,7 +3371,7 @@ function reorganizePinnedItems(scroller) {
  * child of the scroller, which is all the observer below watches — so a pass
  * cannot schedule the next one.
  */
-let sidebarPassScheduled = false;
+let sidebarPassScheduled = null;
 
 function sidebarPass(scroller) {
   reorganizePinnedItems(scroller);
@@ -3147,10 +3390,9 @@ function sidebarPass(scroller) {
 }
 
 function scheduleSidebarPass(scroller) {
-  if (sidebarPassScheduled) return;
-  sidebarPassScheduled = true;
-  requestAnimationFrame(() => {
-    sidebarPassScheduled = false;
+  if (sidebarPassScheduled !== null) return;
+  sidebarPassScheduled = requestAnimationFrame(() => {
+    sidebarPassScheduled = null;
     if (scroller.isConnected) sidebarPass(scroller);
   });
 }
@@ -3170,7 +3412,7 @@ plugin.dom.observe('[data-testid="conversation-list-sidebar"]', (scroller) => {
   sidebarPass(scroller);
 });
 
-document.addEventListener('click', (e) => {
+listenToPage(document, 'click', (e) => {
   const projCard = e.target.closest('button[data-project-card="true"], .group\\/headerbtn');
   if (projCard) {
     const fiber = plugin.react.getFiber(projCard);
@@ -3212,14 +3454,14 @@ document.addEventListener('click', (e) => {
   }
 }, true);
 
-window.addEventListener('keydown', (e) => {
+listenToPage(window, 'keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'O' || e.key === 'o')) {
     handleNewConversationActivation(e);
   }
 }, true);
 
-window.addEventListener('popstate', checkUrlForProjectSwitch);
-window.addEventListener('hashchange', checkUrlForProjectSwitch);
+listenToPage(window, 'popstate', checkUrlForProjectSwitch);
+listenToPage(window, 'hashchange', checkUrlForProjectSwitch);
 
 let lastCheckedUrl = '';
 const urlTicker = window.setInterval(() => {
@@ -3232,7 +3474,9 @@ const urlTicker = window.setInterval(() => {
 function hideConversationTime(row) {
   if (!row) return;
   const resting = row.querySelector('.pointer-events-auto > div > div:last-child, [class*="group-hover:opacity-0"]');
-  if (!resting) return;
+  if (resting && resting.style.display) {
+    resting.style.removeProperty('display');
+  }
 
   const pinBtn = row.querySelector('[data-testid="conversation-pin-button"]');
   const isPinBtnPinned = pinBtn ? !!pinBtn.getAttribute('aria-label')?.toLowerCase()?.includes('unpin') : null;
@@ -3250,29 +3494,7 @@ function hideConversationTime(row) {
     }
   }
 
-  const hasUnread = !!resting.querySelector('[data-testid="status-unread-dot"]');
-  const hasSpinner = !!resting.querySelector('svg, [class*="animate-spin"]');
-
-  if (!isPinned && !hasUnread && !hasSpinner) {
-    if (resting.style.display !== 'none') {
-      resting.style.setProperty('display', 'none', 'important');
-    }
-  } else {
-    if (resting.style.display === 'none') {
-      resting.style.removeProperty('display');
-    }
-    for (const child of Array.from(resting.children)) {
-      if (!child.matches('[data-testid="status-unread-dot"]') &&
-          !child.querySelector('[data-testid="status-unread-dot"]') &&
-          !child.matches('svg') &&
-          !child.querySelector('svg') &&
-          !child.matches('[class*="animate-spin"]') &&
-          !child.querySelector('[class*="animate-spin"]')) {
-        if (child.style.display !== 'none') {
-          child.style.setProperty('display', 'none', 'important');
-        }
-      }
-    }
+  if (resting) {
     for (const node of Array.from(resting.childNodes)) {
       if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
         node.textContent = '';
@@ -3284,7 +3506,7 @@ function hideConversationTime(row) {
 plugin.dom.observe('[data-testid="conversation-row-sidebar"]', (row) => {
   hideConversationTime(row);
   const obs = new MutationObserver(() => hideConversationTime(row));
-  obs.observe(row, { childList: true });
+  obs.observe(row, { childList: true, subtree: true });
   remember(row, obs);
 });
 
@@ -3306,10 +3528,10 @@ let activeConversationRow = null;
 function updateActiveConversationRow(e) {
   const target = e.target;
   if (!target || !target.closest) return;
-  if (e.type === 'mouseover' && !target.closest('[role="navigation"]')) return;
+  if (e.type === 'mouseover' && !target.closest('[role="navigation"]') && !target.closest('[data-testid="conversation-row-history"]')) return;
   const kebab = target.closest('[data-testid="conversation-kebab"]');
   if (kebab) {
-    activeConversationRow = kebab.closest('[data-testid="conversation-row-sidebar"]');
+    activeConversationRow = kebab.closest('[data-testid="conversation-row-sidebar"], [data-testid="conversation-row-history"]');
     if (e.type === 'click' || e.type === 'pointerdown') {
       requestAnimationFrame(() => {
         const menu = document.querySelector('[role="menu"]');
@@ -3322,7 +3544,7 @@ function updateActiveConversationRow(e) {
     }
     return;
   }
-  const row = target.closest('[data-testid="conversation-row-sidebar"]');
+  const row = target.closest('[data-testid="conversation-row-sidebar"], [data-testid="conversation-row-history"]');
   if (row) {
     activeConversationRow = row;
   }
@@ -3416,21 +3638,25 @@ function enhanceConversationMenu(menu) {
     return;
   }
 
-  const isConvTrigger = document.querySelector('[data-testid="conversation-kebab"][aria-expanded="true"]');
-  const isTitlebarTrigger = document.querySelector('[data-testid="titlebar-more-actions"][aria-expanded="true"]');
+  const isConvTrigger = document.querySelector('[data-testid="conversation-kebab"][aria-expanded="true"], [data-testid="conversation-kebab"][data-popup-open]');
+  const isTitlebarTrigger = document.querySelector('[data-testid="titlebar-more-actions"][aria-expanded="true"], [data-testid="titlebar-more-actions"][data-popup-open]');
   const hasConvItems = !!menu.querySelector('[data-testid*="conversation-"]') ||
                        Array.from(menu.querySelectorAll('[role="menuitem"]')).some(el => {
                          const t = (el.textContent || '').trim().toLowerCase();
-                         return t === 'rename' || t === 'delete' || t.startsWith('pin') || t.startsWith('unpin');
+                         return t === 'rename' || t === 'delete' || t.startsWith('pin') || t.startsWith('unpin') || t.includes('unread') || t.includes('read') || t.includes('fork');
                        });
 
   if (!hasConvItems && !isConvTrigger && !isTitlebarTrigger) return;
 
-  const row = isConvTrigger?.closest('[data-testid="conversation-row-sidebar"]') ||
-              activeConversationRow ||
-              document.querySelector('[data-testid="conversation-row-sidebar"]:hover');
+  const triggerId = menu.getAttribute('aria-labelledby');
+  const triggerFromLabel = triggerId ? document.getElementById(triggerId) : null;
 
-  if (!row && !isTitlebarTrigger) return;
+  const row = triggerFromLabel?.closest('[data-testid="conversation-row-sidebar"], [data-testid="conversation-row-history"]') ||
+              isConvTrigger?.closest('[data-testid="conversation-row-sidebar"], [data-testid="conversation-row-history"]') ||
+              activeConversationRow ||
+              document.querySelector('[data-testid="conversation-row-sidebar"]:hover, [data-testid="conversation-row-history"]:hover');
+
+  if (!row && !isTitlebarTrigger && !hasConvItems) return;
 
   menu.setAttribute('data-gemini-conversation-menu', 'true');
   menu.classList.remove('animate-slideIn');
@@ -3438,7 +3664,7 @@ function enhanceConversationMenu(menu) {
   if (!row) return;
 
   const pinBtn = row.querySelector('[data-testid="conversation-pin-button"]');
-  const archiveBtn = row.querySelector('[data-testid="conversation-archive-button"]');
+  const archiveBtn = row.querySelector('[data-testid="conversation-archive-button"], [data-testid="conversation-restore-button"]');
 
   const isPinned = row.getAttribute('data-pinned') === 'true' || 
                    pinBtn?.getAttribute('aria-label')?.toLowerCase()?.includes('unpin') ||
@@ -3469,13 +3695,17 @@ function enhanceConversationMenu(menu) {
 
   // 2. Injected Archive item
   if (archiveBtn) {
+    const isRestore = archiveBtn.getAttribute('data-testid') === 'conversation-restore-button' ||
+                      archiveBtn.getAttribute('aria-label')?.toLowerCase()?.includes('restore') ||
+                      archiveBtn.getAttribute('aria-label')?.toLowerCase()?.includes('unarchive');
+    const label = isRestore ? 'Unarchive' : 'Archive';
     const deleteItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el =>
       el.id !== 'gemini-menu-item-pin' && el.id !== 'gemini-menu-item-archive' && el.textContent?.toLowerCase()?.includes('delete')
     );
     syncConvMenuItem(
       menu,
       'gemini-menu-item-archive',
-      'Archive',
+      label,
       ARCHIVE_SVG,
       (e) => {
         e.preventDefault();
@@ -3487,6 +3717,20 @@ function enhanceConversationMenu(menu) {
     );
   } else {
     menu.querySelector('#gemini-menu-item-archive')?.remove();
+  }
+
+  // 3. Ensure Fork conversation menu item icon is valid
+  const forkItem = Array.from(menu.querySelectorAll('[role="menuitem"]')).find(el =>
+    el.textContent?.trim().toLowerCase().includes('fork conversation')
+  );
+  if (forkItem) {
+    const brokenPath = forkItem.querySelector('svg path[d*="<svg"]');
+    if (brokenPath) {
+      const match = brokenPath.getAttribute('d').match(/d=["']([^"']+)["']/);
+      if (match) {
+        brokenPath.setAttribute('d', match[1]);
+      }
+    }
   }
 }
 
@@ -3525,6 +3769,10 @@ window.addEventListener("keydown", onGlobalKeyDown);
 
 plugin.onDispose(() => {
   window.removeEventListener("keydown", onGlobalKeyDown);
+  if (sidebarPassScheduled !== null) {
+    cancelAnimationFrame(sidebarPassScheduled);
+    sidebarPassScheduled = null;
+  }
   document.removeEventListener('pointerdown', updateActiveConversationRow, true);
   document.removeEventListener('click', updateActiveConversationRow, true);
   document.removeEventListener('mouseover', updateActiveConversationRow, { capture: true });
@@ -4606,8 +4854,6 @@ function decorate(popup) {
 
 /* Watched separately from the model pill and the sidebar above: those restore a
  * label on dispose, and a menu popup is a different thing to put back. */
-const menuWatchers = new Set();
-
 const stopMenus = plugin.dom.observe('[role="menu"]', (popup) => {
   // Every menu in the app arrives here. One whose trigger is known and is not
   // the plus button is dropped at once; one whose trigger is not linked yet is
@@ -4622,13 +4868,12 @@ const stopMenus = plugin.dom.observe('[role="menu"]', (popup) => {
   const watcher = new MutationObserver(() => {
     if (!popup.isConnected) {
       watcher.disconnect();
-      menuWatchers.delete(watcher);
       return;
     }
     decorate(popup);
   });
   watcher.observe(popup, { childList: true, subtree: true });
-  menuWatchers.add(watcher);
+  remember(popup, watcher);
 });
 
 /* ---------------------------------------------------------------------------
@@ -5043,6 +5288,457 @@ plugin.dom.observe('[role="tooltip"]', (tooltip) => {
 });
 
 /* ---------------------------------------------------------------------------
+ * Streaming reply reveal
+ * ------------------------------------------------------------------------- */
+
+// Willow's platform/ui/src/streaming-text-reveal.ts and
+// streaming-markdown-styles.ts: sentence/word promotions and a 610ms opacity
+// fade. A run shares one animation instead of allocating a component per word.
+// Only the native markdown parser's fresh AST is decorated; never edit React's
+// text nodes or observe the conversation on every arriving token.
+function nextGeminiRevealLength(source, visibleLength) {
+  const from = Math.max(0, Math.min(visibleLength, source.length));
+  const suffix = source.slice(from);
+  const paragraph = /\n{2,}/.exec(suffix);
+  const sentence = /[.!?](?:["')\]]+)?(?=\s|$)/.exec(suffix);
+  let end = Math.min(
+    paragraph ? paragraph.index + paragraph[0].length : Infinity,
+    sentence ? sentence.index + sentence[0].length : Infinity
+  );
+  if (Number.isFinite(end)) {
+    while (end < suffix.length && /\s/.test(suffix[end])) end++;
+  } else {
+    const budget = suffix.length <= 36 ? 2 : suffix.length <= 96 ? 4 :
+      suffix.length <= 240 ? 8 : suffix.length <= 520 ? 12 : suffix.length <= 1200 ? 18 : 28;
+    const words = /\S+\s*/g;
+    end = 0;
+    for (let count = 0, match; count < budget && (match = words.exec(suffix)); count++) {
+      end = match.index + match[0].length;
+    }
+  }
+  return Math.min(source.length, from + (end || suffix.length));
+}
+
+function createGeminiRevealSession(initialSource, initialStreaming, quiet, clock) {
+  const FADE_MS = 610;
+  const MAX_RUNS = 96;
+  let source = initialSource;
+  let streaming = initialStreaming;
+  let muted = quiet;
+  // A long reply first encountered during navigation is already history. Do
+  // not replay its accumulated text when entering a running conversation.
+  let seed = quiet || !streaming || source.length > 256;
+  let shown = seed ? source : source.slice(0, nextGeminiRevealLength(source, 0));
+  let normalized = "";
+  let decoratedShown = "";
+  let runs = [];
+  let mounted = false;
+  let promotion = null;
+  let cleanup = null;
+  let cleanupAt = 0;
+  let snapshot = { shown, active: streaming && !muted, revealing: !seed && source.length > 0 };
+  const listeners = new Set();
+
+  function cancelTimers() {
+    if (promotion !== null) clock.clearTimeout(promotion);
+    if (cleanup !== null) clock.clearTimeout(cleanup);
+    promotion = cleanup = null;
+    cleanupAt = 0;
+  }
+
+  function publish(force = false) {
+    const revealing = !muted && (shown !== source || runs.length > 0 || shown !== decoratedShown);
+    const active = !muted && (streaming || revealing);
+    if (!force && snapshot.shown === shown && snapshot.active === active && snapshot.revealing === revealing) return;
+    snapshot = { shown, active, revealing };
+    for (const listener of listeners) listener();
+  }
+
+  function schedule() {
+    if (!mounted || muted) return;
+    if (shown === source && shown === decoratedShown && !runs.length) publish();
+    if (shown !== source && promotion === null) {
+      const length = nextGeminiRevealLength(source, shown.length) - shown.length;
+      const delay = Math.max(50, Math.min(320, Math.round(36 + length * 1.6)));
+      // Never cancel this timer just because another provider token arrived.
+      promotion = clock.setTimeout(() => {
+        promotion = null;
+        shown = source.slice(0, nextGeminiRevealLength(source, shown.length));
+        publish();
+        schedule();
+      }, delay);
+    }
+    const deadline = runs.reduce((last, run) => Math.max(last, run.at + FADE_MS), 0);
+    if (!deadline && cleanup !== null) {
+      clock.clearTimeout(cleanup);
+      cleanup = null;
+      cleanupAt = 0;
+    }
+    if (deadline && deadline !== cleanupAt) {
+      if (cleanup !== null) clock.clearTimeout(cleanup);
+      cleanupAt = deadline;
+      cleanup = clock.setTimeout(() => {
+        cleanup = null;
+        cleanupAt = 0;
+        runs = runs.filter(run => run.at + FADE_MS > clock.now());
+        // A pending promotion will retire these spans in its existing parse.
+        // Otherwise one final render restores the native plain text runs.
+        if (promotion === null) publish(true);
+        schedule();
+      }, Math.max(0, deadline - clock.now()));
+    }
+  }
+
+  function update(nextSource, nextStreaming, nextQuiet = muted) {
+    const previous = source;
+    const wasActive = snapshot.active;
+    source = nextSource;
+    streaming = nextStreaming;
+    if (nextQuiet || (!wasActive && !streaming)) {
+      muted = nextQuiet;
+      shown = source;
+      runs = [];
+      normalized = "";
+      decoratedShown = shown;
+      seed = true;
+      cancelTimers();
+      publish();
+      return;
+    }
+    if (muted !== nextQuiet) {
+      muted = nextQuiet;
+      seed = true;
+    }
+    if (!source.startsWith(previous)) {
+      // Contractions take effect immediately; a replacement starts a new
+      // reveal. Neither may retain a timer/range belonging to the old answer.
+      cancelTimers();
+      runs = [];
+      normalized = "";
+      decoratedShown = "";
+      seed = previous.startsWith(source) || source.length > 256;
+      shown = seed ? source : source.slice(0, nextGeminiRevealLength(source, 0));
+    }
+    publish();
+    schedule();
+  }
+
+  function decorate(tree, text) {
+    if (!snapshot.active) return;
+    decoratedShown = shown;
+    const now = clock.now();
+    const value = String(text);
+    let from = normalized.length;
+    if (seed || !value.startsWith(normalized)) {
+      // Native URL/math normalization can change earlier source offsets.
+      // Keep that already visible text steady instead of guessing its identity.
+      from = value.length;
+      runs = [];
+      seed = false;
+    }
+    normalized = value;
+    runs = runs.filter(run => run.at + FADE_MS > now && run.start < value.length);
+    let firstActive = Math.min(from, ...runs.map(run => run.start));
+    let order = 0;
+    let emitted = 0;
+    const fresh = new Map();
+    const atFor = unit => {
+      if (!fresh.has(unit)) {
+        // Stagger within this promotion, bounded to four steps. The waiting
+        // time must not grow with the length of a response or conversation.
+        fresh.set(unit, now + 150 + Math.min(order++, 4) * 120);
+      }
+      return fresh.get(unit);
+    };
+    const add = (start, end, unit) => {
+      if (end <= start || runs.length >= MAX_RUNS) return;
+      const at = atFor(unit);
+      const last = runs[runs.length - 1];
+      if (last && last.end === start && last.at === at) last.end = end;
+      else runs.push({ start, end, at });
+      firstActive = Math.min(firstActive, start);
+    };
+    const containing = offset => runs.find(run => run.start <= offset && offset < run.end);
+    const wrap = (children, at) => ({
+      type: "element", tagName: "bg-gemini-reveal", properties: { "data-reveal-at": at }, children
+    });
+
+    function visit(node, unit = node) {
+      const start = node.position?.start?.offset;
+      const end = node.position?.end?.offset;
+      const tag = node.tagName;
+      if (Number.isFinite(end) && end <= firstActive) return [node];
+      if (tag === "img" || tag === "input" || tag === "script" || tag === "style") return [node];
+      if (tag === "li" || /^h[1-6]$/.test(tag || "") || tag === "table" || tag === "pre" ||
+          tag === "p" && unit.tagName !== "li") unit = node;
+
+      // Native code and link renderers inspect their original string children.
+      // Fade those units without changing their children or event handlers.
+      if (tag === "code" || tag === "a" || tag === "pre") {
+        if (Number.isFinite(start) && Number.isFinite(end)) {
+          if (start >= from) add(start, end, unit);
+          const run = containing(start);
+          if (run && emitted++ < MAX_RUNS) {
+            if (tag === "pre") {
+              node.properties = { ...node.properties, "data-gemini-reveal-block": run.at };
+            } else return [wrap([node], run.at)];
+          }
+        }
+        return [node];
+      }
+      if (tag === "li" && Number.isFinite(start)) {
+        if (start >= from) add(start, start + 1, unit);
+        const marker = containing(start);
+        if (marker) node.properties = { ...node.properties, "data-gemini-reveal-marker": marker.at };
+      }
+      if (node.type === "text") {
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return [node];
+        if (end > from) add(Math.max(start, from), end, unit);
+        const relevant = runs.filter(run => run.start < end && run.end > start);
+        if (!relevant.length) return [node];
+        // Positions describe markdown, whereas values have decoded entities
+        // and escapes. Only split a suffix that can be mapped exactly. Ambiguous
+        // old characters stay visible; fresh whole nodes can fade as one run.
+        let base = Math.max(start, Math.min(...relevant.map(run => run.start)));
+        let suffix = value.slice(base, end);
+        let prefixLength = node.value.length - suffix.length;
+        if (!node.value.endsWith(suffix)) {
+          if (base === start && start >= from) {
+            return emitted++ < MAX_RUNS ? [wrap([node], relevant[0].at)] : [node];
+          }
+          let count = 0;
+          while (count < suffix.length && count < node.value.length &&
+              suffix[suffix.length - 1 - count] === node.value[node.value.length - 1 - count]) count++;
+          base = end - count;
+          suffix = suffix.slice(suffix.length - count);
+          prefixLength = node.value.length - count;
+        }
+        // Whb, Antigravity's task renderer, must see its raw leading token.
+        const taskPrefix = unit.tagName === "li" ? /^\[\/\]\s*/.exec(node.value)?.[0].length || 0 : 0;
+        if (prefixLength < taskPrefix) {
+          base += taskPrefix - prefixLength;
+          prefixLength = taskPrefix;
+        }
+        const result = [];
+        let cursor = base;
+        if (prefixLength) result.push({ type: "text", value: node.value.slice(0, prefixLength) });
+        for (const run of relevant) {
+          const left = Math.max(cursor, run.start), right = Math.min(end, run.end);
+          if (right <= left) continue;
+          if (left > cursor) result.push({ type: "text", value: value.slice(cursor, left) });
+          const part = { type: "text", value: value.slice(left, right) };
+          result.push(emitted++ < MAX_RUNS ? wrap([part], run.at) : part);
+          cursor = right;
+        }
+        if (cursor < end) result.push({ type: "text", value: value.slice(cursor, end) });
+        return result;
+      }
+      if (node.children) node.children = node.children.flatMap(child => visit(child, unit));
+      return [node];
+    }
+    visit(tree);
+  }
+
+  return {
+    update, decorate, schedule,
+    getSnapshot: () => snapshot,
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    resume() { mounted = true; schedule(); },
+    suspend() { mounted = false; cancelTimers(); },
+    finish() { update(source, false, true); }
+  };
+}
+
+function sameGeminiCodeProps(previous, next) {
+  if (typeof previous.children !== "string" || typeof next.children !== "string") return false;
+  const keys = Object.keys(previous);
+  if (keys.length !== Object.keys(next).length) return false;
+  for (const key of keys) {
+    if (!Object.hasOwn(next, key)) return false;
+    if (Object.is(previous[key], next[key])) continue;
+    if (key !== "node") return false;
+    // Rehype makes a fresh, plain HAST node on each parse. Check all its data,
+    // including positions and attributes, before reusing a code renderer.
+    try {
+      if (JSON.stringify(previous.node) !== JSON.stringify(next.node)) return false;
+    } catch { return false; }
+  }
+  return true;
+}
+
+function createGeminiTurnRevealGate() {
+  const turns = new Map();
+  let owners = new WeakMap();
+  let disposed = false;
+
+  function update(owner, element, active) {
+    // The footer is a sibling of the response article. Resolve just this
+    // markdown's turn on mount/state changes; never scan the conversation.
+    const response = !disposed && active ? element?.closest('[data-testid="planner-response-text"]') : null;
+    const turn = response?.closest('[role="article"][aria-label="Agent response"]')?.parentElement || null;
+    const previous = owners.get(owner) || null;
+    if (previous === turn) return;
+    if (previous) {
+      const pending = turns.get(previous);
+      pending.delete(owner);
+      if (!pending.size) {
+        previous.removeAttribute("data-gemini-revealing");
+        turns.delete(previous);
+      }
+      owners.delete(owner);
+    }
+    if (turn) {
+      let pending = turns.get(turn);
+      if (!pending) {
+        turns.set(turn, pending = new Set());
+        turn.setAttribute("data-gemini-revealing", "true");
+      }
+      pending.add(owner);
+      owners.set(owner, turn);
+    }
+  }
+
+  return {
+    update,
+    dispose() {
+      disposed = true;
+      for (const turn of turns.keys()) turn.removeAttribute("data-gemini-revealing");
+      turns.clear();
+      owners = new WeakMap();
+    }
+  };
+}
+
+function createGeminiStreamingReveal(environment) {
+  const clock = {
+    now: () => environment.performance.now(),
+    setTimeout: (callback, delay) => environment.setTimeout(callback, delay),
+    clearTimeout: timer => environment.clearTimeout(timer)
+  };
+  const motion = environment.matchMedia?.("(prefers-reduced-motion: reduce)");
+  const sessions = new Set();
+  const renderers = new WeakMap();
+  const turnGate = createGeminiTurnRevealGate();
+  let disposed = false;
+  const quiet = () => disposed || !!motion?.matches || environment.document?.visibilityState === "hidden";
+  const updateMotion = () => {
+    for (const entry of sessions) entry.session.update(entry.props.markdown, !!entry.props.animate, quiet());
+  };
+  motion?.addEventListener("change", updateMotion);
+  environment.document?.addEventListener("visibilitychange", updateMotion);
+
+  function rendererFor(React, Native, nativeComponents) {
+    let Renderer = renderers.get(Native);
+    if (Renderer) return Renderer;
+    const delayStyle = at => ({ animationDelay: `${at - clock.now()}ms` });
+    function Fade({ children, "data-reveal-at": timestamp }) {
+      const at = Number(timestamp);
+      const style = React.useMemo(() => delayStyle(at), [at]);
+      return React.createElement("span", { key: at, className: "gemini-reveal-run", style }, children);
+    }
+    const components = { ...nativeComponents, "bg-gemini-reveal": Fade };
+    // Promoting text reparses native markdown. Unchanged code cards should
+    // keep their rendered lines instead of repeating syntax/virtualizer work.
+    // Context updates still reach the original component through React.memo.
+    if (nativeComponents.code) components.code = React.memo(nativeComponents.code, sameGeminiCodeProps);
+    for (const [tag, property, className] of [
+      ["li", "data-gemini-reveal-marker", "gemini-reveal-marker"],
+      ["pre", "data-gemini-reveal-block", "gemini-reveal-block"]
+    ]) {
+      components[tag] = function RevealUnit(props) {
+        const { [property]: timestamp, node, ...rest } = props;
+        const at = timestamp === undefined ? null : Number(timestamp);
+        const style = React.useMemo(() => at === null ? null :
+          { "--gemini-reveal-delay": `${at - clock.now()}ms` }, [at]);
+        if (style) {
+          rest.style = { ...rest.style, ...style };
+          rest.className = `${rest.className || ""} ${className}`.trim();
+        }
+        const original = nativeComponents[tag];
+        return React.createElement(original || tag, original ? { ...rest, node } : rest);
+      };
+    }
+    function Streaming(props) {
+      const [entry] = React.useState(() => ({
+        props, root: null, session: createGeminiRevealSession(props.markdown, !!props.animate, quiet(), clock)
+      }));
+      const session = entry.session;
+      const snapshot = React.useSyncExternalStore(session.subscribe, session.getSnapshot);
+      const attach = React.useCallback(element => {
+        entry.root = element;
+        turnGate.update(entry, element, session.getSnapshot().revealing);
+      }, [entry]);
+      React.useLayoutEffect(() => {
+        entry.props = props;
+        session.update(props.markdown, !!props.animate, quiet());
+      }, [props.markdown, props.animate]);
+      React.useLayoutEffect(() => { session.schedule(); }, [snapshot]);
+      // Gate only queued text and the last fade. Native animate can remain
+      // true after cancellation. Multiple segments share their turn's gate. This
+      // effect runs only when that boolean changes, never for each token.
+      React.useLayoutEffect(() => {
+        turnGate.update(entry, entry.root, snapshot.revealing);
+        return () => turnGate.update(entry, null, false);
+      }, [snapshot.revealing]);
+      React.useEffect(() => {
+        sessions.add(entry);
+        session.resume();
+        return () => { sessions.delete(entry); session.suspend(); };
+      }, []);
+      // Keep the component types stable after the tail settles. Switching back
+      // to the native map would remount every list/code block at completion,
+      // discarding selection, local controls, and the code virtualizer's state.
+      const frame = React.useMemo(() => ({
+        components, ref: attach,
+        rehype: () => (tree, file) => session.decorate(tree, file.value)
+      }), [snapshot, attach]);
+      return React.createElement(Native, {
+        ...props, markdown: snapshot.shown, animate: false, bgGeminiReveal: frame
+      });
+    }
+    Renderer = function GeminiMarkdown(props) {
+      const armed = React.useRef(false);
+      if (props.animate && typeof props.markdown === "string") armed.current = true;
+      // Completed/history replies allocate no session, listeners, or timers.
+      return React.createElement(armed.current ? Streaming : Native, props);
+    };
+    renderers.set(Native, Renderer);
+    return Renderer;
+  }
+  return {
+    render(React, Native, components, props) {
+      if (disposed) return React.createElement(Native, props);
+      return React.createElement(rendererFor(React, Native, components), props);
+    },
+    dispose() {
+      disposed = true;
+      motion?.removeEventListener("change", updateMotion);
+      environment.document?.removeEventListener("visibilitychange", updateMotion);
+      for (const { session } of sessions) session.finish();
+      sessions.clear();
+      turnGate.dispose();
+    }
+  };
+}
+
+const geminiStreamingReveal = createGeminiStreamingReveal(window);
+window.__bettergravityGeminiReveal = geminiStreamingReveal;
+plugin.onDispose(() => {
+  geminiStreamingReveal.dispose();
+  if (window.__bettergravityGeminiReveal === geminiStreamingReveal) delete window.__bettergravityGeminiReveal;
+});
+// End streaming reply reveal.
+
+// The native follow-output hook reads this policy before requesting a scroll.
+// It keeps initial positioning and explicit jumps, then leaves growing replies
+// and step output where the user is reading. No scroll interception is needed.
+const geminiManualScroll = {};
+window.__bettergravityGeminiManualScroll = geminiManualScroll;
+plugin.onDispose(() => {
+  if (window.__bettergravityGeminiManualScroll === geminiManualScroll) delete window.__bettergravityGeminiManualScroll;
+});
+
+/* ---------------------------------------------------------------------------
  * Conversation session scrollbar: Willow's gemini-chat-scrollbar
  * ------------------------------------------------------------------------- */
 const CONV_VIEW_SELECTOR = '[data-testid="conversation-view"]';
@@ -5195,6 +5891,303 @@ plugin.dom.observe(CONV_VIEW_SELECTOR, (view) => {
   });
 });
 
+/* ---------------------------------------------------------------------------
+ * Sent user message bubble: Willow Expand/Collapse Control
+ * (features/chat/src/UserMessageBubble.tsx:14-122)
+ *
+ * Willow clips a user message taller than four lines (96px at 24px line-height).
+ * When taller than 96px, it displays a fade gradient and a floating toggle button
+ * with a down arrow (expand_more) inside a dark pill. Clicking it expands the
+ * bubble with a smooth 300ms transition to show the full text, swapping the icon
+ * to an up arrow (expand_less). Clicking again contracts it back to 96px.
+ * ------------------------------------------------------------------------- */
+const USER_MSG_COLLAPSED_HEIGHT = 96;
+const USER_MSG_EXPANDED_RESERVE = 24;
+
+// Mounting a thread or resizing its column wakes several bubbles together.
+// Finish their attachment wrappers, measure every bubble, then update controls.
+// A microtask keeps all three passes before paint without interleaving each
+// bubble's DOM writes with the next one's forced layout.
+const pendingBubbleUpdates = new Set();
+const bubbleResizeHandlers = new WeakMap();
+let bubbleUpdatesQueued = false;
+let bubbleUpdatesDisposed = false;
+let bubbleResizeObserver = null;
+
+function scheduleBubbleUpdate(prepare) {
+  if (bubbleUpdatesDisposed) return;
+  pendingBubbleUpdates.add(prepare);
+  if (bubbleUpdatesQueued) return;
+  bubbleUpdatesQueued = true;
+  queueMicrotask(() => {
+    bubbleUpdatesQueued = false;
+    const updates = [...pendingBubbleUpdates];
+    pendingBubbleUpdates.clear();
+    if (bubbleUpdatesDisposed) return;
+    const measurements = updates.map(update => update()).filter(Boolean);
+    const commits = measurements.map(measure => measure()).filter(Boolean);
+    for (const commit of commits) commit();
+  });
+}
+
+function observeBubbleText(text, update) {
+  if (!bubbleResizeObserver) {
+    bubbleResizeObserver = new ResizeObserver(entries => {
+      for (const { target } of entries) {
+        const prepare = bubbleResizeHandlers.get(target);
+        if (prepare) scheduleBubbleUpdate(prepare);
+      }
+    });
+  }
+  bubbleResizeHandlers.set(text, update);
+  bubbleResizeObserver.observe(text);
+}
+
+plugin.onDispose(() => {
+  bubbleUpdatesDisposed = true;
+  pendingBubbleUpdates.clear();
+  bubbleResizeObserver?.disconnect();
+});
+
+function setBubbleStyle(element, name, value, priority = '') {
+  const style = element.style;
+  if (style.getPropertyValue(name) !== value || style.getPropertyPriority(name) !== priority) {
+    style.setProperty(name, value, priority);
+  }
+}
+
+function setBubbleAttribute(element, name, value) {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
+
+function setupUserMessageBubble(step) {
+  if (!step || !step.isConnected) return;
+
+  const trigger = step.querySelector('[data-testid="lifted-context-menu-trigger"]');
+  const bgCard = trigger?.querySelector('.bg-card');
+  const flex1 = bgCard?.querySelector('.flex-1');
+  const textContent = flex1?.querySelector('.whitespace-pre-wrap');
+
+  if (!bgCard || !flex1 || !textContent) {
+    const initObs = new MutationObserver(() => {
+      if (step.querySelector('.whitespace-pre-wrap')) {
+        initObs.disconnect();
+        setupUserMessageBubble(step);
+      }
+    });
+    initObs.observe(step, { childList: true, subtree: true });
+    remember(step, initObs);
+    return;
+  }
+
+  const onFlexClick = (e) => {
+    if (window.getSelection()?.toString()) return;
+    e.stopPropagation();
+  };
+  flex1.addEventListener('click', onFlexClick);
+
+  let boundToggle = null;
+  let toggleCurrent = null;
+  let active = true;
+  const onToggleClick = (event) => toggleCurrent?.(event);
+
+  const updateToggle = () => {
+    if (!active || !flex1.isConnected || !textContent.isConnected) return;
+
+    const attachmentStrip = flex1.querySelector('[data-no-scroll-jump], .flex-wrap:has(img), img');
+    const hasAttachment = Boolean(attachmentStrip);
+
+    let bubbleContainer;
+    let clampTarget;
+
+    if (hasAttachment) {
+      bubbleContainer = textContent;
+      let clip = textContent.querySelector(':scope > .willow-bubble-clip');
+      if (!clip) {
+        clip = document.createElement('div');
+        clip.className = 'willow-bubble-clip';
+        const childrenToMove = [];
+        for (const node of Array.from(textContent.childNodes)) {
+          if (node.nodeType === 1 && node.classList.contains('willow-bubble-toggle-container')) continue;
+          childrenToMove.push(node);
+        }
+        childrenToMove.forEach(n => clip.appendChild(n));
+        textContent.insertBefore(clip, textContent.firstChild);
+      } else {
+        for (const node of Array.from(textContent.childNodes)) {
+          if (node === clip) continue;
+          if (node.nodeType === 1 && node.classList.contains('willow-bubble-toggle-container')) continue;
+          clip.appendChild(node);
+        }
+      }
+      clampTarget = clip;
+    } else {
+      bubbleContainer = bgCard;
+      clampTarget = flex1;
+    }
+
+    let container = bubbleContainer.querySelector(':scope > .willow-bubble-toggle-container');
+    const wrongParent = hasAttachment ? bgCard : textContent;
+    const existingOther = wrongParent.querySelector(':scope > .willow-bubble-toggle-container');
+    if (existingOther && !container) {
+      container = existingOther;
+      bubbleContainer.appendChild(container);
+    }
+
+    let isExpanded = clampTarget.dataset.geminiExpanded === 'true';
+
+    let naturalTextHeight;
+    const resetScroll = () => {
+      flex1.scrollTop = 0;
+      if (clampTarget !== flex1) clampTarget.scrollTop = 0;
+    };
+    const measure = () => {
+      if (!active || !flex1.isConnected || !textContent.isConnected) return;
+      resetScroll();
+      const height = hasAttachment
+        ? clampTarget.scrollHeight
+        : (textContent.getBoundingClientRect().height || flex1.scrollHeight);
+      naturalTextHeight = Math.ceil(height - (isExpanded ? USER_MSG_EXPANDED_RESERVE : 0));
+      return applyMeasurement;
+    };
+
+    const applyMeasurement = () => {
+      if (!active || !flex1.isConnected || !textContent.isConnected) return;
+      const canToggle = naturalTextHeight > USER_MSG_COLLAPSED_HEIGHT;
+
+      if (!canToggle) {
+        boundToggle?.removeEventListener('click', onToggleClick);
+        boundToggle = null;
+        toggleCurrent = null;
+        if (container) {
+          container.remove();
+          container = null;
+        }
+        delete clampTarget.dataset.geminiExpanded;
+        delete clampTarget.dataset.geminiCanToggle;
+        delete flex1.dataset.geminiExpanded;
+        delete flex1.dataset.geminiCanToggle;
+        clampTarget.style.removeProperty('--willow-expanded-height');
+        setBubbleStyle(clampTarget, 'padding-bottom', '');
+        setBubbleStyle(clampTarget, 'mask-image', 'none', 'important');
+        setBubbleStyle(clampTarget, '-webkit-mask-image', 'none', 'important');
+        setBubbleStyle(flex1, 'mask-image', 'none', 'important');
+        setBubbleStyle(flex1, '-webkit-mask-image', 'none', 'important');
+        return;
+      }
+
+      setBubbleAttribute(clampTarget, 'data-gemini-can-toggle', 'true');
+
+      if (!container) {
+        container = document.createElement('div');
+        container.className = 'willow-bubble-toggle-container';
+
+        const fade = document.createElement('div');
+        fade.className = 'willow-bubble-fade';
+        fade.setAttribute('aria-hidden', 'true');
+        container.appendChild(fade);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'willow-bubble-toggle-btn';
+
+        const pill = document.createElement('span');
+        pill.className = 'willow-bubble-toggle-pill';
+
+        const icon = document.createElement('span');
+        icon.className = 'willow-bubble-icon';
+        pill.appendChild(icon);
+        btn.appendChild(pill);
+        container.appendChild(btn);
+
+        bubbleContainer.appendChild(container);
+      }
+
+      function applyState() {
+        // Resizing the rail wakes every visible message's observer. Rewriting
+        // an unchanged label or attribute wakes the conversation watchers again.
+        setBubbleAttribute(clampTarget, 'data-gemini-can-toggle', 'true');
+        setBubbleAttribute(clampTarget, 'data-gemini-expanded', String(isExpanded));
+        setBubbleStyle(clampTarget, 'mask-image', 'none', 'important');
+        setBubbleStyle(clampTarget, '-webkit-mask-image', 'none', 'important');
+        setBubbleStyle(flex1, 'mask-image', 'none', 'important');
+        setBubbleStyle(flex1, '-webkit-mask-image', 'none', 'important');
+
+        const btn = container.querySelector('.willow-bubble-toggle-btn');
+        const fade = container.querySelector('.willow-bubble-fade');
+        const icon = container.querySelector('.willow-bubble-icon');
+
+        if (isExpanded) {
+          setBubbleStyle(clampTarget, '--willow-expanded-height', (naturalTextHeight + USER_MSG_EXPANDED_RESERVE) + 'px');
+          setBubbleStyle(clampTarget, 'padding-bottom', USER_MSG_EXPANDED_RESERVE + 'px');
+          if (fade) setBubbleStyle(fade, 'display', 'none');
+          if (icon && icon.textContent !== 'expand_less') icon.textContent = 'expand_less';
+          if (btn) {
+            setBubbleAttribute(btn, 'aria-label', 'Collapse');
+            setBubbleAttribute(btn, 'aria-expanded', 'true');
+            setBubbleAttribute(btn, 'title', 'Collapse text');
+          }
+        } else {
+          clampTarget.style.removeProperty('--willow-expanded-height');
+          setBubbleStyle(clampTarget, 'padding-bottom', '0px');
+          if (fade) setBubbleStyle(fade, 'display', '');
+          if (icon && icon.textContent !== 'expand_more') icon.textContent = 'expand_more';
+          if (btn) {
+            setBubbleAttribute(btn, 'aria-label', 'Expand');
+            setBubbleAttribute(btn, 'aria-expanded', 'false');
+            setBubbleAttribute(btn, 'title', 'Expand text');
+          }
+        }
+      }
+
+      const toggle = container.querySelector('.willow-bubble-toggle-btn');
+      if (boundToggle !== toggle) {
+        boundToggle?.removeEventListener('click', onToggleClick);
+        boundToggle = toggle;
+        boundToggle?.addEventListener('click', onToggleClick);
+      }
+      // Reuse the button across resize and reload, with the current measurement.
+      toggleCurrent = (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        const scroller = step.closest('.overflow-y-auto') || document.querySelector('[data-testid="conversation-view"] .overflow-y-auto');
+        const wasNearBottom = scroller ? (scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop <= 10) : false;
+        resetScroll();
+        isExpanded = !isExpanded;
+        applyState();
+        if (scroller && wasNearBottom && !isExpanded) {
+          setTimeout(() => {
+            scroller.scrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+          }, 310);
+        }
+      };
+      applyState();
+    };
+    return measure;
+  };
+
+  scheduleBubbleUpdate(updateToggle);
+  observeBubbleText(textContent, updateToggle);
+
+  remember(step, {
+    disconnect: () => {
+      active = false;
+      pendingBubbleUpdates.delete(updateToggle);
+      flex1.removeEventListener('click', onFlexClick);
+      boundToggle?.removeEventListener('click', onToggleClick);
+      boundToggle = null;
+      toggleCurrent = null;
+      if (bubbleResizeHandlers.get(textContent) === updateToggle) {
+        bubbleResizeHandlers.delete(textContent);
+        bubbleResizeObserver?.unobserve(textContent);
+      }
+    }
+  });
+}
+
+plugin.dom.observe('[data-testid="user-input-step"]', (step) => {
+  setupUserMessageBubble(step);
+});
 
 /* ---------------------------------------------------------------------------
  * Changed files review card: Willow Spark style
@@ -5239,6 +6232,8 @@ function extractFileNames(turnDiff) {
   return files;
 }
 
+const attachedFileCards = new WeakSet();
+
 function applyWillowFileCard(header) {
   if (!header || !header.isConnected) return;
   const textCol = header.querySelector(".overflow-hidden");
@@ -5260,9 +6255,10 @@ function applyWillowFileCard(header) {
     subtitle.title = subtitleText;
   }
 
-  if (!header.dataset.willowCardAttached) {
+  if (!attachedFileCards.has(header)) {
+    attachedFileCards.add(header);
     header.dataset.willowCardAttached = "true";
-    header.addEventListener("click", (e) => {
+    listenToElement(header, "click", (e) => {
       // If clicking directly on or inside the review button, let its native handler run
       if (e.target.closest(".review-button")) return;
       // Otherwise, prevent default accordion toggle and trigger Review
@@ -5271,6 +6267,12 @@ function applyWillowFileCard(header) {
       const btn = header.querySelector(".review-button");
       if (btn) btn.click();
     }, true);
+    remember(header, {
+      disconnect: () => {
+        attachedFileCards.delete(header);
+        delete header.dataset.willowCardAttached;
+      }
+    });
   }
 }
 
@@ -5289,8 +6291,6 @@ plugin.dom.observe(".files-changed-header", (header) => {
 plugin.onDispose(() => {
   stopMenus();
   stopGlobalTooltips();
-  for (const watcher of menuWatchers) watcher.disconnect();
-  menuWatchers.clear();
   for (const [, obs] of rememberedObservers()) {
     if (typeof obs?.disconnect === 'function') obs.disconnect();
   }
@@ -6240,6 +7240,7 @@ function reconcileTopChips() {
  * frame, and a plugin that stops reconciling while the window is hidden comes
  * back to a page it no longer agrees with.
  */
+topChipsReady = true;
 plugin.dom.observe(TOP_BAR_MORE, () => reconcileTopChips());
 for (const spec of TOP_CHIPS) plugin.dom.observe(spec.trigger, () => reconcileTopChips());
 
@@ -6608,13 +7609,16 @@ function updateHistoryArrowsPosition() {
   }
 
   if (rightmost > 0) {
-    const targetLeft = Math.round(rightmost + 8);
-    document.documentElement.style.setProperty('--gemini-history-arrows-left', `${targetLeft}px`);
+    const targetLeft = `${Math.round(rightmost + 8)}px`;
+    const rootStyle = document.documentElement.style;
+    if (rootStyle.getPropertyValue('--gemini-history-arrows-left') !== targetLeft) {
+      rootStyle.setProperty('--gemini-history-arrows-left', targetLeft);
+    }
 
     const arrowsContainer = document.querySelector('[data-testid="sidebar-toggle"] + div:has([aria-label="Go Back"])') ||
                             document.querySelector('div:has(> button[aria-label="Go Back"])');
-    if (arrowsContainer) {
-      arrowsContainer.style.setProperty('left', `${targetLeft}px`, 'important');
+    if (arrowsContainer && (arrowsContainer.style.left !== targetLeft || arrowsContainer.style.getPropertyPriority('left') !== 'important')) {
+      arrowsContainer.style.setProperty('left', targetLeft, 'important');
     }
   }
 }
@@ -6651,7 +7655,1306 @@ plugin.dom.observe('[aria-label="Go Back"]', () => {
 window.addEventListener('resize', updateHistoryArrowsPosition);
 updateHistoryArrowsPosition();
 
+/* ---------------------------------------------------------------------------
+ * Conversation History: Willow Search Tab Enhancements
+ * ------------------------------------------------------------------------- */
+function setupHistorySearch(input) {
+  if (input.dataset.geminiHistorySearch === 'true') return;
+  input.dataset.geminiHistorySearch = 'true';
+
+  input.placeholder = 'Search chats';
+
+  const pill = input.closest('div.flex.items-center');
+  if (!pill) return;
+
+  let clearBtn = pill.querySelector('.willow-search-clear-btn');
+  if (!clearBtn) {
+    clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'willow-search-clear-btn';
+    clearBtn.setAttribute('aria-label', 'Clear search');
+    clearBtn.title = 'Clear search';
+    clearBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 -960 960 960" fill="currentColor"><path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg>';
+    clearBtn.dataset.visible = input.value ? 'true' : 'false';
+
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      clearBtn.dataset.visible = 'false';
+      input.focus();
+    });
+
+    pill.appendChild(clearBtn);
+  }
+
+  const onInput = () => {
+    if (clearBtn) {
+      clearBtn.dataset.visible = input.value ? 'true' : 'false';
+    }
+  };
+
+  input.addEventListener('input', onInput);
+
+  remember(input, {
+    disconnect: () => {
+      input.removeEventListener('input', onInput);
+      if (clearBtn) clearBtn.remove();
+      delete input.dataset.geminiHistorySearch;
+    }
+  });
+}
+
+plugin.dom.observe('[data-testid="history-search-input"]', (input) => {
+  setupHistorySearch(input);
+});
+
+/* ---------------------------------------------------------------------------
+ * Scheduled Tasks (Willow Schedules Tab Parity)
+ * ------------------------------------------------------------------------- */
+const SPARK_SCHEDULE_WEEKDAYS = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+const DAY_LABELS = {
+  Sunday: 'S', Monday: 'M', Tuesday: 'T', Wednesday: 'W', Thursday: 'T', Friday: 'F', Saturday: 'S'
+};
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hour = Math.floor(index / 2).toString().padStart(2, '0');
+  const minutes = index % 2 === 0 ? '00' : '30';
+  const h = Math.floor(index / 2);
+  const suffix = h < 12 ? 'am' : 'pm';
+  const displayH = h % 12 === 0 ? 12 : h % 12;
+  return {
+    value: `${hour}:${minutes}`,
+    label: `${displayH}:${minutes} ${suffix}`
+  };
+});
+
+function getAvailableWorkspaces() {
+  const list = [];
+  const seen = new Set();
+  const headers = document.querySelectorAll('.group\\/header');
+  for (const header of headers) {
+    const link = header.querySelector('a[href*="section="]');
+    const match = link?.getAttribute('href')?.match(/section=([^&]+)/);
+    const cardBtn = header.querySelector('[data-project-card="true"]') || header.querySelector('button');
+    const id = match ? decodeURIComponent(match[1]) : null;
+    const name = cardBtn ? cardBtn.textContent.trim() : header.textContent.trim();
+    if (id && name && !seen.has(id)) {
+      seen.add(id);
+      list.push({ id, name });
+    }
+  }
+  if (list.length === 0) {
+    for (const a of document.querySelectorAll('a[href*="section="]')) {
+      const match = a.getAttribute('href')?.match(/section=([^&]+)/);
+      const id = match ? decodeURIComponent(match[1]) : null;
+      const name = a.closest('.group\\/header')?.textContent?.trim() || a.textContent?.trim();
+      if (id && name && !seen.has(id)) {
+        seen.add(id);
+        list.push({ id, name });
+      }
+    }
+  }
+  return list;
+}
+
+const MATERIAL_FOLDER_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 -960 960 960" fill="currentColor" class="spark-schedule-folder-icon" aria-hidden="true"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>`;
+
+const scheduleDropdownClosers = new WeakMap();
+
+function createScheduleDropdown({ initialValue, options, isTime, isWorkspace, icon, onChange }) {
+  const root = document.createElement('div');
+  root.className = `spark-schedule-custom-select ${isTime ? 'spark-schedule-custom-select--time' : ''} ${isWorkspace ? 'spark-schedule-custom-select--workspace' : ''}`;
+
+  let val = initialValue;
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'spark-schedule-custom-select__trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+
+  const leftSpan = document.createElement('span');
+  leftSpan.className = 'spark-schedule-custom-select__left';
+
+  if (icon === 'folder') {
+    const iconWrapper = document.createElement('span');
+    iconWrapper.className = 'spark-schedule-custom-select__icon';
+    iconWrapper.innerHTML = MATERIAL_FOLDER_ICON;
+    leftSpan.appendChild(iconWrapper);
+  } else if (icon) {
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'luminous-symbols';
+    iconSpan.setAttribute('aria-hidden', 'true');
+    iconSpan.textContent = icon;
+    iconSpan.style.fontSize = '18px';
+    iconSpan.style.color = '#a8c7fa';
+    leftSpan.appendChild(iconSpan);
+  }
+
+  const valSpan = document.createElement('span');
+  valSpan.className = 'spark-schedule-custom-select__value';
+  const optMatch = options.find(o => o.value === val) || options[0];
+  valSpan.textContent = optMatch ? optMatch.label : '';
+  leftSpan.appendChild(valSpan);
+
+  const arrowSpan = document.createElement('span');
+  arrowSpan.className = 'spark-schedule-custom-select__arrow';
+  arrowSpan.setAttribute('aria-hidden', 'true');
+  arrowSpan.textContent = 'expand_more';
+
+  trigger.appendChild(leftSpan);
+  trigger.appendChild(arrowSpan);
+  root.appendChild(trigger);
+
+  const menu = document.createElement('div');
+  menu.className = 'spark-schedule-custom-select__menu';
+  menu.setAttribute('role', 'listbox');
+  menu.style.display = 'none';
+
+  function renderItems() {
+    menu.innerHTML = '';
+    for (const opt of options) {
+      const isSelected = opt.value === val;
+      const item = document.createElement('div');
+      item.className = `spark-schedule-custom-select__item ${isSelected ? 'is-selected' : ''}`;
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      item.setAttribute('data-value', opt.value);
+
+      if (isWorkspace) {
+        const itemIcon = document.createElement('span');
+        itemIcon.className = 'spark-schedule-custom-select__item-icon';
+        itemIcon.innerHTML = MATERIAL_FOLDER_ICON;
+        item.appendChild(itemIcon);
+      }
+
+      const itemText = document.createElement('span');
+      itemText.textContent = opt.label;
+      item.appendChild(itemText);
+
+      if (isSelected) {
+        const check = document.createElement('span');
+        check.className = 'spark-schedule-custom-select__check';
+        check.setAttribute('aria-hidden', 'true');
+        check.textContent = 'check';
+        item.appendChild(check);
+      }
+
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        val = opt.value;
+        valSpan.textContent = opt.label;
+        renderItems();
+        close();
+        if (onChange) onChange(val);
+      });
+
+      menu.appendChild(item);
+    }
+  }
+
+  renderItems();
+  root.appendChild(menu);
+
+  function open() {
+    const allCustomSelects = document.querySelectorAll('.spark-schedule-custom-select.is-open');
+    for (const s of allCustomSelects) {
+      if (s !== root) {
+        const closeOther = scheduleDropdownClosers.get(s);
+        if (closeOther) {
+          closeOther();
+          continue;
+        }
+        s.classList.remove('is-open');
+        const trig = s.querySelector('.spark-schedule-custom-select__trigger');
+        if (trig) trig.setAttribute('aria-expanded', 'false');
+        const m = s.querySelector('.spark-schedule-custom-select__menu');
+        if (m) m.style.display = 'none';
+      }
+    }
+
+    root.classList.add('is-open');
+    trigger.setAttribute('aria-expanded', 'true');
+    menu.style.display = 'block';
+    document.addEventListener('click', docClickListener);
+    document.addEventListener('keydown', keyListener);
+
+    const sel = menu.querySelector('.spark-schedule-custom-select__item.is-selected');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+
+  function close() {
+    document.removeEventListener('click', docClickListener);
+    document.removeEventListener('keydown', keyListener);
+    root.classList.remove('is-open');
+    trigger.setAttribute('aria-expanded', 'false');
+    menu.style.display = 'none';
+  }
+
+  const docClickListener = (e) => {
+    if (!root.contains(e.target)) close();
+  };
+  const keyListener = (e) => {
+    if (e.key === 'Escape' && root.classList.contains('is-open')) {
+      e.stopPropagation();
+      close();
+      trigger.focus();
+    }
+  };
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (root.classList.contains('is-open')) close();
+    else open();
+  });
+
+  scheduleDropdownClosers.set(root, close);
+
+  return {
+    element: root,
+    getValue: () => val,
+    setValue: (newVal) => {
+      val = newVal;
+      const m = options.find(o => o.value === val);
+      if (m) valSpan.textContent = m.label;
+      renderItems();
+    },
+    open,
+    close,
+    destroy: () => {
+      close();
+      scheduleDropdownClosers.delete(root);
+      root.remove();
+    }
+  };
+}
+
+function setupScheduledTasksView(view) {
+  if (view.dataset.geminiSchedulesEnhanced === 'true') return;
+  view.dataset.geminiSchedulesEnhanced = 'true';
+
+  const container = view.querySelector('.w-full.max-w-2xl');
+  if (!container) return;
+
+  // 1. Hide original header container
+  const originalHeader = container.querySelector('.flex.items-center.justify-between');
+  if (originalHeader) {
+    originalHeader.classList.add('gemini-schedules-original-header');
+  }
+
+  // 2. Willow Page Header
+  let willowHeader = container.querySelector('.spark-customise-header');
+  if (!willowHeader) {
+    willowHeader = document.createElement('header');
+    willowHeader.className = 'spark-customise-header';
+    willowHeader.innerHTML = `
+      <h1>Schedules</h1>
+      <p>
+        Get proactive help with tasks scheduled to run on repeat, respond to events or continuously monitor and react.
+        <a href="https://support.google.com/gemini?p=lm_schedules" target="_blank" rel="noopener" class="spark-inline-link">Learn more</a>
+      </p>
+    `;
+    container.insertBefore(willowHeader, container.firstChild);
+  }
+
+  // 3. Willow Action Buttons (using edit_rectangle and edit_note glyphs)
+  let willowActions = container.querySelector('.spark-page-actions');
+  if (!willowActions) {
+    willowActions = document.createElement('div');
+    willowActions.className = 'spark-page-actions';
+    willowActions.setAttribute('aria-label', 'Create a schedule');
+    willowActions.innerHTML = `
+      <button type="button" class="spark-page-action spark-page-action--primary" data-gemini-action="create-with-gemini">
+        <span class="luminous-symbols" aria-hidden="true">edit_rectangle</span>
+        <span>Create with Gemini</span>
+      </button>
+      <button type="button" class="spark-page-action" data-gemini-action="create-manually">
+        <span class="google-symbols" aria-hidden="true">edit_note</span>
+        <span>Create manually</span>
+      </button>
+    `;
+
+    const createWithGeminiBtn = willowActions.querySelector('[data-gemini-action="create-with-gemini"]');
+    if (createWithGeminiBtn) {
+      createWithGeminiBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigateToExperienceNewConversation('chat');
+        setTimeout(() => {
+          const composer = document.querySelector('[data-testid="composer-input"]') || document.querySelector('textarea.antigravity-prompt-input');
+          if (composer) {
+            composer.value = '/schedule ';
+            composer.focus();
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, 150);
+      });
+    }
+
+    const createManuallyBtn = willowActions.querySelector('[data-gemini-action="create-manually"]');
+    if (createManuallyBtn) {
+      createManuallyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openScheduleEditor();
+      });
+    }
+
+    willowHeader.insertAdjacentElement('afterend', willowActions);
+  }
+
+  // 4. Skeleton Loader on route entry (Willow SparkListSkeleton Parity)
+  function hasScheduleContentSettled() {
+    const list = container.querySelector('[data-testid="sidecar-list"]');
+    const empty = container.querySelector('[data-testid="sidecar-list-empty"]');
+    if (list && list.children.length > 0) return true;
+    if (empty) return true;
+    return false;
+  }
+
+  let isLoading = false;
+  let isCancelled = false;
+  let skeleton = null;
+  let dataLoadObserver = null;
+  let safetyTimer = null;
+  let editorEl = null;
+  let isEditorOpen = false;
+  let activeDropdowns = [];
+
+  function endLoading() {
+    isLoading = false;
+    container.classList.remove('is-loading');
+    view.classList.remove('is-loading');
+    if (skeleton) {
+      skeleton.remove();
+      skeleton = null;
+    }
+    updateScheduleChildren();
+  }
+
+  if (hasScheduleContentSettled()) {
+    // If schedules are already loaded in the DOM, do not display a skeleton animation at all
+    endLoading();
+  } else {
+    // Only display the skeleton if the schedule content has not loaded yet
+    isLoading = true;
+    container.classList.add('is-loading');
+    view.classList.add('is-loading');
+
+    skeleton = document.createElement('section');
+    skeleton.className = 'spark-customise-loading-section spark-customise-loading-section--schedules';
+    skeleton.setAttribute('aria-busy', 'true');
+    skeleton.innerHTML = `
+      <h2>Ongoing</h2>
+      <div class="spark-customise-loading-list" aria-hidden="true">
+        <span class="spark-customise-loading-row">
+          <span class="spark-customise-loading-row-content">
+            <span class="spark-customise-loading-bar spark-customise-loading-bar--short">
+              <span class="spark-customise-loading-bar-fill"></span>
+            </span>
+            <span class="spark-customise-loading-bar">
+              <span class="spark-customise-loading-bar-fill"></span>
+            </span>
+          </span>
+        </span>
+        <span class="spark-customise-loading-row">
+          <span class="spark-customise-loading-row-content">
+            <span class="spark-customise-loading-bar spark-customise-loading-bar--short">
+              <span class="spark-customise-loading-bar-fill"></span>
+            </span>
+            <span class="spark-customise-loading-bar">
+              <span class="spark-customise-loading-bar-fill"></span>
+            </span>
+          </span>
+        </span>
+        <span class="spark-customise-loading-row">
+          <span class="spark-customise-loading-row-content">
+            <span class="spark-customise-loading-bar spark-customise-loading-bar--short">
+              <span class="spark-customise-loading-bar-fill"></span>
+            </span>
+            <span class="spark-customise-loading-bar">
+              <span class="spark-customise-loading-bar-fill"></span>
+            </span>
+          </span>
+        </span>
+      </div>
+    `;
+    willowActions.insertAdjacentElement('afterend', skeleton);
+
+    dataLoadObserver = new MutationObserver(() => {
+      if (hasScheduleContentSettled()) {
+        if (dataLoadObserver) {
+          dataLoadObserver.disconnect();
+          dataLoadObserver = null;
+        }
+        if (safetyTimer) {
+          clearTimeout(safetyTimer);
+          safetyTimer = null;
+        }
+        if (!isCancelled) endLoading();
+      }
+    });
+    dataLoadObserver.observe(container, { childList: true, subtree: true });
+
+    safetyTimer = setTimeout(() => {
+      if (dataLoadObserver) {
+        dataLoadObserver.disconnect();
+        dataLoadObserver = null;
+      }
+      if (!isCancelled) endLoading();
+    }, 10000);
+  }
+
+  // 5. In-Place Schedule Editor (Willow SparkScheduleEditor Parity)
+  function openScheduleEditor() {
+    for (const dropdown of activeDropdowns) dropdown.destroy();
+    activeDropdowns = [];
+    if (editorEl) editorEl.remove();
+    isEditorOpen = true;
+    container.classList.add('is-editor-open');
+
+    if (willowHeader) willowHeader.style.display = 'none';
+    if (willowActions) willowActions.style.display = 'none';
+    if (skeleton) skeleton.style.display = 'none';
+    updateScheduleChildren();
+
+    editorEl = document.createElement('div');
+    editorEl.className = 'spark-schedule-editor';
+
+    const workspaces = getAvailableWorkspaces();
+    let draftWorkspaceId = workspaces[0]?.id || null;
+    let draftTitle = '';
+    let draftFrequency = 'Weekly';
+    let draftWeekdays = new Set(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+    let draftTime = '09:00';
+    let draftInstructions = '';
+
+    editorEl.innerHTML = `
+      <form class="spark-schedule-editor__content">
+        <header class="spark-schedule-editor__header">
+          <button type="button" class="spark-schedule-editor__back">
+            <span class="luminous-symbols" aria-hidden="true">arrow_back</span>
+            <span>Schedules</span>
+          </button>
+          <div class="spark-schedule-editor__header-actions">
+            <button type="submit" class="spark-schedule-editor__create" disabled>
+              Create
+            </button>
+          </div>
+        </header>
+
+        <section class="spark-schedule-editor__panel" aria-label="Schedule details">
+          ${workspaces.length > 0 ? `
+            <div class="spark-schedule-editor__field spark-schedule-editor__field--workspace">
+              <label class="spark-schedule-editor__field-label">Workspace</label>
+            </div>
+          ` : ''}
+
+          <div class="spark-schedule-editor__field">
+            <input type="text" placeholder="Name your schedule" aria-label="Schedule title" autocomplete="off" />
+          </div>
+
+          <fieldset class="spark-schedule-editor__when">
+            <legend>When to run</legend>
+
+            <div class="spark-schedule-editor__run-grid">
+              <span class="spark-schedule-editor__inline-word spark-schedule-editor__on-word">on</span>
+
+              <div class="spark-schedule-editor__weekdays" aria-label="Days of the week">
+                ${SPARK_SCHEDULE_WEEKDAYS.map(w => `
+                  <button type="button" data-weekday="${w}" class="${draftWeekdays.has(w) ? 'is-selected' : ''}" title="${w}" aria-label="${w}">
+                    ${DAY_LABELS[w]}
+                  </button>
+                `).join('')}
+              </div>
+
+              <span class="spark-schedule-editor__inline-word spark-schedule-editor__around-word">around</span>
+            </div>
+
+            <p class="spark-schedule-editor__ask-note">
+              <button type="button" class="spark-schedule-editor__ask-link">Ask Gemini</button>
+              to create and edit event-based schedules and monitors
+            </p>
+          </fieldset>
+
+          <div class="spark-schedule-editor__instructions-heading">
+            <label>Instructions</label>
+          </div>
+
+          <textarea placeholder="Give your schedule some instructions"></textarea>
+
+          <p class="spark-schedule-editor__disclaimer">
+            Schedules run at approximate times and use more of your limit at peak hours. They won't run if you reach your limit.
+            <a href="https://support.google.com/gemini?p=lm_schedules" target="_blank" rel="noopener">Learn more</a>
+          </p>
+        </section>
+      </form>
+    `;
+
+    const form = editorEl.querySelector('form');
+    const backBtn = editorEl.querySelector('.spark-schedule-editor__back');
+    const createBtn = editorEl.querySelector('.spark-schedule-editor__create');
+    const titleInput = editorEl.querySelector('.spark-schedule-editor__field input');
+    const runGrid = editorEl.querySelector('.spark-schedule-editor__run-grid');
+    const onWord = editorEl.querySelector('.spark-schedule-editor__on-word');
+    const weekdaysContainer = editorEl.querySelector('.spark-schedule-editor__weekdays');
+    const weekdayBtns = editorEl.querySelectorAll('.spark-schedule-editor__weekdays button');
+    const aroundWord = editorEl.querySelector('.spark-schedule-editor__around-word');
+    const askGeminiBtn = editorEl.querySelector('.spark-schedule-editor__ask-link');
+    const instructionsTextarea = editorEl.querySelector('textarea');
+
+    if (workspaces.length > 0) {
+      const wsDropdown = createScheduleDropdown({
+        initialValue: draftWorkspaceId,
+        options: workspaces.map(w => ({ value: w.id, label: w.name })),
+        isWorkspace: true,
+        icon: 'folder',
+        onChange: (val) => {
+          draftWorkspaceId = val;
+        }
+      });
+      const wsField = editorEl.querySelector('.spark-schedule-editor__field--workspace');
+      if (wsField) wsField.appendChild(wsDropdown.element);
+      activeDropdowns.push(wsDropdown);
+    }
+
+    const freqDropdown = createScheduleDropdown({
+      initialValue: draftFrequency,
+      options: [
+        { value: 'Daily', label: 'Daily' },
+        { value: 'Weekly', label: 'Weekly' }
+      ],
+      onChange: (val) => {
+        draftFrequency = val;
+        syncState();
+      }
+    });
+
+    const timeDropdown = createScheduleDropdown({
+      initialValue: draftTime,
+      options: TIME_OPTIONS,
+      isTime: true,
+      onChange: (val) => {
+        draftTime = val;
+        syncState();
+      }
+    });
+
+    if (runGrid) {
+      runGrid.insertBefore(freqDropdown.element, onWord);
+      runGrid.appendChild(timeDropdown.element);
+    }
+
+    activeDropdowns.push(freqDropdown, timeDropdown);
+
+    function syncState() {
+      const canSubmit = draftTitle.trim().length > 0 &&
+        draftInstructions.trim().length > 0 &&
+        (draftFrequency !== 'Weekly' || draftWeekdays.size > 0);
+      createBtn.disabled = !canSubmit;
+
+      if (draftFrequency === 'Weekly') {
+        if (onWord) onWord.style.display = '';
+        if (weekdaysContainer) weekdaysContainer.style.display = '';
+      } else {
+        if (onWord) onWord.style.display = 'none';
+        if (weekdaysContainer) weekdaysContainer.style.display = 'none';
+      }
+    }
+
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeScheduleEditor();
+    });
+
+    titleInput.addEventListener('input', () => {
+      draftTitle = titleInput.value;
+      syncState();
+    });
+
+    instructionsTextarea.addEventListener('input', () => {
+      draftInstructions = instructionsTextarea.value;
+      syncState();
+    });
+
+    for (const btn of weekdayBtns) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const day = btn.getAttribute('data-weekday');
+        if (draftWeekdays.has(day)) {
+          draftWeekdays.delete(day);
+          btn.classList.remove('is-selected');
+        } else {
+          draftWeekdays.add(day);
+          btn.classList.add('is-selected');
+        }
+        syncState();
+      });
+    }
+
+    if (askGeminiBtn) {
+      askGeminiBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateToExperienceNewConversation('chat');
+        setTimeout(() => {
+          const composer = document.querySelector('[data-testid="composer-input"]') || document.querySelector('textarea.antigravity-prompt-input');
+          if (composer) {
+            composer.value = '/schedule ';
+            composer.focus();
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, 150);
+      });
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (createBtn.disabled) return;
+      createBtn.disabled = true;
+      createBtn.textContent = 'Creating…';
+
+      submitScheduleDraft({
+        workspaceId: draftWorkspaceId,
+        title: draftTitle.trim(),
+        frequency: draftFrequency,
+        weekdays: Array.from(draftWeekdays),
+        time: draftTime,
+        instructions: draftInstructions.trim()
+      });
+    });
+
+    container.appendChild(editorEl);
+    titleInput.focus();
+    syncState();
+  }
+
+  function closeScheduleEditor() {
+    isEditorOpen = false;
+    container.classList.remove('is-editor-open');
+    for (const d of activeDropdowns) {
+      if (d && typeof d.destroy === 'function') d.destroy();
+    }
+    activeDropdowns = [];
+    if (editorEl) {
+      editorEl.remove();
+      editorEl = null;
+    }
+    if (willowHeader) willowHeader.style.display = '';
+    if (willowActions) willowActions.style.display = '';
+    updateScheduleChildren();
+  }
+
+  function submitScheduleDraft(draft) {
+    const headlessObserver = new MutationObserver(() => {
+      const dlg = document.querySelector('[role="dialog"]:has([data-testid="new-sidecar-modal"])');
+      if (dlg) dlg.classList.add('gemini-schedule-modal-headless');
+    });
+    headlessObserver.observe(document.body, { childList: true, subtree: true });
+
+    const rawNewBtn = view.querySelector('[data-testid="sidecar-new-button"]');
+    if (rawNewBtn) rawNewBtn.click();
+
+    setTimeout(() => {
+      const modal = document.querySelector('[data-testid="new-sidecar-modal"]');
+      if (!modal) {
+        headlessObserver.disconnect();
+        closeScheduleEditor();
+        return;
+      }
+
+      const nameInput = modal.querySelector('input[data-testid="new-sidecar-name"]');
+      const promptInput = modal.querySelector('textarea[data-testid="new-sidecar-prompt"]');
+      const submitBtn = modal.querySelector('button[data-testid="new-sidecar-submit"]');
+
+      const setReactValue = (el, val) => {
+        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const set = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (set) set.call(el, val);
+        else el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+
+      if (nameInput) setReactValue(nameInput, draft.title);
+      if (promptInput) setReactValue(promptInput, draft.instructions);
+
+      if (draft.workspaceId) {
+        const projectCombobox = modal.querySelector('[role="combobox"]');
+        if (projectCombobox) {
+          const fiberKey = Object.keys(projectCombobox).find(k => k.startsWith('__reactFiber'));
+          let fiber = fiberKey ? projectCombobox[fiberKey] : null;
+          while (fiber) {
+            if (fiber.memoizedProps?.onValueChange) {
+              fiber.memoizedProps.onValueChange(draft.workspaceId);
+              break;
+            }
+            fiber = fiber.return;
+          }
+        }
+      }
+
+      const freqTrigger = modal.querySelector('[data-testid="schedule-frequency-trigger"]');
+      if (freqTrigger) {
+        const freqKey = Object.keys(freqTrigger).find(k => k.startsWith('__reactFiber'));
+        let fiber = freqKey ? freqTrigger[freqKey] : null;
+        while (fiber) {
+          if (fiber.memoizedProps?.onValueChange) {
+            fiber.memoizedProps.onValueChange(draft.frequency.toLowerCase());
+            break;
+          }
+          fiber = fiber.return;
+        }
+      }
+
+      setTimeout(() => {
+        if (submitBtn && !submitBtn.disabled) {
+          submitBtn.click();
+        }
+        setTimeout(() => {
+          headlessObserver.disconnect();
+          closeScheduleEditor();
+        }, 150);
+      }, 80);
+    }, 80);
+  }
+
+  // 6. Update dynamic children: empty state card and schedule list rows
+  function updateScheduleChildren() {
+    const emptyList = container.querySelector('[data-testid="sidecar-list-empty"]');
+    const sidecarList = container.querySelector('[data-testid="sidecar-list"]');
+    let ongoingTitle = container.querySelector('.spark-schedules-heading');
+
+    if (isEditorOpen || isLoading) {
+      if (emptyList) emptyList.style.display = 'none';
+      if (sidecarList) sidecarList.style.display = 'none';
+      if (ongoingTitle) ongoingTitle.style.display = 'none';
+      return;
+    }
+
+    if (emptyList) emptyList.style.display = '';
+    if (sidecarList) sidecarList.style.display = '';
+
+    // If schedules exist, show "Ongoing" heading; if empty, omit it (Willow behavior)
+    if (sidecarList && !emptyList) {
+      if (!ongoingTitle) {
+        ongoingTitle = document.createElement('h2');
+        ongoingTitle.className = 'spark-schedules-heading';
+        ongoingTitle.textContent = 'Ongoing';
+        sidecarList.insertAdjacentElement('beforebegin', ongoingTitle);
+      }
+      ongoingTitle.style.display = '';
+    } else {
+      if (ongoingTitle) ongoingTitle.remove();
+    }
+
+    // Willow empty state: transparent 28px outline, centered title & subtitle, no icon
+    if (emptyList && !emptyList.querySelector('.spark-schedules-empty')) {
+      emptyList.innerHTML = `
+        <div class="spark-schedules-empty">
+          <h2 class="spark-schedules-empty__title">Add your first schedule</h2>
+          <p class="spark-schedules-empty__subtitle">
+            Schedules created from your tasks appear automatically
+          </p>
+        </div>
+      `;
+    }
+
+    // Willow schedule rows: chat_bubble luminous icon
+    if (sidecarList) {
+      const rows = sidecarList.querySelectorAll('[data-testid="sidecar-row"]');
+      for (const row of rows) {
+        if (!row.querySelector('.spark-schedule-row__icon')) {
+          const iconBox = document.createElement('span');
+          iconBox.className = 'spark-schedule-row__icon';
+          iconBox.innerHTML = '<span class="luminous-symbols" aria-hidden="true">chat_bubble</span>';
+          row.insertBefore(iconBox, row.firstChild);
+        }
+      }
+    }
+  }
+
+  updateScheduleChildren();
+
+  const observer = new MutationObserver((records) => {
+    // Typing in the editor or choosing one of its options does not change the
+    // schedule list. Its own icons and headings are already reconciled below.
+    if (editorEl && records.every(record => editorEl.contains(record.target))) return;
+    updateScheduleChildren();
+    observer.takeRecords();
+  });
+  observer.observe(container, { childList: true, subtree: true });
+
+  remember(view, {
+    disconnect: () => {
+      isCancelled = true;
+      if (safetyTimer) clearTimeout(safetyTimer);
+      if (dataLoadObserver) {
+        dataLoadObserver.disconnect();
+        dataLoadObserver = null;
+      }
+      container.classList.remove('is-loading');
+      view.classList.remove('is-loading');
+      observer.disconnect();
+      delete view.dataset.geminiSchedulesEnhanced;
+      if (willowHeader) willowHeader.remove();
+      if (willowActions) willowActions.remove();
+      if (skeleton) skeleton.remove();
+      for (const d of activeDropdowns) {
+        if (d && typeof d.destroy === 'function') d.destroy();
+      }
+      activeDropdowns = [];
+      if (editorEl) editorEl.remove();
+      const title = container.querySelector('.spark-schedules-heading');
+      if (title) title.remove();
+      if (originalHeader) originalHeader.classList.remove('gemini-schedules-original-header');
+    }
+  });
+}
+
+/* ---------------------------------------------------------------------------
+ * Existing Schedule Detail View (Willow SparkScheduleEditor Edit Mode Parity)
+ * ------------------------------------------------------------------------- */
+function setupScheduleDetailView(view) {
+  if (view.dataset.geminiScheduleDetailEnhanced === 'true') return;
+  view.dataset.geminiScheduleDetailEnhanced = 'true';
+
+  let initialized = false;
+  let detailObserver = null;
+  let activeDropdowns = [];
+  let deleteModal = null;
+  let editorEl = null;
+
+  function init() {
+    if (initialized) return;
+    const rawContainer = view.querySelector('.w-full.max-w-2xl');
+    const promptArea = view.querySelector('textarea[data-testid="schedule-editor-prompt"]');
+    if (!rawContainer || !promptArea) return;
+
+    initialized = true;
+    if (detailObserver) {
+      detailObserver.disconnect();
+      detailObserver = null;
+    }
+
+    rawContainer.classList.add('spark-sidecar-detail-raw-hidden');
+
+    const initialTitle = view.querySelector('span.text-lg')?.textContent?.trim() ||
+      view.querySelector('input[data-testid="inline-edit-input"]')?.value ||
+      'Scheduled Task';
+    const initialPrompt = promptArea.value || '';
+    const initialWorkspace = view.querySelector('[data-testid="sidecar-project-link"]')?.textContent?.trim() || 'Workspace';
+    const freqTrigger = view.querySelector('[data-testid="schedule-frequency-trigger"]');
+    const initialFreqText = freqTrigger?.textContent?.trim() || 'Weekly';
+    const initialFrequency = /daily/i.test(initialFreqText) ? 'Daily' : 'Weekly';
+
+    const rawComboboxes = Array.from(rawContainer.querySelectorAll('[role="combobox"]'));
+    let initialWeekday = 'Monday';
+    let initialTime = '09:00';
+    if (rawComboboxes.length >= 3) {
+      initialWeekday = rawComboboxes[1].textContent.trim() || 'Monday';
+      const rawTimeText = rawComboboxes[2].textContent.trim() || '9:00 AM';
+      const matchedTime = TIME_OPTIONS.find(t => t.label.toLowerCase() === rawTimeText.toLowerCase());
+      if (matchedTime) initialTime = matchedTime.value;
+    } else if (rawComboboxes.length === 2) {
+      const rawTimeText = rawComboboxes[1].textContent.trim() || '9:00 AM';
+      const matchedTime = TIME_OPTIONS.find(t => t.label.toLowerCase() === rawTimeText.toLowerCase());
+      if (matchedTime) initialTime = matchedTime.value;
+    }
+
+    const isRunning = Boolean(view.querySelector('.bg-green-500') || /running/i.test(view.textContent));
+
+    let draftTitle = initialTitle;
+    let draftFrequency = initialFrequency;
+    let draftWeekdays = new Set([initialWeekday]);
+    let draftTime = initialTime;
+    let draftInstructions = initialPrompt;
+    let draftEnabled = isRunning;
+
+    editorEl = document.createElement('div');
+    editorEl.className = 'spark-schedule-editor';
+    editorEl.innerHTML = `
+      <form class="spark-schedule-editor__content">
+        <header class="spark-schedule-editor__header">
+          <button type="button" class="spark-schedule-editor__back">
+            <span class="luminous-symbols" aria-hidden="true">arrow_back</span>
+            <span>Schedules</span>
+          </button>
+          <div class="spark-schedule-editor__header-actions">
+            <button type="button" class="spark-schedule-editor__delete" aria-label="Delete schedule" title="Delete schedule">
+              <span class="luminous-symbols" aria-hidden="true">delete</span>
+            </button>
+            <button type="submit" class="spark-schedule-editor__create">
+              Save
+            </button>
+          </div>
+        </header>
+
+        <section class="spark-schedule-editor__panel" aria-label="Schedule details">
+          <div class="spark-schedule-editor__field spark-schedule-editor__field--workspace">
+            <label class="spark-schedule-editor__field-label">Workspace</label>
+            <div class="spark-schedule-custom-select spark-schedule-custom-select--workspace">
+              <div class="spark-schedule-custom-select__trigger" style="cursor: default;">
+                <span class="spark-schedule-custom-select__left">
+                  <span class="spark-schedule-custom-select__icon">${MATERIAL_FOLDER_ICON}</span>
+                  <span class="spark-schedule-custom-select__value">${initialWorkspace}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="spark-schedule-editor__field">
+            <input type="text" placeholder="Name your schedule" aria-label="Schedule title" autocomplete="off" />
+          </div>
+
+          <div class="spark-schedule-editor__enabled-row">
+            <span class="spark-schedule-editor__enabled-copy">
+              <strong>Enabled</strong>
+              <span>Run this schedule automatically</span>
+            </span>
+            <button type="button" role="switch" aria-checked="${draftEnabled}" class="spark-schedule-editor__toggle ${draftEnabled ? 'is-checked' : ''}">
+              <span></span>
+            </button>
+          </div>
+
+          <fieldset class="spark-schedule-editor__when">
+            <legend>When to run</legend>
+
+            <div class="spark-schedule-editor__run-grid">
+              <span class="spark-schedule-editor__inline-word spark-schedule-editor__on-word">on</span>
+
+              <div class="spark-schedule-editor__weekdays" aria-label="Days of the week">
+                ${SPARK_SCHEDULE_WEEKDAYS.map(w => `
+                  <button type="button" data-weekday="${w}" class="${draftWeekdays.has(w) ? 'is-selected' : ''}" title="${w}" aria-label="${w}">
+                    ${DAY_LABELS[w]}
+                  </button>
+                `).join('')}
+              </div>
+
+              <span class="spark-schedule-editor__inline-word spark-schedule-editor__around-word">around</span>
+            </div>
+
+            <p class="spark-schedule-editor__ask-note">
+              <button type="button" class="spark-schedule-editor__ask-link">Ask Gemini</button>
+              to create and edit event-based schedules and monitors
+            </p>
+          </fieldset>
+
+          <div class="spark-schedule-editor__instructions-heading">
+            <label>Instructions</label>
+          </div>
+
+          <textarea placeholder="Give your schedule some instructions"></textarea>
+
+          <p class="spark-schedule-editor__disclaimer">
+            Schedules run at approximate times and use more of your limit at peak hours. They won't run if you reach your limit.
+            <a href="https://support.google.com/gemini?p=lm_schedules" target="_blank" rel="noopener">Learn more</a>
+          </p>
+        </section>
+      </form>
+    `;
+
+    const form = editorEl.querySelector('form');
+    const backBtn = editorEl.querySelector('.spark-schedule-editor__back');
+    const deleteBtn = editorEl.querySelector('.spark-schedule-editor__delete');
+    const saveBtn = editorEl.querySelector('.spark-schedule-editor__create');
+    const titleInput = editorEl.querySelector('.spark-schedule-editor__field input');
+    const toggleBtn = editorEl.querySelector('.spark-schedule-editor__toggle');
+    const runGrid = editorEl.querySelector('.spark-schedule-editor__run-grid');
+    const onWord = editorEl.querySelector('.spark-schedule-editor__on-word');
+    const weekdaysContainer = editorEl.querySelector('.spark-schedule-editor__weekdays');
+    const weekdayBtns = editorEl.querySelectorAll('.spark-schedule-editor__weekdays button');
+    const aroundWord = editorEl.querySelector('.spark-schedule-editor__around-word');
+    const askGeminiBtn = editorEl.querySelector('.spark-schedule-editor__ask-link');
+    const instructionsTextarea = editorEl.querySelector('textarea');
+
+    titleInput.value = draftTitle;
+    instructionsTextarea.value = draftInstructions;
+
+    const freqDropdown = createScheduleDropdown({
+      initialValue: draftFrequency,
+      options: [
+        { value: 'Daily', label: 'Daily' },
+        { value: 'Weekly', label: 'Weekly' }
+      ],
+      onChange: (val) => {
+        draftFrequency = val;
+        syncState();
+      }
+    });
+
+    const timeDropdown = createScheduleDropdown({
+      initialValue: draftTime,
+      options: TIME_OPTIONS,
+      isTime: true,
+      onChange: (val) => {
+        draftTime = val;
+        syncState();
+      }
+    });
+
+    if (runGrid) {
+      runGrid.insertBefore(freqDropdown.element, onWord);
+      runGrid.appendChild(timeDropdown.element);
+    }
+
+    activeDropdowns = [freqDropdown, timeDropdown];
+
+    function syncState() {
+      const canSubmit = draftTitle.trim().length > 0 &&
+        draftInstructions.trim().length > 0 &&
+        (draftFrequency !== 'Weekly' || draftWeekdays.size > 0);
+      saveBtn.disabled = !canSubmit;
+
+      if (draftFrequency === 'Weekly') {
+        if (onWord) onWord.style.display = '';
+        if (weekdaysContainer) weekdaysContainer.style.display = '';
+      } else {
+        if (onWord) onWord.style.display = 'none';
+        if (weekdaysContainer) weekdaysContainer.style.display = 'none';
+      }
+    }
+
+    syncState();
+
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const automationsBtn = document.querySelector('[data-testid="automations-button"]') ||
+        document.querySelector('#gemini-scheduled-tasks-button');
+      if (automationsBtn) automationsBtn.click();
+      else window.history.back();
+    });
+
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      draftEnabled = !draftEnabled;
+      toggleBtn.setAttribute('aria-checked', String(draftEnabled));
+      toggleBtn.classList.toggle('is-checked', draftEnabled);
+      syncState();
+    });
+
+    titleInput.addEventListener('input', () => {
+      draftTitle = titleInput.value;
+      syncState();
+    });
+
+    instructionsTextarea.addEventListener('input', () => {
+      draftInstructions = instructionsTextarea.value;
+      syncState();
+    });
+
+    for (const btn of weekdayBtns) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const day = btn.getAttribute('data-weekday');
+        if (draftWeekdays.has(day)) {
+          draftWeekdays.delete(day);
+          btn.classList.remove('is-selected');
+        } else {
+          draftWeekdays.add(day);
+          btn.classList.add('is-selected');
+        }
+        syncState();
+      });
+    }
+
+    if (askGeminiBtn) {
+      askGeminiBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateToExperienceNewConversation('chat');
+        setTimeout(() => {
+          const composer = document.querySelector('[data-testid="composer-input"]') || document.querySelector('textarea.antigravity-prompt-input');
+          if (composer) {
+            composer.value = '/schedule ';
+            composer.focus();
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, 150);
+      });
+    }
+
+    // Delete confirmation flow
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (deleteModal) deleteModal.remove();
+
+      deleteModal = document.createElement('div');
+      deleteModal.className = 'spark-schedule-editor__dialog-backdrop';
+      deleteModal.innerHTML = `
+        <div class="spark-schedule-editor__delete-dialog" role="dialog" aria-modal="true">
+          <h2>Delete schedule?</h2>
+          <p>This schedule will be permanently removed.</p>
+          <div>
+            <button type="button" class="btn-cancel">Cancel</button>
+            <button type="button" class="is-danger btn-delete">Delete</button>
+          </div>
+        </div>
+      `;
+
+      const cancelBtn = deleteModal.querySelector('.btn-cancel');
+      const confirmDeleteBtn = deleteModal.querySelector('.btn-delete');
+
+      cancelBtn.addEventListener('click', () => {
+        deleteModal.remove();
+        deleteModal = null;
+      });
+
+      deleteModal.addEventListener('mousedown', (evt) => {
+        if (evt.target === deleteModal) {
+          deleteModal.remove();
+          deleteModal = null;
+        }
+      });
+
+      confirmDeleteBtn.addEventListener('click', () => {
+        deleteModal.remove();
+        deleteModal = null;
+
+        const kebab = rawContainer.querySelector('[data-testid="sidecar-detail-kebab"]');
+        if (kebab) kebab.click();
+        setTimeout(() => {
+          const delItem = document.querySelector('[data-testid="sidecar-action-delete"]');
+          if (delItem) {
+            delItem.click();
+            setTimeout(() => {
+              const dlg = document.querySelector('[role="dialog"], [role="alertdialog"]');
+              const deleteActionBtn = Array.from(dlg?.querySelectorAll('button') || []).find(b => b.textContent.trim() === 'Delete');
+              if (deleteActionBtn) deleteActionBtn.click();
+            }, 150);
+          }
+        }, 100);
+      });
+
+      document.body.appendChild(deleteModal);
+    });
+
+    // Save flow
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (saveBtn.disabled) return;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      const setReactValue = (el, val) => {
+        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const set = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (set) set.call(el, val);
+        else el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+
+      // 1. Update Title if changed
+      if (draftTitle.trim() !== initialTitle.trim()) {
+        const editTitleBtn = rawContainer.querySelector('button[aria-label="Edit task title"]');
+        if (editTitleBtn) {
+          editTitleBtn.click();
+          setTimeout(() => {
+            const inlineInput = rawContainer.querySelector('input[data-testid="inline-edit-input"]');
+            if (inlineInput) {
+              setReactValue(inlineInput, draftTitle.trim());
+              inlineInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+              inlineInput.blur();
+            }
+          }, 50);
+        }
+      }
+
+      // 2. Update Prompt
+      const rawPrompt = rawContainer.querySelector('textarea[data-testid="schedule-editor-prompt"]');
+      if (rawPrompt) setReactValue(rawPrompt, draftInstructions.trim());
+
+      // 3. Update Frequency / Weekday / Time
+      const comboboxes = Array.from(rawContainer.querySelectorAll('[role="combobox"]'));
+      const callFiberValueChange = (el, val) => {
+        if (!el) return;
+        const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber'));
+        let fiber = fiberKey ? el[fiberKey] : null;
+        while (fiber) {
+          if (fiber.memoizedProps?.onValueChange) {
+            fiber.memoizedProps.onValueChange(val);
+            break;
+          }
+          fiber = fiber.return;
+        }
+      };
+
+      if (comboboxes[0]) callFiberValueChange(comboboxes[0], draftFrequency.toLowerCase());
+      if (draftFrequency === 'Weekly' && comboboxes[1]) {
+        const chosenDay = Array.from(draftWeekdays)[0] || 'Monday';
+        callFiberValueChange(comboboxes[1], chosenDay);
+      }
+      const timeCombobox = comboboxes.length >= 3 ? comboboxes[2] : comboboxes[1];
+      if (timeCombobox) {
+        const matchedTime = TIME_OPTIONS.find(t => t.value === draftTime);
+        if (matchedTime) callFiberValueChange(timeCombobox, matchedTime.label);
+      }
+
+      // 4. Click raw save button
+      setTimeout(() => {
+        const rawSaveBtn = rawContainer.querySelector('button[data-testid="schedule-editor-save"]');
+        if (rawSaveBtn && !rawSaveBtn.disabled && !rawSaveBtn.classList.contains('pointer-events-none')) {
+          rawSaveBtn.click();
+        }
+        setTimeout(() => {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save';
+          const automationsBtn = document.querySelector('[data-testid="automations-button"]') ||
+            document.querySelector('#gemini-scheduled-tasks-button');
+          if (automationsBtn) automationsBtn.click();
+          else window.history.back();
+        }, 300);
+      }, 150);
+    });
+
+    view.appendChild(editorEl);
+  }
+
+  init();
+
+  if (!initialized) {
+    detailObserver = new MutationObserver(() => {
+      init();
+    });
+    detailObserver.observe(view, { childList: true, subtree: true });
+  }
+
+  remember(view, {
+    disconnect: () => {
+      if (detailObserver) {
+        detailObserver.disconnect();
+        detailObserver = null;
+      }
+      delete view.dataset.geminiScheduleDetailEnhanced;
+      if (deleteModal) {
+        deleteModal.remove();
+        deleteModal = null;
+      }
+      for (const d of activeDropdowns) {
+        if (d && typeof d.destroy === 'function') d.destroy();
+      }
+      activeDropdowns = [];
+      if (editorEl) editorEl.remove();
+      const rawContainer = view.querySelector('.w-full.max-w-2xl');
+      if (rawContainer) rawContainer.classList.remove('spark-sidecar-detail-raw-hidden');
+    }
+  });
+}
+
+plugin.dom.observe('[data-testid="sidecars-view"][data-sidecar-type="schedule"]', (view) => {
+  setupScheduledTasksView(view);
+});
+
+plugin.dom.observe('[data-testid="sidecar-detail"]', (view) => {
+  setupScheduleDetailView(view);
+});
+
 plugin.onDispose(() => {
+  for (const btn of document.querySelectorAll('.willow-search-clear-btn')) btn.remove();
+  for (const el of document.querySelectorAll('.spark-customise-header, .spark-page-actions, .spark-schedules-heading, .spark-customise-loading-section, .spark-schedule-editor, .spark-schedule-editor__dialog-backdrop')) el.remove();
+  for (const el of document.querySelectorAll('.spark-sidecar-detail-raw-hidden')) el.classList.remove('spark-sidecar-detail-raw-hidden');
   window.removeEventListener('resize', updateHistoryArrowsPosition);
   if (titleBarObserver) titleBarObserver.disconnect();
   if (titleBarResizeObserver) titleBarResizeObserver.disconnect();

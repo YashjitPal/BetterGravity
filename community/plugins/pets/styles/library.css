@@ -19,7 +19,7 @@
   overflow-x: hidden;
   background: var(--studio-surface, #0f0f0f);
   color: #e3e3e3;
-  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif);
+  font-family: var(--bettergravity-font, var(--gemini-font, "Google Sans Flex", "Google Sans", "Helvetica Neue", sans-serif));
   letter-spacing: 0;
   scrollbar-width: thin;
   scrollbar-color: #444 transparent;
@@ -284,7 +284,7 @@
 .bettergravity-pet-editor .willow-gdlg-title {
   margin: 0 0 1px !important;
   padding: 24px 24px 0 !important;
-  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-family: var(--bettergravity-font, var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif)) !important;
   font-size: 20px !important;
   line-height: 24px !important;
   font-weight: 470 !important;
@@ -297,7 +297,7 @@
   display: grid !important;
   gap: 16px !important;
   padding: 16px 24px 0 !important;
-  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-family: var(--bettergravity-font, var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif)) !important;
   font-size: 15px !important;
   line-height: 20px !important;
   font-weight: 400 !important;
@@ -339,7 +339,7 @@
   --tw-ring-offset-shadow: 0 0 #0000 !important;
   --tw-shadow: 0 0 #0000 !important;
   background: transparent !important;
-  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-family: var(--bettergravity-font, var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif)) !important;
   font-size: 16px !important;
   line-height: 24px !important;
   font-weight: 400 !important;
@@ -370,7 +370,7 @@
   border-radius: 9999px !important;
   background: #171717 !important;
   color: #e6e6e6 !important;
-  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans Text", sans-serif) !important;
+  font-family: var(--bettergravity-font, var(--gemini-font, "Google Sans Flex", "Google Sans Text", sans-serif)) !important;
   font-size: 14px !important;
   line-height: normal !important;
   font-weight: 500 !important;
@@ -398,13 +398,13 @@
   background: transparent !important;
   border: 0 !important;
   border-radius: 9999px;
-  color: var(--gemini-text, #e6e6e6) !important;
-  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif);
+  color: var(--bettergravity-text, var(--gemini-text, var(--vscode-foreground, #e6e6e6))) !important;
+  font-family: var(--bettergravity-font, var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif));
   font-size: 13px;
   font-weight: 400;
 }
 [data-bettergravity-button="Pets"] > svg { width: 20px; height: 20px; }
-[data-bettergravity-button="Pets"]:hover { background: var(--gemini-row-hover, rgba(230, 230, 230, .08)) !important; }
+[data-bettergravity-button="Pets"]:hover { background: var(--bettergravity-row-hover, var(--gemini-row-hover, rgba(230, 230, 230, .08))) !important; }
 [data-bettergravity-button="Pets"][aria-pressed="true"] { background: #171717 !important; color: #fff !important; }
 [data-bettergravity-button="Pets"]:active > svg { transform: scale(.9); }
 [role="navigation"][aria-label="Sidebar"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed] {
@@ -419,14 +419,14 @@
   font-variation-settings: var(--gemini-font-axes, "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400);
 }
 [role="navigation"][aria-label="Sidebar"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed="true"] { background: #171717 !important; }
-[role="navigation"][aria-label="Sidebar"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed]:hover { background: var(--gemini-row-hover, rgba(230, 230, 230, .08)) !important; }
+[role="navigation"][aria-label="Sidebar"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed]:hover { background: var(--bettergravity-row-hover, var(--gemini-row-hover, rgba(230, 230, 230, .08))) !important; }
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button="Pets"] > svg { box-sizing: border-box; width: 32px; height: 32px; padding: 6px; }
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button="Pets"] > span { margin-left: 6px; }
 body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-row-sidebar"][data-selected="true"] { background-color: transparent !important; }
 body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate {
   font-weight: 400 !important;
   font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
-  color: var(--gemini-text, #e6e6e6) !important;
+  color: var(--bettergravity-text, var(--gemini-text, var(--vscode-foreground, #e6e6e6))) !important;
 }
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] button[type="button"][data-bettergravity-button="Pets"][aria-pressed] { width: 32px; justify-content: center; padding-inline: 0; }
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] [data-bettergravity-button="Pets"] > span { display: none; }

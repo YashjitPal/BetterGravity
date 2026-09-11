@@ -2759,6 +2759,7 @@ function ageFromStamp(text) {
  * `turnStartedAtMs` to give.
  */
 function datedAt(read, now) {
+  if (typeof read.sortAtMs === "number" && read.sortAtMs > 0) return read.sortAtMs;
   return read.age === null ? now : now - read.age;
 }
 
@@ -3398,10 +3399,16 @@ function closePetLibrary() {
 function openPetLibrary(refresh = true) {
   if (libraryDisposed) return;
   if (libraryPage?.isConnected) return;
-  // Use Skills' own navigation action so its editor and sidebar state close
-  // together. No dependency on Gemini App is needed when that plugin is absent.
   const skills = document.getElementById("gemini-skills-view");
   if (skills && skills.style.display !== "none") document.getElementById("gemini-skills-button")?.click();
+  for (const customView of document.querySelectorAll('[id$="-view"], [id$="-page"]')) {
+    if (customView !== libraryPage && customView.id !== "bettergravity-pets-view" && customView.id !== "gemini-skills-view" && customView.isConnected && customView.style.display !== "none") {
+      const btnId = customView.id.replace(/-view$|-page$/, "-button");
+      const btn = document.getElementById(btnId);
+      if (btn) btn.click();
+      else customView.style.display = "none";
+    }
+  }
   const viewport = petLibraryViewport();
   if (!viewport || viewport === document.body) return;
   closePetLibrary();
@@ -3438,7 +3445,7 @@ const leavePetLibrary = event => {
   if (!libraryPage || event.betterGravityKeepPetLibrary) return;
   const target = event.target;
   if (!(target instanceof Element) || target.closest("#bettergravity-pets-view, [data-bettergravity-button='Pets']")) return;
-  if (target.closest(`${NEW_CHAT}, [data-testid='history-button'], #gemini-skills-button, #gemini-scheduled-tasks-button, [data-testid='automations-button'], #gemini-new-project-button, ${ROW}, #gemini-experience-switch, a[href*='/c/'], [role='navigation'][aria-label='Sidebar'] a`)) closePetLibrary();
+  if (target.closest(`${NEW_CHAT}, [data-testid='history-button'], #gemini-skills-button, #gemini-scheduled-tasks-button, [data-testid='automations-button'], #gemini-new-project-button, ${ROW}, #gemini-experience-switch, a[href*='/c/'], [role='navigation'] a, [role='navigation'] button:not([data-bettergravity-button='Pets']), [data-testid*='button']`)) closePetLibrary();
 };
 const leavePetLibraryFromKeyboard = event => {
   if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "o" && !event.isComposing) closePetLibrary();
@@ -3510,8 +3517,11 @@ function statusOfRow(row) {
  * thread in front of you, and marks none of them selected.
  */
 function currentId() {
+  if (libraryPage?.isConnected) return "";
   const raw = document.querySelector(VIEW)?.getAttribute(ROW_ID) ?? "";
-  return raw === "conversation" ? "" : raw;
+  if (raw && raw !== "conversation") return raw;
+  const match = typeof window !== "undefined" && window.location?.pathname ? window.location.pathname.match(/\/c\/([a-zA-Z0-9_-]+)/) : null;
+  return match ? match[1] : "";
 }
 
 /**
@@ -3521,6 +3531,7 @@ function currentId() {
  * has nothing queued, and a failure as the last thing that happened.
  */
 function currentStatus() {
+  if (libraryPage?.isConnected) return { id: "", status: "" };
   const view = document.querySelector(VIEW);
   const id = currentId();
 
@@ -3552,6 +3563,12 @@ function currentTitle() {
     const row = document.querySelector(`${ROW}[${ROW_ID}="${CSS.escape(id)}"]`);
     const named = row === null ? "" : titleOfRow(row);
     if (named !== "") return named;
+    const store = findHostStore();
+    const summary = store?.getState()?.trajectorySummaries?.summaries?.[id];
+    const sTitle = summary?.summary || summary?.title;
+    if (typeof sTitle === "string" && sTitle.trim() && sTitle.trim() !== "<original_task>") {
+      return sTitle.trim();
+    }
   }
 
   const title = document.title.trim();
@@ -3568,6 +3585,273 @@ function currentTitle() {
 function summaryText() {
   const all = document.querySelectorAll(SUMMARY);
   return textOf(all[all.length - 1]).slice(0, 160);
+}
+
+function findFiber(node) {
+  if (typeof plugin.react?.getFiber === "function") {
+    const f = plugin.react.getFiber(node);
+    if (f) return f;
+  }
+  if (!node) return null;
+  for (const key of Object.getOwnPropertyNames(node)) {
+    if (key.startsWith("__reactFiber$") || key.startsWith("__reactInternalInstance$")) {
+      return node[key];
+    }
+  }
+  return null;
+}
+
+function formatActivityDetail(raw, toolName) {
+  const tn = String(toolName || "").toLowerCase();
+  if (tn === "view_file" || tn === "list_dir" || tn === "find_by_name") return "Analyzing files";
+  if (tn === "replace_file_content" || tn === "write_to_file") return "Editing files";
+  if (tn === "read_url_content" || tn === "search_web" || tn.includes("devtools") || tn.includes("computer-use") || tn.includes("browser")) return "Using browser";
+  if (tn === "grep_search") return "Searching codebase";
+  if (tn === "generate_image") return "Generating image";
+  if (tn === "invoke_subagent" || tn === "manage_subagents" || tn === "define_subagent") return "Running subagent";
+  if (tn === "ask_question") return "Waiting for input";
+
+  if (typeof raw !== "string") return "";
+  const s = raw.trim();
+  if (!s) return "";
+
+  if (/subagent/i.test(s)) return "Running subagent";
+
+  // 1. Commands & tests first so commands with file paths aren't confused with file viewing
+  if (/^Run\b|^Running\b|^Ran\b|^Execut/i.test(s) || /command\s+execution/i.test(s) || /^(node|pnpm|npm|git|bash|powershell)\b/i.test(s)) {
+    const clean = s.replace(/\s+/g, " ");
+    if (/\b(test|vitest|jest|pytest)\b/i.test(clean)) return "Running tests";
+    if (/\b(build|bundle|compile)\b/i.test(clean)) return "Building project";
+    if (clean.length <= 40 && /^Running:\s*\S+/i.test(clean)) return clean;
+    return "Running command";
+  }
+
+  // 2. Browser & Web interactions
+  if (
+    /\b(browser|chrome|devtools|url|http|navigate|page|screenshot|snapshot|appshot|click|dom|read_url)\b/i.test(s) ||
+    /^(using\s+browser|browsing|navigating|navigated|web\s+search|reading\s+url|clicked|clicking)/i.test(s)
+  ) {
+    return "Using browser";
+  }
+
+  // 3. File editing & writing
+  if (
+    /\b(edit|editing|edited|write|writing|written|replace|replacing|patch|patching|modify|modifying|save|saving|delete|deleting|create|creating)\b/i.test(s) &&
+    /\b(file|files|code|content|line|document|script|\.[a-z0-9]{1,4})\b/i.test(s)
+  ) {
+    return "Editing files";
+  }
+  if (/^(editing|edited|writing|modifying|patching|file\s+edit|created?\s+(new\s+)?file)\b/i.test(s)) {
+    return "Editing files";
+  }
+
+  // 4. File analysis & reading
+  if (
+    /\b(read|reading|view|viewing|analyz|analyzing|inspect|inspecting|explor|exploring|list|listing|scan|scanning)\b/i.test(s) &&
+    /\b(file|files|directory|folder|code|repo|codebase|workspace|\.[a-z0-9]{1,4})\b/i.test(s)
+  ) {
+    return "Analyzing files";
+  }
+  if (/^(explored|exploring|analyzing|reading|viewing|inspecting|scanning|directory\s+analysis|file\s+view)\b/i.test(s)) {
+    return "Analyzing files";
+  }
+
+  // 5. Codebase / text search
+  if (/\b(search|searching|searched|grep|ripgrep|find_by_name|grep_search)\b/i.test(s)) {
+    if (/\b(web|google|internet|url)\b/i.test(s)) return "Using browser";
+    return "Searching codebase";
+  }
+
+  const clean = s.replace(/\s+/g, " ");
+  if (/\b(test|vitest|jest|pytest)\b/i.test(clean)) return "Running tests";
+  if (/\b(build|building|compile|compiling|bundle|bundling)\b/i.test(clean)) return "Building project";
+  if (/\bimage\b/i.test(s) && /\b(generate|generating|create|creating)\b/i.test(s)) return "Generating image";
+
+  if (/^needs\s+approval|^waiting\s+on|^waiting\s+for/i.test(s)) return s.slice(0, 160);
+  if (/^thinking\b|^thought\b/i.test(s)) return "Thinking";
+
+  return s.length > 50 ? s.slice(0, 50).trim() + "…" : s;
+}
+
+function isElementVisible(el) {
+  if (!el) return false;
+  if (typeof el.checkVisibility === "function") {
+    return el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+  }
+  if (el.classList.contains("agent-cursor-hidden") || el.classList.contains("hidden")) {
+    return false;
+  }
+  if (el.hidden || el.style?.display === "none" || el.style?.visibility === "hidden" || el.style?.opacity === "0") {
+    return false;
+  }
+  if (el.offsetParent === null && el.isConnected && typeof window !== "undefined" && window.navigator && !/jsdom/i.test(window.navigator.userAgent)) {
+    if (el.style?.position !== "fixed" && !el.closest?.('[style*="position: fixed"], [style*="position:fixed"]')) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasActiveSpinner(el) {
+  if (!el) return false;
+  if (el.classList.contains("animate-spin") && isElementVisible(el)) return true;
+  const spinners = el.querySelectorAll('.animate-spin, [data-testid="status-loading-spinner"], [data-testid="loading-indicator"]');
+  for (const s of spinners) {
+    if (isElementVisible(s)) {
+      let hiddenParent = false;
+      let cur = s.parentElement;
+      while (cur && cur !== el) {
+        if (cur.hidden || cur.style?.display === "none" || cur.classList.contains("hidden") || cur.classList.contains("agent-cursor-hidden")) {
+          hiddenParent = true;
+          break;
+        }
+        cur = cur.parentElement;
+      }
+      if (!hiddenParent) return true;
+    }
+  }
+  return false;
+}
+
+function isBrowserActive() {
+  const cursor = document.querySelector('[data-testid="browser-agent-cursor"]');
+  if (cursor && isElementVisible(cursor) && !cursor.classList.contains("agent-cursor-hidden")) {
+    return true;
+  }
+  const viewport = document.querySelector('[data-testid*="browser-viewport"], [data-testid*="computer-use-overlay"]');
+  if (viewport && isElementVisible(viewport)) {
+    return true;
+  }
+  return false;
+}
+
+function isStepActive(el, text) {
+  if (!el || !text) return false;
+  const trimmed = text.trim();
+  if (/^(Ran|Explored|Searched|Edited|Written|Created|Canceled|Thought)\b/i.test(trimmed)) {
+    return false;
+  }
+  if (hasActiveSpinner(el)) {
+    return true;
+  }
+  if (/^(Running|Exploring|Searching|Editing|Writing|Creating|Thinking|Using)\b/i.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
+function getOnScreenActivityDetail() {
+  // 1. Browser or computer-use agent cursor active
+  if (isBrowserActive()) {
+    return "Using browser";
+  }
+
+  // 2. Running items panel (subagents, tasks, running commands)
+  const panel = document.querySelector('[data-testid="running-items-panel"]');
+  if (panel) {
+    let fiber = findFiber(panel);
+    while (fiber) {
+      const p = fiber.memoizedProps;
+      if (p?.subagents && Array.isArray(p.subagents) && p.subagents.length > 0) {
+        const activeSub = p.subagents.find((s) => !s.completedAtMs && !s.killed && !s.terminatedEarly && (s.status === 2 || s.isRunning === true));
+        if (activeSub) {
+          const subDesc = activeSub.liveToolSummary || activeSub.toolSummary || activeSub.subagentName;
+          const formatted = formatActivityDetail(subDesc, activeSub.toolName);
+          if (formatted && formatted !== "Thinking") return formatted;
+          return "Running subagent";
+        }
+      }
+      if (p?.tasks && Array.isArray(p.tasks) && p.tasks.length > 0) {
+        const activeTask = p.tasks.find((t) => !t.completedAtMs && !t.killed && !t.terminatedEarly && (t.status === 2 || t.isRunning === true));
+        if (activeTask) {
+          const desc = activeTask.liveToolSummary || activeTask.toolSummary || activeTask.taskName;
+          const formatted = formatActivityDetail(desc, activeTask.toolName);
+          if (formatted) return formatted;
+          return "Running command";
+        }
+      }
+      fiber = fiber.return;
+    }
+
+    const panelItem = panel.querySelector(".max-h-32");
+    if (panelItem && hasActiveSpinner(panelItem)) {
+      const label = panelItem.querySelector("span.text-sm");
+      const itemText = textOf(label || panelItem);
+      if (itemText) {
+        const formatted = formatActivityDetail(itemText);
+        if (formatted) return formatted;
+      }
+    }
+    const panelBtn = panel.querySelector("button");
+    if (panelBtn && hasActiveSpinner(panelBtn)) {
+      const btnLabel = panelBtn.querySelector("span.text-sm");
+      const btnText = textOf(btnLabel || panelBtn);
+      if (btnText) {
+        const formatted = formatActivityDetail(btnText);
+        if (formatted) return formatted;
+      }
+    }
+  }
+
+  // 3. Active steps in conversation view - search from bottom (latest) up
+  const convo = document.querySelector(VIEW);
+  if (convo) {
+    const isTurnRunning = document.querySelector(STOPPING) !== null;
+
+    const sel = '[data-testid="thinking-collapsible-trigger"], [data-testid="run-command-step"], [data-testid="tool-group-collapsible"], [data-testid*="tool-step"], [data-testid*="tool-call"]';
+    const candidates = convo.querySelectorAll(sel);
+    for (let i = candidates.length - 1; i >= 0; i--) {
+      const el = candidates[i];
+      const tid = el.getAttribute("data-testid") || "";
+      const text = textOf(el);
+      if (!text) continue;
+
+      if (!isStepActive(el, text)) continue;
+
+      if (tid === "thinking-collapsible-trigger") {
+        return "Thinking";
+      }
+      const formatted = formatActivityDetail(text);
+      if (formatted) return formatted;
+    }
+
+    // Streaming planner response text or thinking fallback when turn is running
+    if (isTurnRunning) {
+      const thinkingTrigger = convo.querySelector('[data-testid="thinking-collapsible-trigger"]');
+      if (thinkingTrigger && (hasActiveSpinner(thinkingTrigger) || /^thinking\b/i.test(textOf(thinkingTrigger)))) {
+        return "Thinking";
+      }
+
+      const summaries = convo.querySelectorAll(SUMMARY);
+      if (summaries.length > 0) {
+        const text = textOf(summaries[summaries.length - 1]).slice(0, 160);
+        if (text) return text;
+      }
+
+      return "Thinking";
+    }
+  }
+
+  return "";
+}
+
+function readDetail(read) {
+  if (read.status !== "running" && read.status !== "waiting") {
+    return "";
+  }
+  if (read.onScreen) {
+    const live = getOnScreenActivityDetail();
+    if (live) return live;
+  }
+  if (typeof read.detail === "string" && read.detail.trim()) {
+    const formatted = formatActivityDetail(read.detail);
+    if (formatted) return formatted;
+    return read.detail.trim();
+  }
+  if (read.onScreen && read.status === "running") {
+    return summaryText();
+  }
+  return "";
 }
 
 /** The row each entry was read from, so a click on its card can open it. */
@@ -3623,6 +3907,54 @@ const SEEN_MAX = 512;
  */
 const LIVE = new Set(["running", "waiting", "failed"]);
 
+function findHostStore() {
+  for (const selector of [ROW_LIST, VIEW, COMPOSER, ROW, "#root", "body"]) {
+    const anchor = document.querySelector(selector);
+    if (anchor === null) continue;
+    let fiber = findFiber(anchor);
+    for (let depth = 0; fiber && depth < 36; depth += 1, fiber = fiber.return) {
+      const contexts = [fiber.memoizedProps?.value];
+      let dependency = fiber.dependencies?.firstContext;
+      for (let index = 0; dependency && index < 32; index += 1, dependency = dependency.next) {
+        contexts.push(dependency.memoizedValue);
+      }
+      for (const context of contexts) {
+        const store = context?.store;
+        if (typeof store?.getState === "function") return store;
+      }
+    }
+  }
+  return null;
+}
+
+function findRouter() {
+  for (const selector of [VIEW, ROW_LIST, "#root", "body"]) {
+    const anchor = document.querySelector(selector);
+    if (!anchor) continue;
+    let fiber = findFiber(anchor);
+    for (let depth = 0; fiber && depth < 40; depth += 1, fiber = fiber.return) {
+      if (typeof fiber.memoizedProps?.router?.navigate === "function") {
+        return fiber.memoizedProps.router;
+      }
+      let dep = fiber.dependencies?.firstContext;
+      for (let i = 0; dep && i < 30; i += 1, dep = dep.next) {
+        if (typeof dep.memoizedValue?.navigate === "function" && dep.memoizedValue.parseLocation) {
+          return dep.memoizedValue;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function toTimestampMs(timeObj) {
+  if (!timeObj) return 0;
+  if (typeof timeObj === "number") return timeObj;
+  const sec = Number(timeObj.seconds || 0);
+  const nanos = Number(timeObj.nanos || 0);
+  return sec * 1000 + Math.round(nanos / 1e6);
+}
+
 /**
  * Read current work from Antigravity's live Redux store, including conversations
  * whose rows are virtualised, filtered, or collapsed. React context dependencies
@@ -3633,36 +3965,19 @@ const LIVE = new Set(["running", "waiting", "failed"]);
  * fields keep the DOM sensor; no last-known running flag is retained indefinitely.
  */
 function backgroundWorking() {
-  if (typeof plugin.react?.getFiber !== "function") return false;
-  const checked = new Set();
+  const store = findHostStore();
+  if (!store) return false;
   try {
-    for (const selector of [ROW_LIST, VIEW, COMPOSER, ROW]) {
-      const anchor = document.querySelector(selector);
-      if (anchor === null) continue;
-      let fiber = plugin.react.getFiber(anchor);
-      for (let depth = 0; fiber && depth < 32; depth += 1, fiber = fiber.return) {
-        const contexts = [fiber.memoizedProps?.value];
-        let dependency = fiber.dependencies?.firstContext;
-        for (let index = 0; dependency && index < 32; index += 1, dependency = dependency.next) {
-          contexts.push(dependency.memoizedValue);
-        }
-        for (const context of contexts) {
-          const store = context?.store;
-          if (typeof store?.getState !== "function" || checked.has(store)) continue;
-          checked.add(store);
-          const summaries = store.getState()?.trajectorySummaries?.summaries;
-          if (summaries === null || typeof summaries !== "object" || Array.isArray(summaries)) continue;
-          return Object.values(summaries).some((summary) => {
-            if (summary === null || typeof summary !== "object") return false;
-            // CascadeRunStatus: RUNNING=2, CANCELING=3, BUSY=4. notFullyIdle also
-            // covers background agents; waitingSteps are a pause for user input.
-            const active = summary.notFullyIdle === true || summary.hasActiveChildren === true ||
-              summary.status === 2 || summary.status === 3 || summary.status === 4;
-            return active && !(Array.isArray(summary.waitingSteps) && summary.waitingSteps.length > 0);
-          });
-        }
-      }
-    }
+    const summaries = store.getState()?.trajectorySummaries?.summaries;
+    if (summaries === null || typeof summaries !== "object" || Array.isArray(summaries)) return false;
+    return Object.values(summaries).some((summary) => {
+      if (summary === null || typeof summary !== "object") return false;
+      // CascadeRunStatus: RUNNING=2, CANCELING=3, BUSY=4. notFullyIdle also
+      // covers background agents; waitingSteps are a pause for user input.
+      const active = summary.notFullyIdle === true || summary.hasActiveChildren === true ||
+        summary.status === 2 || summary.status === 3 || summary.status === 4;
+      return active && !(Array.isArray(summary.waitingSteps) && summary.waitingSteps.length > 0);
+    });
   } catch {
     // Host internals can change independently of this plugin; the DOM still works.
   }
@@ -3684,6 +3999,26 @@ const dismissed = new Map();
 /** Older than the longest window below, so no dismissal outlives its card. */
 const DISMISSED_MS = 10080 * 60 * 1000;
 
+function isSubagentTrajectory(id, s) {
+  if (!s || typeof s !== "object") return false;
+  if (s.summary === "<original_task>") return true;
+  if (s.trajectoryMetadata?.subagentSpec) return true;
+  const rootId = s.trajectoryMetadata?.rootConversationId;
+  if (typeof rootId === "string" && rootId.length > 0 && rootId !== id) return true;
+  const parentId = s.trajectoryMetadata?.parentConversationId;
+  if (typeof parentId === "string" && parentId.length > 0 && parentId !== id) return true;
+  return false;
+}
+
+function getSubagentRootId(id, s) {
+  if (!s || typeof s !== "object") return null;
+  const rootId = s.trajectoryMetadata?.rootConversationId;
+  if (typeof rootId === "string" && rootId.length > 0 && rootId !== id) return rootId;
+  const parentId = s.trajectoryMetadata?.parentConversationId;
+  if (typeof parentId === "string" && parentId.length > 0 && parentId !== id) return parentId;
+  return null;
+}
+
 /**
  * Every row, as an id and a level, with the thread on screen consulted.
  *
@@ -3695,6 +4030,73 @@ const DISMISSED_MS = 10080 * 60 * 1000;
 function readRows() {
   const current = currentStatus();
   const rows = [];
+  const seenKeys = new Set();
+  const subagentActivityByRoot = new Map();
+  const waitingDetailsByRoot = new Map();
+  const runningDetailsByRoot = new Map();
+
+  const runningPanel = document.querySelector('[data-testid="running-items-panel"]');
+  if (runningPanel) {
+    let fiber = findFiber(runningPanel);
+    while (fiber) {
+      const p = fiber.memoizedProps;
+      const cascadeId = p?.cascadeId;
+      if (cascadeId && typeof cascadeId === "string") {
+        if (p?.subagents && Array.isArray(p.subagents)) {
+          const activeSub = p.subagents.find((s) => !s.completedAtMs && !s.killed && !s.terminatedEarly && (s.status === 2 || s.isRunning === true));
+          if (activeSub) {
+            const subDesc = activeSub.liveToolSummary || activeSub.toolSummary || activeSub.subagentName;
+            const formatted = formatActivityDetail(subDesc, activeSub.toolName);
+            runningDetailsByRoot.set(cascadeId, (formatted && formatted !== "Thinking") ? formatted : "Running subagent");
+          }
+        }
+        if (p?.tasks && Array.isArray(p.tasks)) {
+          const activeTask = p.tasks.find((t) => !t.completedAtMs && !t.killed && !t.terminatedEarly && (t.status === 2 || t.isRunning === true));
+          if (activeTask) {
+            const desc = activeTask.liveToolSummary || activeTask.toolSummary || activeTask.taskName;
+            const formatted = formatActivityDetail(desc, activeTask.toolName);
+            runningDetailsByRoot.set(cascadeId, formatted || "Running command");
+          }
+        }
+      }
+      fiber = fiber.return;
+    }
+  }
+
+  const store = findHostStore();
+  let summaries = null;
+  let localViewTimes = {};
+  if (store) {
+    try {
+      const state = store.getState();
+      summaries = state?.trajectorySummaries?.summaries;
+      localViewTimes = state?.conversation?.localLastViewedTimes || {};
+
+      if (summaries && typeof summaries === "object" && !Array.isArray(summaries)) {
+        for (const [id, s] of Object.entries(summaries)) {
+          if (!s || typeof s !== "object") continue;
+
+          // Check if trajectory is an active subagent/child task of another conversation
+          const isSubagent = isSubagentTrajectory(id, s);
+          const rootId = getSubagentRootId(id, s);
+          const isRunning = (s.status === 2 || s.notFullyIdle === true) && !(Array.isArray(s.waitingSteps) && s.waitingSteps.length > 0);
+
+          if (isSubagent && rootId && isRunning) {
+            subagentActivityByRoot.set(rootId, true);
+          }
+
+          if (Array.isArray(s.waitingSteps) && s.waitingSteps.length > 0) {
+            const wait = s.waitingSteps[0];
+            const waitDesc = wait?.actionDescription || wait?.requestedInteraction?.interaction?.value?.actionDescription;
+            if (waitDesc) waitingDetailsByRoot.set(id, "Needs approval: " + waitDesc);
+            else if (wait?.toolName) waitingDetailsByRoot.set(id, "Waiting on " + wait.toolName);
+          }
+        }
+      }
+    } catch {
+      // Store reading is defensive
+    }
+  }
 
   let index = 0;
   for (const row of document.querySelectorAll(ROW)) {
@@ -3704,6 +4106,17 @@ function readRows() {
     const onScreen =
       current.id !== "" ? id === current.id : row.getAttribute("data-selected") === "true";
     let status = statusOfRow(row);
+    let detail = "";
+
+    if (subagentActivityByRoot.has(id)) {
+      status = "running";
+      detail = runningDetailsByRoot.get(id) || "Running subagent";
+    } else if (runningDetailsByRoot.has(id)) {
+      status = "running";
+      detail = runningDetailsByRoot.get(id);
+    } else if (waitingDetailsByRoot.has(id)) {
+      detail = waitingDetailsByRoot.get(id);
+    }
 
     // The thread on screen only ever speaks for itself, and only when what it has
     // to say outranks what its own row said.
@@ -3711,15 +4124,86 @@ function readRows() {
       status = current.status;
     }
 
+    const key = id.length > 0 ? id : `row:${index}`;
+    seenKeys.add(key);
+
     rows.push({
       row,
       onScreen,
       status,
+      detail,
       place: index,
-      key: id.length > 0 ? id : `row:${index}`,
+      key,
       title: titleOfRow(row) || `Thread ${index}`,
       age: ageFromStamp(textOf(row.querySelector(ROW_STAMP)))
     });
+  }
+
+  // Read any conversations from the store that are not in the DOM
+  // (e.g. they belong to the other experience tab like Chat vs Work, or sidebar is collapsed/virtualized)
+  if (summaries && typeof summaries === "object" && !Array.isArray(summaries)) {
+    const now = Date.now();
+    let storePlace = index + 100;
+
+    for (const [id, s] of Object.entries(summaries)) {
+      if (!s || typeof s !== "object" || seenKeys.has(id)) continue;
+
+      // Skip subagents so they never appear as independent cards
+      if (isSubagentTrajectory(id, s)) continue;
+
+      const title = s.summary || s.title;
+      if (typeof title !== "string" || !title.trim() || title.trim() === "<original_task>") continue;
+
+      seenKeys.add(id);
+      storePlace += 1;
+
+      const onScreen = current.id !== "" && id === current.id;
+      let status = "idle";
+      let detail = "";
+
+      const hasWaiting = Array.isArray(s.waitingSteps) && s.waitingSteps.length > 0;
+      const hasActiveSub = subagentActivityByRoot.has(id);
+      const isRunning = (s.status === 2 || s.notFullyIdle === true || s.hasActiveChildren === true || hasActiveSub) && !hasWaiting;
+
+      if (hasWaiting) {
+        status = "waiting";
+        detail = waitingDetailsByRoot.get(id) || "Needs input";
+      } else if (hasActiveSub) {
+        status = "running";
+        detail = runningDetailsByRoot.get(id) || "Running subagent";
+      } else if (isRunning) {
+        status = "running";
+        detail = runningDetailsByRoot.get(id) || "";
+      } else if (onScreen && current.status !== "" && PRIORITY[current.status] < PRIORITY[status]) {
+        status = current.status;
+      } else {
+        const modTime = toTimestampMs(s.lastModifiedTime);
+        const viewTime = Math.max(
+          toTimestampMs(s.annotations?.lastUserViewTime),
+          toTimestampMs(localViewTimes[id])
+        );
+        if (modTime > viewTime && modTime > 0 && !onScreen) {
+          status = "review";
+        }
+      }
+
+      const modTime = toTimestampMs(s.lastModifiedTime);
+      const inputTime = toTimestampMs(s.lastUserInputTime);
+      const age = modTime > 0 ? Math.max(0, now - modTime) : null;
+      const sortAtMs = inputTime > 0 ? inputTime : (modTime > 0 ? modTime : now);
+
+      rows.push({
+        row: null,
+        onScreen,
+        status,
+        detail,
+        place: storePlace,
+        key: id,
+        title: title.trim(),
+        age,
+        sortAtMs
+      });
+    }
   }
 
   return { rows, current };
@@ -3799,7 +4283,7 @@ function readEntries() {
       key: read.key,
       status: read.status,
       title: read.title,
-      subtitle: read.status === "running" && read.onScreen ? summaryText() : "",
+      subtitle: readDetail(read),
       place: read.place,
       sortAtMs,
       updatedAtMs
@@ -3824,7 +4308,7 @@ function readEntries() {
       key,
       status: current.status,
       title: currentTitle() || "This thread",
-      subtitle: summaryText(),
+      subtitle: current.status === "running" ? (getOnScreenActivityDetail() || summaryText()) : "",
       // The thread you are looking at is the one you touched last, so it leads
       // whatever else is at its level and has no row to be placed by.
       place: 0,
@@ -4217,33 +4701,54 @@ function openThread(key) {
     focusComposer();
     return true;
   }
+
+  // If key belongs to a subagent or child trajectory, resolve to its root conversation
+  const store = findHostStore();
+  const state = store?.getState();
+  const summary = state?.trajectorySummaries?.summaries?.[key];
+  const rootId = (summary?.trajectoryMetadata?.rootConversationId && summary.trajectoryMetadata.rootConversationId !== key)
+    ? summary.trajectoryMetadata.rootConversationId
+    : (summary?.trajectoryMetadata?.parentConversationId && summary.trajectoryMetadata.parentConversationId !== key)
+      ? summary.trajectoryMetadata.parentConversationId
+      : key;
+
   const id = currentId();
-  if (key === CURRENT_KEY || (id !== "" && key === id)) {
+  if (rootId === CURRENT_KEY || (id !== "" && rootId === id)) {
     raise();
     return true;
   }
 
-  const known = found.get(key);
-  const row = known?.isConnected && (known.getAttribute(ROW_ID) === key || key.startsWith("row:"))
+  // 1. Try DOM row anchor first
+  const known = found.get(rootId);
+  const row = known?.isConnected && (known.getAttribute(ROW_ID) === rootId || rootId.startsWith("row:"))
     ? known
-    : [...document.querySelectorAll(ROW)].find((item) => item.getAttribute(ROW_ID) === key);
+    : [...document.querySelectorAll(ROW)].find((item) => item.getAttribute(ROW_ID) === rootId);
   if (row instanceof HTMLElement) {
-    raise();
-    /*
-     * The anchor, not the row.
-     *
-     * A sidebar row is a `<div>` with an empty `<a href="/c/{id}" class="absolute
-     * inset-0">` laid over the whole of it, and the content beside that anchor is
-     * `pointer-events-none` — so the anchor is what every real click lands on. A
-     * click on the row `<div>` is not a click on the anchor and does not activate
-     * it: nothing navigates, which is why pressing a card used to do nothing at
-     * all. Dispatching it at the anchor is the same event the workbench gets from
-     * a hand, so its router handles it the same way and the window is not
-     * reloaded.
-     */
     const link = row.querySelector(ROW_LINK);
     (link instanceof HTMLElement ? link : row).click();
     return true;
+  }
+
+  // 2. If not in DOM, verify it exists in store before attempting router or history navigation
+  const targetSummary = state?.trajectorySummaries?.summaries?.[rootId] || summary;
+  if (targetSummary) {
+    const projectId = targetSummary.trajectoryMetadata?.projectId;
+    const targetPath = (projectId && projectId !== "outside-of-project")
+      ? `/c/${rootId}?section=${projectId}`
+      : `/c/${rootId}`;
+
+    const router = findRouter();
+    if (router && typeof router.navigate === "function") {
+      try {
+        router.navigate({ to: targetPath });
+        return true;
+      } catch {}
+    }
+    try {
+      history.pushState(null, "", targetPath);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      return true;
+    } catch {}
   }
 
   return false;
@@ -4257,8 +4762,16 @@ function openThread(key) {
  * a fixed number of frames can leave the previous thread's composer in place.
  */
 async function selectThread(key) {
-  const expected = key === CURRENT_KEY ? currentId() : key;
-  if (!openThread(key)) {
+  const store = findHostStore();
+  const summary = store?.getState()?.trajectorySummaries?.summaries?.[key];
+  const targetKey = (summary?.trajectoryMetadata?.rootConversationId && summary.trajectoryMetadata.rootConversationId !== key)
+    ? summary.trajectoryMetadata.rootConversationId
+    : (summary?.trajectoryMetadata?.parentConversationId && summary.trajectoryMetadata.parentConversationId !== key)
+      ? summary.trajectoryMetadata.parentConversationId
+      : key;
+
+  const expected = targetKey === CURRENT_KEY ? currentId() : targetKey;
+  if (!openThread(targetKey)) {
     plugin.log.warn("the requested conversation is no longer available");
     return false;
   }

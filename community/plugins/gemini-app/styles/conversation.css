@@ -80,7 +80,125 @@
 /* Willow clips a long message at four lines (96px) before offering to expand. */
 [data-testid="lifted-context-menu-trigger"] > .bg-card > .flex-1 {
   padding: 0 !important;
+  overflow: hidden !important;
+  cursor: text !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  transition: max-height 300ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+[data-testid="lifted-context-menu-trigger"] > .bg-card > .flex-1:not([data-gemini-expanded="true"]) {
   max-height: 96px !important;
+}
+
+[data-testid="lifted-context-menu-trigger"] > .bg-card > .flex-1[data-gemini-expanded="true"] {
+  max-height: var(--willow-expanded-height, none) !important;
+}
+
+/* Willow inner clip container when attachments are present */
+.willow-bubble-clip {
+  padding: 0 !important;
+  overflow: hidden !important;
+  cursor: text !important;
+  box-sizing: border-box !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  transition: max-height 300ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+.willow-bubble-clip:not([data-gemini-expanded="true"]) {
+  max-height: 96px !important;
+}
+
+.willow-bubble-clip[data-gemini-expanded="true"] {
+  max-height: var(--willow-expanded-height, none) !important;
+}
+
+/* Willow UserMessageBubble Expand/Collapse Control */
+.willow-bubble-toggle-container {
+  pointer-events: none !important;
+  position: absolute !important;
+  bottom: 20px !important;
+  right: 20px !important;
+  height: 24px !important;
+  width: 40px !important;
+  z-index: 20 !important;
+}
+
+.willow-bubble-fade {
+  position: absolute !important;
+  right: 0 !important;
+  top: 50% !important;
+  z-index: 10 !important;
+  height: 22px !important;
+  width: 92px !important;
+  transform: translateY(-50%) !important;
+  background: linear-gradient(to right, transparent, var(--gemini-bubble-bg, #171717) 56px, var(--gemini-bubble-bg, #171717) 100%) !important;
+  pointer-events: none !important;
+}
+
+.willow-bubble-toggle-btn {
+  pointer-events: auto !important;
+  position: absolute !important;
+  right: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 20 !important;
+  display: flex !important;
+  height: 40px !important;
+  width: 40px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 8px !important;
+  color: #c4c7c5 !important;
+  cursor: pointer !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: color 150ms ease !important;
+}
+
+.willow-bubble-toggle-btn:hover {
+  color: #ffffff !important;
+}
+
+.willow-bubble-toggle-btn:focus,
+.willow-bubble-toggle-btn:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+.willow-bubble-toggle-pill {
+  display: flex !important;
+  height: 22px !important;
+  width: 32px !important;
+  flex-shrink: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 22px !important;
+  background: #1e1f20 !important;
+  transition: background-color 150ms ease, color 150ms ease !important;
+}
+
+.willow-bubble-toggle-btn:hover .willow-bubble-toggle-pill {
+  background: #2a2b2c !important;
+}
+
+.willow-bubble-icon {
+  font-family: var(--gemini-icon-font, "Luminous Symbols") !important;
+  font-variation-settings: var(--gemini-icon-axes-menu, "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320) !important;
+  font-size: 20px !important;
+  line-height: 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: inherit !important;
 }
 
 [data-testid="lifted-context-menu-trigger"] .whitespace-pre-wrap {
@@ -213,7 +331,9 @@
 
 /* Sent message text bubble when attachments are present */
 [data-testid="lifted-context-menu-trigger"]:has(img[alt*="User uploaded media" i]) [data-quotable="true"],
-[data-testid="lifted-context-menu-trigger"]:has([data-no-scroll-jump] button > img) [data-quotable="true"] {
+[data-testid="lifted-context-menu-trigger"]:has([data-no-scroll-jump] button > img) [data-quotable="true"],
+[data-testid="lifted-context-menu-trigger"]:has([data-no-scroll-jump].flex) [data-quotable="true"] {
+  position: relative !important;
   background: var(--gemini-bubble-bg) !important;
   border-radius: 40px !important;
   padding: 20px 28px !important;
@@ -247,6 +367,34 @@
 }
 
 /* --- 3c. The reply ------------------------------------------------------------- */
+
+/* Willow's text reveal. A newly promoted run fades once; its ancestors do not
+ * fade again. No blur, geometry animation, or permanent compositor hints. The
+ * parser removes the temporary runs after their last fade has finished. */
+@keyframes gemini-reveal-text {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.gemini-reveal-run,
+.gemini-reveal-block,
+.gemini-reveal-marker::before {
+  animation-name: gemini-reveal-text;
+  animation-duration: 610ms;
+  animation-timing-function: ease-out;
+  animation-delay: var(--gemini-reveal-delay, 0ms);
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gemini-reveal-run,
+  .gemini-reveal-block,
+  .gemini-reveal-marker::before {
+    animation: none !important;
+  }
+}
+
 [data-testid="planner-response-text"] {
   padding: 0 !important;
 }
@@ -1364,10 +1512,21 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   pointer-events: auto !important;
 }
 
+/* Wait for buffered text and its final fade, including late-mounted/future
+ * actions. Keep the row's layout space and existing appearance transition.
+ * Visibility also excludes hidden controls from keyboard focus/accessibility. */
+[data-testid="conversation-view"] .flex.items-start > [data-gemini-revealing="true"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
 /* Reorder buttons wrapper to the LEFT (order: 1) */
 [data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] > .flex.min-w-0 {
   order: 1 !important;
   justify-content: flex-start !important;
+  align-items: center !important;
   margin-inline-start: -6px !important;
   margin-left: -6px !important;
   flex-grow: 0 !important;
@@ -1379,8 +1538,8 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   gap: 2px !important;
 }
 
-/* Willow button styling: 32x32 circular pill */
-[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:not([aria-label="Fork Conversation"]):not([aria-label*="Fork"]) {
+/* Willow button styling: 32x32 circular pill for ALL turn action buttons */
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button {
   box-sizing: border-box !important;
   display: inline-flex !important;
   width: 32px !important;
@@ -1457,13 +1616,23 @@ button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork
   display: none !important;
 }
 
-/* Hide native Antigravity SVG icons inside buttons */
-[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button svg {
+/* Hide SVG icons only inside buttons that render Willow Luminous Symbols glyphs */
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Good response"], [aria-label="Bad response"], [aria-label="Copy"], [aria-label="Copied"], [data-fork-chat-btn]) svg {
   display: none !important;
 }
 
+/* For any future custom buttons with SVG icons, display centered 20px */
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button svg {
+  width: 20px !important;
+  height: 20px !important;
+  color: inherit !important;
+  fill: currentColor !important;
+  display: block !important;
+  pointer-events: none !important;
+}
+
 /* Render Willow's Luminous Symbols glyphs via ::before */
-[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button::before {
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Good response"], [aria-label="Bad response"], [aria-label="Copy"], [aria-label="Copied"], [data-fork-chat-btn])::before {
   font-family: var(--gemini-icon-font) !important;
   font-size: 20px !important;
   line-height: 20px !important;
@@ -1474,6 +1643,7 @@ button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork
   color: inherit !important;
   font-variation-settings: "FILL" 0, "wght" 320, "GRAD" 0, "ROND" 100, "opsz" 20 !important;
 }
+
 
 [data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button[aria-pressed="true"]::before {
   font-variation-settings: "FILL" 1, "wght" 320, "GRAD" 0, "ROND" 100, "opsz" 20 !important;

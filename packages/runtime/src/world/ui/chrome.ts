@@ -81,6 +81,14 @@ export const ICONS: Readonly<Record<IconName, IconPath>> = {
 };
 
 export function renderIcon(path: IconPath, size = 16): SVGElement {
+  let d = path;
+  if (typeof path === "string" && path.trim().startsWith("<svg")) {
+    const match = path.match(/<path[^>]+d=["']([^"']+)["']/);
+    if (match?.[1] !== undefined) {
+      d = match[1];
+    }
+  }
+
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   svg.setAttribute("width", String(size));
@@ -91,7 +99,7 @@ export function renderIcon(path: IconPath, size = 16): SVGElement {
   svg.style.flexShrink = "0";
 
   const node = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  node.setAttribute("d", path);
+  node.setAttribute("d", d);
   svg.append(node);
   return svg;
 }

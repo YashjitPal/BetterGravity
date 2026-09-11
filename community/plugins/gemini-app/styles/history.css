@@ -1,0 +1,241 @@
+/*
+ * Conversation History: Willow Search Tab Style
+ *
+ * Recreates the centered 610px layout, 64px rounded search pill,
+ * 17px "Recent" section heading, and clean 48px single-line chat rows
+ * from Willow's Search tab (apps/studio/src/shell/SearchChats.tsx & SearchChats.css).
+ */
+
+/* Viewport Scroller & Background */
+.h-full.w-full.flex.flex-col.items-center.overflow-y-auto:has([data-testid="history-search-input"]) {
+  background: #0f0f0f !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  scrollbar-gutter: stable !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+
+/* Centered Column Wrapper (Willow: min(610px, calc(100% - 32px))) */
+.h-full.w-full.flex.flex-col.items-center.overflow-y-auto > div:has([data-testid="history-search-input"]) {
+  width: min(610px, calc(100% - 32px)) !important;
+  max-width: 610px !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+  margin: 0 auto !important;
+}
+
+/* Sticky Header Area */
+.sticky.top-0:has([data-testid="history-search-input"]) {
+  background: #0f0f0f !important;
+  padding-top: 72px !important;
+  padding-bottom: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  border-bottom: 0 !important;
+}
+
+/* 64px Pill Search Bar */
+.sticky.top-0:has([data-testid="history-search-input"]) > div.flex.items-center.gap-2 {
+  order: 1 !important;
+  width: 100% !important;
+  height: 64px !important;
+  background: #1f1f1f !important;
+  border-radius: 9999px !important;
+  padding: 12px 20px !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  box-shadow: none !important;
+}
+
+/* Suppress extra native buttons (Display Options, More Actions) in search pill */
+.sticky.top-0:has([data-testid="history-search-input"]) > div.flex.items-center.gap-2 > button {
+  display: none !important;
+}
+
+/* Search input inner wrapper */
+.sticky.top-0:has([data-testid="history-search-input"]) div.relative:has(> [data-testid="history-search-input"]) {
+  background: transparent !important;
+  border: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+/* 24px Search Icon */
+.sticky.top-0:has([data-testid="history-search-input"]) div.relative:has(> [data-testid="history-search-input"]) > svg {
+  left: 0 !important;
+  width: 24px !important;
+  height: 24px !important;
+  color: #e6e6e6 !important;
+}
+
+/* Search Input */
+[data-testid="history-search-input"] {
+  padding-left: 36px !important;
+  padding-right: 44px !important;
+  height: 100% !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  color: #ffffff !important;
+  background: transparent !important;
+  outline: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+[data-testid="history-search-input"]::placeholder {
+  color: rgba(255, 255, 255, 0.55) !important;
+  opacity: 1 !important;
+}
+
+/* Willow Search Clear Button ('X') */
+.willow-search-clear-btn {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  border: 0 !important;
+  color: #e3e3e3 !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+  outline: none !important;
+}
+
+.willow-search-clear-btn[data-visible="true"] {
+  display: inline-flex !important;
+}
+
+.willow-search-clear-btn:hover {
+  background: rgba(230, 230, 230, 0.08) !important;
+}
+
+/* Willow "Recent" Section Heading (repositioned below search pill) */
+.sticky.top-0:has([data-testid="history-search-input"]) > div:first-child:not(.flex) {
+  order: 2 !important;
+  height: 48px !important;
+  margin-top: 16px !important;
+  padding: 8px 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  font-size: 0 !important;
+}
+
+.sticky.top-0:has([data-testid="history-search-input"]) > div:first-child:not(.flex)::after {
+  content: "Recent";
+  font-size: 17px !important;
+  line-height: 24px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+}
+
+/* Conversation Row Item (Willow: 48px single-line row) */
+[data-testid="conversation-row-history"] {
+  height: 48px !important;
+  padding: 8px 12px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  transition: background-color 0.15s ease !important;
+  box-sizing: border-box !important;
+}
+
+[data-testid="conversation-row-history"]:hover {
+  background: rgba(230, 230, 230, 0.08) !important;
+}
+
+/* Conversation Title */
+[data-testid="conversation-row-history"] span.truncate.text-sm {
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 17px !important;
+  line-height: 22px !important;
+  font-weight: 400 !important;
+  color: #e3e3e3 !important;
+}
+
+/* Suppress secondary subtitle (folder icon and project name) */
+[data-testid="conversation-row-history"] span.text-xs.text-muted-foreground {
+  display: none !important;
+}
+
+/* Timestamp / Date on Right */
+[data-testid="conversation-row-history"] span.text-xs.text-foreground.opacity-60,
+[data-testid="conversation-row-history"] [data-screenshot-volatile="true"] {
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 15px !important;
+  line-height: 18px !important;
+  font-weight: 400 !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  opacity: 1 !important;
+}
+
+/* Suppress loading spinners and status/archive icons in history rows date display */
+[data-testid="conversation-row-history"] svg.animate-spin,
+[data-testid="conversation-row-history"] .pointer-events-auto .flex.items-center > span svg {
+  display: none !important;
+}
+
+/* Only show the three-dot kebab menu button on row hover; hide pin, archive, and restore buttons */
+[data-testid="conversation-row-history"] [data-testid="conversation-pin-button"],
+[data-testid="conversation-row-history"] [data-testid="conversation-archive-button"],
+[data-testid="conversation-row-history"] [data-testid="conversation-restore-button"] {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+/* Row Action Buttons (Kebab Menu & Stop Button) on Hover */
+[data-testid="conversation-row-history"] button[data-testid="conversation-kebab"],
+[data-testid="conversation-row-history"] button[aria-label="Stop execution"] {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  color: rgb(230, 230, 230) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s ease !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+}
+
+[data-testid="conversation-row-history"] button[data-testid="conversation-kebab"]:hover,
+[data-testid="conversation-row-history"] button[aria-label="Stop execution"]:hover {
+  background: rgba(230, 230, 230, 0.12) !important;
+}
+
+/* Empty Search Results Notice */
+.text-center.py-8.text-muted-foreground.text-sm {
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 15px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  padding: 24px 8px !important;
+  text-align: center !important;
+}

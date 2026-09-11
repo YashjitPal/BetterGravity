@@ -188,10 +188,39 @@ describe("Fork Chat plugin functionality", () => {
     expect(flags["enable-fork-in-new-worktree"]).toBe(true);
   });
 
-  it("decorates titlebar with a prominent Fork conversation button", () => {
+  it("does not render a fork button in the top right titlebar area", () => {
     const titlebarBtn = document.querySelector("button[data-fork-titlebar-btn]");
-    expect(titlebarBtn).toBeTruthy();
-    expect(titlebarBtn?.getAttribute("aria-label")).toBe("Fork conversation");
+    expect(titlebarBtn).toBeNull();
+  });
+
+  it("reframes three dot menu Fork option as Copy session with workspace options", () => {
+    const menuEl = document.createElement("div");
+    menuEl.setAttribute("role", "menu");
+    menuEl.innerHTML = `
+      <div role="menuitem">
+        <span><svg></svg><span>Fork</span></span>
+      </div>
+      <div role="menuitem">
+        <span>Create fork in current workspace</span>
+      </div>
+      <div role="menuitem">
+        <span>Create fork in shared workspace</span>
+      </div>
+    `;
+    document.body.appendChild(menuEl);
+
+    new Function("plugin", "window", "document", "localStorage", pluginSource)(
+      { settings: { define: () => ({}), onChange: () => () => undefined }, ui: { toast: () => undefined, button: () => undefined, contextMenu: () => undefined, modal: () => undefined }, onDispose: () => undefined },
+      window,
+      document,
+      localStorage
+    );
+
+    const items = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
+    expect(items[0]?.textContent).toContain("Copy session");
+    expect(items[0]?.textContent).not.toContain("Fork");
+    expect(items[1]?.textContent).toContain("In current workspace");
+    expect(items[2]?.textContent).toContain("In shared workspace");
   });
 
   it("decorates user messages with a Fork button between Copy and Undo", () => {

@@ -931,7 +931,7 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
   padding: 0 !important;
   gap: 0 !important;
   width: 100% !important;
-  margin: 2px 0 !important;
+  margin: 0.5px 0 !important;
   box-sizing: border-box !important;
   display: flex !important;
   align-items: center !important;
@@ -966,7 +966,7 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
   min-height: 32px !important;
   max-height: 32px !important;
   padding: 0 !important;
-  margin: 2px 0 !important;
+  margin: 0.5px 0 !important;
   border-radius: 9999px !important;
   display: flex !important;
   align-items: center !important;
@@ -1665,6 +1665,16 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
   overflow: hidden !important;
 }
 
+/* Suppress native add-project entrypoint popover from flashing at top-left (0, 8) */
+div[role="presentation"]:has(button.main-row-trigger),
+div[role="dialog"]:has(button.main-row-trigger) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: fixed !important;
+  top: -9999px !important;
+  left: -9999px !important;
+}
+
 /* ---------------------------------------------------------------------------
  * Conversation List and Rows
  * ------------------------------------------------------------------------- */
@@ -1841,7 +1851,7 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
   -webkit-font-smoothing: antialiased;
 }
 
-/* The label, at the chat rows' own 13px/17px. */
+/* The label, at the chat rows' own 13px/17px ("All conversations" -> "Show less"). */
 [role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button::after {
   content: "All conversations";
   margin-left: 6px;
@@ -1858,6 +1868,10 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
   min-width: 0;
 }
 
+[role="navigation"][aria-label="Sidebar"] div[class*="pl-[22px]"] > button[data-gemini-expanded="true"]::after {
+  content: "Show less";
+}
+
 /* ---------------------------------------------------------------------------
  * Conversation Row Action Buttons & Hover Overlay
  * ------------------------------------------------------------------------- */
@@ -1865,14 +1879,24 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
   overflow: hidden !important;
 }
 
+/* Ensure resting container is flex when any status indicator (spinner, unread dot, attention dot, loading dots) is present */
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:has([data-testid="status-loading-spinner"]),
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:has([class*="animate-spin"]),
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:has(svg),
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:has([data-testid="status-unread-dot"]),
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:has([data-testid="attention-dot"]),
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:has([aria-label="Loading"]) {
+  display: flex !important;
+}
+
 /* Hide session timestamps (e.g. "2m", "7d", "3mo") next to conversation rows */
-[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:not(:has([data-testid="status-unread-dot"])):not(:has(svg)):not(:has([class*="animate-spin"])) {
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"]:not(:has([data-testid="status-unread-dot"])):not(:has([data-testid="status-loading-spinner"])):not(:has([data-testid="attention-dot"])):not(:has(svg)):not(:has([class*="animate-spin"])):not(:has([aria-label="Loading"])) {
   display: none !important;
 }
 
-[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > span,
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > span:not([aria-label="Loading"]),
 [data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > time,
-[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > :not([data-testid="status-unread-dot"]):not(svg):not([class*="animate-spin"]):not(:has([data-testid="status-unread-dot"])):not(:has(svg)) {
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > :not([data-testid="status-unread-dot"]):not([data-testid="status-loading-spinner"]):not([data-testid="attention-dot"]):not(svg):not([class*="animate-spin"]):not([aria-label="Loading"]):not(:has([data-testid="status-unread-dot"])):not(:has([data-testid="status-loading-spinner"])):not(:has(svg)):not(:has([aria-label="Loading"])) {
   display: none !important;
 }
 
@@ -1939,7 +1963,9 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
 
 /* Running conversation row: expand trailing action slot to fit kebab and stop button */
 [data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto,
-[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div {
+[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div,
+[data-testid="conversation-row-sidebar"]:has(button[aria-label*="Stop"]) .pointer-events-auto,
+[data-testid="conversation-row-sidebar"]:has(button[aria-label*="Stop"]) .pointer-events-auto > div {
   width: auto !important;
   min-width: 52px !important;
   max-width: none !important;
@@ -1949,7 +1975,8 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
 }
 
 /* Running row hover actions container: right-aligned with 4px gap between kebab and stop button */
-[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div > div.absolute {
+[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div > div.absolute,
+[data-testid="conversation-row-sidebar"]:has(button[aria-label*="Stop"]) .pointer-events-auto > div > div.absolute {
   left: auto !important;
   right: 0 !important;
   width: auto !important;
@@ -1962,7 +1989,11 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
 }
 
 /* Running row resting container: align loading spinner to the exact rightmost 24px slot */
-[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div > div:not(.absolute) {
+[data-testid="conversation-row-sidebar"]:has([data-testid="status-loading-spinner"]) .pointer-events-auto > div > div:not(.absolute),
+[data-testid="conversation-row-sidebar"]:has([class*="animate-spin"]) .pointer-events-auto > div > div:not(.absolute),
+[data-testid="conversation-row-sidebar"]:has([aria-label="Loading"]) .pointer-events-auto > div > div:not(.absolute),
+[data-testid="conversation-row-sidebar"]:has(button[aria-label="Stop execution"]) .pointer-events-auto > div > div:not(.absolute),
+[data-testid="conversation-row-sidebar"]:has(button[aria-label*="Stop"]) .pointer-events-auto > div > div:not(.absolute) {
   width: 24px !important;
   height: 24px !important;
   margin-left: auto !important;
@@ -1974,11 +2005,11 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
 /* Hide session timestamps (e.g. "2m", "7d", "3mo") next to conversation rows */
 [data-testid="conversation-row-sidebar"] span[data-screenshot-volatile="true"],
 [data-testid="conversation-row-sidebar"] time,
-[data-testid="conversation-row-sidebar"] .pointer-events-auto > div > div:last-child > span,
+[data-testid="conversation-row-sidebar"] .pointer-events-auto > div > div:last-child > span:not([aria-label="Loading"]),
 [data-testid="conversation-row-sidebar"] .pointer-events-auto > div > div:last-child > time,
-[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > span,
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > span:not([aria-label="Loading"]),
 [data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > time,
-[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > :not([data-testid="status-unread-dot"]):not(svg):not([class*="animate-spin"]):not(:has([data-testid="status-unread-dot"])):not(:has(svg)) {
+[data-testid="conversation-row-sidebar"] div[class*="group-hover:opacity-0"] > :not([data-testid="status-unread-dot"]):not([data-testid="status-loading-spinner"]):not([data-testid="attention-dot"]):not(svg):not([class*="animate-spin"]):not([aria-label="Loading"]):not(:has([data-testid="status-unread-dot"])):not(:has([data-testid="status-loading-spinner"])):not(:has(svg)):not(:has([aria-label="Loading"])) {
   display: none !important;
 }
 
@@ -2047,7 +2078,7 @@ body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testi
  * empty enough to be hidden. Opening the conversation clears the dot and the
  * pin comes back.
  * ------------------------------------------------------------------------- */
-[data-testid="conversation-row-sidebar"][data-pinned="true"]:not(:has(div[class*="group-hover:opacity-0"] [data-testid="status-unread-dot"])):not(:has(div[class*="group-hover:opacity-0"] svg)):not(:has(div[class*="group-hover:opacity-0"] [class*="animate-spin"])) .pointer-events-auto > div::before {
+[data-testid="conversation-row-sidebar"][data-pinned="true"]:not(:has(div[class*="group-hover:opacity-0"] [data-testid="status-unread-dot"])):not(:has(div[class*="group-hover:opacity-0"] [data-testid="status-loading-spinner"])):not(:has(div[class*="group-hover:opacity-0"] [data-testid="attention-dot"])):not(:has(div[class*="group-hover:opacity-0"] svg)):not(:has(div[class*="group-hover:opacity-0"] [class*="animate-spin"])):not(:has(div[class*="group-hover:opacity-0"] [aria-label="Loading"])) .pointer-events-auto > div::before {
   content: "push_pin" !important;
   font-family: var(--gemini-icon-font, "Luminous Symbols"), "Google Symbols", sans-serif !important;
   font-variation-settings: "FILL" 0, "wght" 330, "GRAD" 0, "ROND" 100, "opsz" 16 !important;

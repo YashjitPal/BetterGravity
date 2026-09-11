@@ -213,6 +213,54 @@ describe("Pets activity updates", () => {
     vi.advanceTimersByTime(2000);
     expect(updates.at(-1)).toMatchObject({ working: true, entries: [{ key: "working" }] });
   });
+
+  it("does not report Using browser when the browser cursor element is hidden", () => {
+    const cursor = document.createElement("div");
+    cursor.setAttribute("data-testid", "browser-agent-cursor");
+    cursor.classList.add("agent-cursor-element", "agent-cursor-hidden");
+    cursor.style.display = "none";
+    cursor.style.opacity = "0";
+    document.body.appendChild(cursor);
+
+    const entries = pet.readEntries() as { key: string; subtitle: string }[];
+    const current = entries.find((e) => e.key === "previous");
+    expect(current?.subtitle).not.toBe("Using browser");
+  });
+
+  it("does not report completed tools from transcript history and reverts to Thinking when running", () => {
+    const view = document.querySelector('[data-testid="conversation-view"]')!;
+    const cmdStep = document.createElement("div");
+    cmdStep.setAttribute("data-testid", "run-command-step");
+    cmdStep.textContent = "Ran pnpm test";
+    view.appendChild(cmdStep);
+
+    const entries = pet.readEntries() as { key: string; subtitle: string }[];
+    const current = entries.find((e) => e.key === "previous");
+    expect(current?.subtitle).toBe("Thinking");
+  });
+
+  it("does not report active tool statuses once the turn has completed into review", () => {
+    addThread("previous", null);
+    const view = document.querySelector('[data-testid="conversation-view"]')!;
+    const cmdStep = document.createElement("div");
+    cmdStep.setAttribute("data-testid", "run-command-step");
+    cmdStep.textContent = "Running pnpm test";
+    const spinner = document.createElement("span");
+    spinner.className = "animate-spin";
+    cmdStep.appendChild(spinner);
+    view.appendChild(cmdStep);
+
+    // Turn finishes and leaves an unread dot (review status)
+    document.querySelector('[data-tooltip-id="input-send-button-cancel-tooltip"]')?.remove();
+    const rowSpinner = document.querySelector('[data-cascade-id="previous"] [data-testid="status-loading-spinner"]')!;
+    rowSpinner.setAttribute("data-testid", "status-unread-dot");
+
+    const entries = pet.readEntries() as { key: string; status: string; subtitle: string }[];
+    const current = entries.find((e) => e.key === "previous");
+    expect(current).toBeDefined();
+    expect(current?.status).toBe("review");
+    expect(current?.subtitle).toBe("");
+  });
 });
 
 afterEach(() => {

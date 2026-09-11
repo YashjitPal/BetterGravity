@@ -32,23 +32,90 @@ function isBundle(url: string): boolean {
  * back through the handler that called it, and every request recurses. Streamed
  * bodies also need `duplex`, which is how Antigravity's own proxy handles the
  * same problem.
+ *
+ * Electron's protocol Request.signal does not receive renderer cancellation.
+ * It does cancel the returned response body, but net.fetch's body cancellation
+ * only destroys its reader, leaving the network request open. Tie that body
+ * cancellation to an explicit abort, including while an idle read is pending.
+ * Otherwise abandoned chat subscriptions exhaust the HTTP/2 stream limit.
  */
-function passThrough(request: Request): Promise<Response> {
+async function passThrough(request: Request): Promise<Response> {
+  const controller = new AbortController();
+  const abort = () => controller.abort(request.signal.reason);
+  request.signal.addEventListener("abort", abort, { once: true });
+  if (request.signal.aborted) abort();
+  const detach = () => request.signal.removeEventListener("abort", abort);
+
   const options: RequestInit & { duplex?: "half"; bypassCustomProtocolHandlers?: boolean } = {
     method: request.method,
     headers: request.headers,
     body: request.body,
+    signal: controller.signal,
     bypassCustomProtocolHandlers: true,
     ...(request.body ? { duplex: "half" as const } : {})
   };
-  return net.fetch(request.url, options);
+  let response: Response;
+  try {
+    response = await net.fetch(request.url, options);
+  } catch (error) {
+    detach();
+    throw error;
+  }
+  if (!response.body) {
+    detach();
+    return response;
+  }
+
+  const reader = response.body.getReader();
+  let finished = false;
+  const finish = () => {
+    finished = true;
+    detach();
+    reader.releaseLock();
+  };
+  const body = new ReadableStream<Uint8Array>({
+    async pull(stream) {
+      try {
+        const { done, value } = await reader.read();
+        if (finished) return;
+        if (done) {
+          finish();
+          stream.close();
+        } else {
+          stream.enqueue(value);
+        }
+      } catch (error) {
+        if (finished) return;
+        controller.abort(error);
+        finish();
+        stream.error(error);
+      }
+    },
+    async cancel(reason) {
+      if (finished) return;
+      finished = true;
+      detach();
+      // Abort before waiting for the reader: an idle subscription may never
+      // produce another chunk, and cancelling its reader alone leaks the RPC.
+      controller.abort(reason);
+      try {
+        await reader.cancel(reason);
+      } catch {
+        // Aborting the network can reject the reader's cancellation too.
+      } finally {
+        reader.releaseLock();
+      }
+    }
+  });
+  return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
 /**
  * Rewrites Antigravity's bundle on its way to the renderer.
  *
- * This intercepts the loopback origin only, and every failure path returns the
- * original response: a broken patch, an unreadable body, or a thrown handler all
+ * Only loopback JavaScript is rewritten; other HTTPS responses are streamed
+ * unchanged with cancellation forwarded to their network requests. A broken
+ * patch, an unreadable body, or a thrown handler returns the original response;
  * end with Antigravity loading exactly as it would without BetterGravity. The
  * interceptor is not installed at all unless a plugin actually declares patches.
  */

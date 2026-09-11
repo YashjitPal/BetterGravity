@@ -53,6 +53,31 @@ button[data-fork-chat-btn] {
   order: 4 !important;
 }
 
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button[data-fork-chat-btn],
+[data-testid="conversation-view"] div.flex.w-full.items-start button[data-fork-chat-btn] {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 4px !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  cursor: pointer !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button[data-fork-chat-btn]:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e6e6e6 !important;
+}
+
 /* Hide native Antigravity fork button so only one fork button ever exists under messages */
 [data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
 [data-testid="conversation-view"] div.flex.w-full.items-start button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),

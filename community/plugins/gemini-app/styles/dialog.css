@@ -217,3 +217,97 @@
   --tw-shadow: 0 0 #0000 !important;
 }
 
+/* Willow Dialog Option Cards (for multi-option selection e.g. New Project) */
+.willow-gdlg-options-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+
+.willow-gdlg-option-card {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  width: 100% !important;
+  padding: 14px 18px !important;
+  border-radius: 16px !important;
+  border: 0 !important;
+  background: rgb(23, 23, 23) !important;
+  color: rgb(230, 230, 230) !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  box-sizing: border-box !important;
+  transition: background-color 0.15s ease, transform 0.1s ease !important;
+  outline: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+}
+
+.willow-gdlg-option-card:hover {
+  background: rgb(30, 30, 30) !important;
+}
+
+.willow-gdlg-option-card:active {
+  background: rgb(38, 38, 38) !important;
+  transform: scale(0.99) !important;
+}
+
+.willow-gdlg-option-card:focus,
+.willow-gdlg-option-card:focus-visible {
+  outline: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-shadow: 0 0 #0000 !important;
+}
+
+.willow-gdlg-option-icon {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: rgb(215, 215, 215) !important;
+  flex-shrink: 0 !important;
+  transition: color 0.15s ease !important;
+}
+
+.willow-gdlg-option-card:hover .willow-gdlg-option-icon {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+.willow-gdlg-option-info {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  flex-grow: 1 !important;
+  gap: 2px !important;
+}
+
+.willow-gdlg-option-title {
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  color: rgb(240, 240, 240) !important;
+}
+
+.willow-gdlg-option-desc {
+  font-family: var(--gemini-font), "Google Sans Flex", "Google Sans", sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 16px !important;
+  color: rgb(160, 160, 160) !important;
+}
+
+

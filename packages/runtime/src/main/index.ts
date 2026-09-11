@@ -33,12 +33,19 @@ import { installSourceInterceptor } from "./intercept.js";
 import { OverlayWindow } from "./overlay.js";
 import { PresenceConnection } from "./presence.js";
 import { PetLibrary } from "./pets.js";
+import { ComputerUseService } from "./computer-use.js";
 
 const WATCH_DEBOUNCE_MS = 150;
 
-function buildState(paths: RuntimePaths, context: RuntimeContext, pets: PetLibrary): RuntimeState {
+function buildState(
+  paths: RuntimePaths,
+  context: RuntimeContext,
+  pets: PetLibrary,
+  computerUse?: ComputerUseService
+): RuntimeState {
   const settings = readSettings(paths.settings);
   pets.sync(settings);
+  computerUse?.sync(settings);
   const themes = readThemes(paths.themes, settings);
   const plugins = readPlugins(paths.plugins, settings);
   return {
@@ -183,9 +190,10 @@ function registerChannels(
   context: RuntimeContext,
   storage: PluginStorageStore,
   gemini: GeminiTranslator,
-  pets: PetLibrary
+  pets: PetLibrary,
+  computerUse: ComputerUseService
 ): void {
-  ipcMain.handle(CHANNEL.getState, () => buildState(paths, context, pets));
+  ipcMain.handle(CHANNEL.getState, () => buildState(paths, context, pets, computerUse));
 
   const petOwner = (owner: string) => {
     if (owner !== "pets") throw new Error("The pet library belongs to the Pets plugin.");
@@ -214,6 +222,7 @@ function registerChannels(
   ipcMain.handle(CHANNEL.setSettings, (_event, patch: SettingsPatch) => {
     const next = applyPatch(readSettings(paths.settings), patch ?? {});
     writeSettings(paths.settings, next);
+    computerUse.sync(next);
     // The translator follows the enabled list, not just the settings a running
     // plugin sends it. Switching the plugin off has to put chat back on the
     // bundled subscription there and then, and switching it on has to arm the
@@ -221,7 +230,7 @@ function registerChannels(
     const owner = readGeminiPlugins(paths.plugins, next)[0];
     if (owner === undefined) gemini.suspend();
     else gemini.resume(() => storedGeminiConfig(storage, owner));
-    const state = buildState(paths, context, pets);
+    const state = buildState(paths, context, pets, computerUse);
     broadcast(state);
     return state;
   });
@@ -242,7 +251,7 @@ function registerChannels(
   // Adding or deleting content changes what is on disk, so each one answers with
   // the rebuilt state; the watcher would otherwise race the reply.
   const afterChange = (result: ContentResult): ContentResult => {
-    if (result.ok) broadcast(buildState(paths, context, pets));
+    if (result.ok) broadcast(buildState(paths, context, pets, computerUse));
     return result;
   };
 
@@ -288,7 +297,9 @@ export function activate(context: RuntimeContext): void {
   const gemini = new GeminiTranslator(paths.gemini);
   const pets = new PetLibrary(paths.root, paths.plugins, app.getPath("home"));
   pets.sync(readSettings(paths.settings));
-  registerChannels(paths, context, storage, gemini, pets);
+  const computerUse = new ComputerUseService(paths.plugins, app.getPath("home"));
+  computerUse.sync(readSettings(paths.settings));
+  registerChannels(paths, context, storage, gemini, pets, computerUse);
   registerPresenceChannels(presence);
   registerOverlayChannels(overlay);
   registerGeminiChannels(gemini);
@@ -322,6 +333,7 @@ export function activate(context: RuntimeContext): void {
     presence.dispose();
     overlay.dispose();
     pets.dispose();
+    computerUse.dispose();
     void gemini.dispose();
     if (readSettings(paths.settings).reapplyAfterHostUpdate) {
       spawnGuardian(path.join(context.runtimeDirectory, "runtime"), paths.log);
@@ -342,7 +354,7 @@ export function activate(context: RuntimeContext): void {
       const patches = readPluginPatches(paths.plugins, readSettings(paths.settings));
       installSourceInterceptor(target, patches);
 
-        watchForChanges(paths, () => broadcast(buildState(paths, context, pets)));
+        watchForChanges(paths, () => broadcast(buildState(paths, context, pets, computerUse)));
         logger.info(`Runtime active. Preload registered via ${method}.`);
       } catch (error) {
         logger.error("Runtime activation failed after app ready. Antigravity continues unmodified.", error);

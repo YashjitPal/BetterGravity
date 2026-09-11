@@ -1,0 +1,266 @@
+/* Agent Cursor CSS styles & Neon Glow Filters */
+
+:root {
+  --browser-agent-cursor-glow-color: #007aff;
+}
+
+[data-theme="dark"], .electron-dark {
+  --browser-agent-cursor-glow-color: #38bdf8;
+}
+
+.agent-cursor-container {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 99999;
+}
+
+.agent-cursor-element {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  transform-origin: 12px 12px;
+  will-change: transform, opacity;
+}
+
+.agent-cursor-element.agent-cursor-hidden {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.agent-cursor-asset {
+  display: block;
+  width: 23px;
+  height: 24px;
+  transform-origin: 0 0;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--browser-agent-cursor-glow-color) 90%, transparent))
+          drop-shadow(0 0 15px color-mix(in srgb, var(--browser-agent-cursor-glow-color) 48%, transparent));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+
+/* Codex Computer Use Plugin Components CSS */
+
+.cu-surface {
+  background-color: var(--oai-surface-primary, #ffffff);
+  color: var(--oai-text-primary, #0d0d0d);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "OpenAI Sans", sans-serif;
+}
+
+[data-theme="dark"] .cu-surface, .electron-dark .cu-surface {
+  background-color: var(--oai-surface-primary, #212121);
+  color: var(--oai-text-primary, #ececec);
+}
+
+/* Modal Overlay */
+.cu-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.cu-modal-card {
+  background: var(--oai-surface-card, #ffffff);
+  border: 1px solid var(--oai-border-subtle, rgba(0, 0, 0, 0.1));
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .cu-modal-card, .electron-dark .cu-modal-card {
+  background: var(--oai-surface-card, #2f2f2f);
+  border: 1px solid var(--oai-border-subtle, rgba(255, 255, 255, 0.1));
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* Picture in Picture Floating Player */
+.cu-pip-container {
+  position: relative;
+  width: 320px;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--oai-border-subtle, rgba(0, 0, 0, 0.15));
+  background: #000;
+}
+
+.cu-pip-stream {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Mention Pill */
+.cu-mention-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background-color: var(--oai-mention-bg, rgba(0, 122, 255, 0.1));
+  color: var(--oai-mention-text, #007aff);
+  border: 1px solid var(--oai-mention-border, rgba(0, 122, 255, 0.25));
+}
+
+
+
+/* Cadenced Shimmer with steps(48, end) */
+@keyframes cu-shimmer-sweep {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(125%); }
+}
+
+@keyframes cu-shimmer-highlight {
+  0% { transform: translateX(50%); }
+  100% { transform: translateX(-125%); }
+}
+
+.cu-cadenced-shimmer {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-secondary, #8e8e93);
+  overflow: hidden;
+}
+
+.cu-cadenced-sweep {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  overflow: hidden;
+  transform: translateX(-50%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 20% 30%, transparent 50% 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 20% 30%, transparent 50% 100%);
+  animation: cu-shimmer-sweep 1.2s steps(48, end) infinite;
+}
+
+.cu-cadenced-highlight {
+  display: block;
+  width: 100%;
+  transform: translateX(50%);
+  color: var(--color-text, #ffffff);
+  animation: cu-shimmer-highlight 1.2s steps(48, end) infinite;
+}
+
+/* Working Dot Wave */
+@keyframes cu-working-dot-wave {
+  0%, 10%, 100% { transform: translateY(0); }
+  25%           { transform: translateY(1.2px); }
+  55%           { transform: translateY(-2px); }
+  70%           { transform: translateY(0); }
+}
+
+.cu-dot-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+}
+
+.cu-dot {
+  display: inline-block;
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background-color: var(--color-accent-blue, #007aff);
+  animation: cu-working-dot-wave 1s ease-in-out infinite;
+}
+
+.cu-dot:nth-child(1) { animation-delay: 0ms; }
+.cu-dot:nth-child(2) { animation-delay: 100ms; }
+.cu-dot:nth-child(3) { animation-delay: 200ms; }
+
+/* Activity container & detail solid */
+.cu-activity-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 6px 0;
+  border-radius: 10px;
+  background: var(--card, #2c2c2e);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  font-size: 13px;
+  width: fit-content;
+}
+
+.cu-detail-solid {
+  font-weight: 600;
+  -webkit-text-fill-color: currentColor;
+}
+
+.cu-floating-activity {
+  position: fixed;
+  bottom: 84px;
+  right: 24px;
+  z-index: 99998;
+  pointer-events: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  animation: cu-fade-in 0.25s ease-out;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+@keyframes cu-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cu-btn-primary {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background-color: #007aff;
+  color: #ffffff;
+  border: none;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.cu-btn-primary:hover {
+  background-color: #0062cc;
+}
+
+.cu-btn-secondary {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background-color: transparent;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  color: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.cu-btn-secondary:hover {
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+.cu-btn-cancel {
+  padding: 8px 16px;
+  border-radius: 8px;
+  background-color: transparent;
+  border: none;
+  color: gray;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.cu-btn-cancel:hover {
+  color: inherit;
+}
+

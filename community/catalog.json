@@ -1,7 +1,225 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-09T19:38:03.295Z",
+  "generatedAt": "2026-09-11T20:11:25.934Z",
   "entries": [
+    {
+      "id": "computer-use",
+      "kind": "plugin",
+      "name": "Computer Use",
+      "description": "Control desktop apps on Windows through Computer Use, with the 7-spring cursor physics engine, Bezier trajectory planner, tool activity indicators, and computer-use tools from OpenAI Codex.",
+      "version": "1.0.0",
+      "author": "OpenAI & BetterGravity Community",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/computer-use",
+      "bytes": 941775,
+      "files": [
+        {
+          "name": "assets/agent-cursor.png",
+          "bytes": 1843,
+          "sha256": "c575bc277bab1b09518433aa465be98a8c04b305fe78ed674bf016bfa350e491"
+        },
+        {
+          "name": "assets/computer-history-plugin-icon.png",
+          "bytes": 34435,
+          "sha256": "efd663a71fcaef9c3ec97f9536a0a2b527d9c8c8a508a0a902b33431e625c426"
+        },
+        {
+          "name": "assets/computer-use-plugin-icon.png",
+          "bytes": 21091,
+          "sha256": "4274fafa25faaec8c7638a9a6a00db4d77fbaa81077e7d24dd447ae8ed5bf75d"
+        },
+        {
+          "name": "assets/computer.svg",
+          "bytes": 359,
+          "sha256": "ba87b32f635b215ef1085fe581f1898020665346fedd3a44b20a95543d5662f2"
+        },
+        {
+          "name": "assets/dialog-artwork-waiting-computer.png",
+          "bytes": 402010,
+          "sha256": "eb575ce0eb372e2afedafa68c818665a7130cfa1da4fa1a408592861c84e92dc"
+        },
+        {
+          "name": "assets/microsoft-excel-large.png",
+          "bytes": 70561,
+          "sha256": "ac046048bb27da1974eb11d88b22083326130d03b48eee993cf0a12e2a4487be"
+        },
+        {
+          "name": "assets/microsoft-powerpoint-large.png",
+          "bytes": 76980,
+          "sha256": "65c144cb1339f9056aaa32bf8c4f20cb99bf8a3bf5c373955b7ecd454ad4f17c"
+        },
+        {
+          "name": "assets/text-cursor-input.svg",
+          "bytes": 456,
+          "sha256": "7130b3a5836c27a3b0a503e6fe3ce688033597764509cbc1dee44b859e87ddbf"
+        },
+        {
+          "name": "assets/text-cursor.svg",
+          "bytes": 344,
+          "sha256": "76b5ce2a703bd3d3d49af684c9a2d4665e1683f26435736d0d508f7c9f9dbaf5"
+        },
+        {
+          "name": "bin/run-action.mjs",
+          "bytes": 1453,
+          "sha256": "d2538ec6f14bf82a55420a16e200dcb429d616ba7a7c4530e96674799a00efbc"
+        },
+        {
+          "name": "bin/windows-native-runner.cs",
+          "bytes": 31130,
+          "sha256": "6bd524cffef4db75da03cea4b70978eb294855824630091d764800f0b95e70ab"
+        },
+        {
+          "name": "bin/windows-native-runner.exe",
+          "bytes": 22016,
+          "sha256": "a4d467e79c5569e810998bf11039bee5db940268269ed8368e3071dec23da98e"
+        },
+        {
+          "name": "bin/windows-screen-overlay-debug.exe",
+          "bytes": 26112,
+          "sha256": "04861554d3f6c2b489d9c02dbdc838c0038d429f0f97e1e9cf2858914dd70569"
+        },
+        {
+          "name": "bin/windows-screen-overlay.cs",
+          "bytes": 54006,
+          "sha256": "bbbacc83d535ba318bcde0d0b98bbb9eda2d0589b969d198e50dbf0b19c2acb4"
+        },
+        {
+          "name": "bin/windows-screen-overlay.exe",
+          "bytes": 40960,
+          "sha256": "b6b8c21427da083bad6752b877744e76fd54452a9ac5cdde4f82a82975224fff"
+        },
+        {
+          "name": "core/approval-manager.js",
+          "bytes": 3482,
+          "sha256": "aa0a2540f96e7b26b10ea72317cc67417ed3be98608c40067f224d0d240dabdb"
+        },
+        {
+          "name": "core/capture-bridge.js",
+          "bytes": 3137,
+          "sha256": "98135af42cbdec299d19ee866decb23800d8121ddcfef32d8a4e174c9860b08d"
+        },
+        {
+          "name": "core/cua-service-bridge.js",
+          "bytes": 2802,
+          "sha256": "14012804504b92de4676b13bab58b1f225cceb2ab5429fe1d2c0bd62f2895a4c"
+        },
+        {
+          "name": "core/native-pipe-server.js",
+          "bytes": 6001,
+          "sha256": "a1b3d2d46781f93230c4ecbeaa8f31f85df0e379c78418bc4f1fda4702db8583"
+        },
+        {
+          "name": "core/types.ts",
+          "bytes": 1397,
+          "sha256": "f94638c6cd6de7c35ffe887bae465b98db4a02c39765be80aba6d22edc528ae9"
+        },
+        {
+          "name": "core/windows-capture-native-bridge.js",
+          "bytes": 5657,
+          "sha256": "023afb15045e2cc8397837d1c84371f83b8acba6b88a5d7fe7bb22ede9d81343"
+        },
+        {
+          "name": "core/windows-helper-transport.js",
+          "bytes": 6388,
+          "sha256": "0b0db969a832448c03d1afd41980d0752155c005c98856297ec1924d06301ec8"
+        },
+        {
+          "name": "core/windows-icon-extractor.js",
+          "bytes": 6039,
+          "sha256": "24d417f26d069ba705932744c52a77725e82b8dce9da388744916d4f5b8e7f4d"
+        },
+        {
+          "name": "core/windows-native-runner.js",
+          "bytes": 8907,
+          "sha256": "8dac46c28f2e6198d484d2a52c209749ced8811b92c70a928b1321df26d01140"
+        },
+        {
+          "name": "cursor/agent-cursor.png",
+          "bytes": 1843,
+          "sha256": "c575bc277bab1b09518433aa465be98a8c04b305fe78ed674bf016bfa350e491"
+        },
+        {
+          "name": "cursor/cursor-asset.js",
+          "bytes": 4134,
+          "sha256": "2fad91e2f699fe1045324c1346d6913e2e3396630190a857e794e77c079878a1"
+        },
+        {
+          "name": "cursor/cursor-overlay.jsx",
+          "bytes": 1580,
+          "sha256": "afbe764bd9c5e0918da2c53c4e5153d31b1c7e5f19c9ea98351b457046c4c5b3"
+        },
+        {
+          "name": "cursor/cursor-physics.js",
+          "bytes": 10986,
+          "sha256": "ed973cc76411cd2b0ed3242b54d361de164a2aaf41d0e3a306180b78122ea644"
+        },
+        {
+          "name": "index.js",
+          "bytes": 36103,
+          "sha256": "f1cabc000445d6714560ed88bdbec2210fdf80dc47c1ffa7404d14fb52fee248"
+        },
+        {
+          "name": "mcp-server.cjs",
+          "bytes": 4360,
+          "sha256": "1f2598916acd31e87a2aa84f92a2c1d262bce8900b8b7f5de9751247bc7a7cc4"
+        },
+        {
+          "name": "package.json",
+          "bytes": 111,
+          "sha256": "924ca6fac889d64c08089697c4e93c40aabdd6381202ed868997bac582c459b0"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 429,
+          "sha256": "c21c3b545d826507ab8c1609bd722aea9f6b616272952ae5eecfba8e309e69f3"
+        },
+        {
+          "name": "skills/computer-use/scripts/run_action.js",
+          "bytes": 1680,
+          "sha256": "40c2188ed561678b778e30c435e885a604526edfd470912f0a92622e74c86a48"
+        },
+        {
+          "name": "skills/computer-use/scripts/run-action.mjs",
+          "bytes": 1453,
+          "sha256": "d2538ec6f14bf82a55420a16e200dcb429d616ba7a7c4530e96674799a00efbc"
+        },
+        {
+          "name": "skills/computer-use/SKILL.md",
+          "bytes": 5053,
+          "sha256": "7f0ed7e9df778166ed03742a4a42e4e57a9fdd3681e2d84d2449f2fc1ffa6a6b"
+        },
+        {
+          "name": "styles/computer-use.css",
+          "bytes": 6530,
+          "sha256": "838cd96e687c65dd11a10973e930e9ac30e659bd19ce8ef68229c256f03e18cc"
+        },
+        {
+          "name": "tools/actions.js",
+          "bytes": 4936,
+          "sha256": "c153508e129759679ea49937a42e944aad779310d015f539732afe147e8f3e87"
+        },
+        {
+          "name": "tools/index.js",
+          "bytes": 13341,
+          "sha256": "dc997e3f68fc4c19fc68aee4d6d193b5e2b9dcbdb9e0bdedba71e993ba2f3a5d"
+        },
+        {
+          "name": "tools/schemas.js",
+          "bytes": 10411,
+          "sha256": "111562c3dd2f86c7f015ef8dad9cb8e095e75d97e0d9e314ded485689c2209d8"
+        },
+        {
+          "name": "tools/tool-labels.js",
+          "bytes": 6801,
+          "sha256": "da4227d9da9b48815ec2203467d8bbc9729dfc75f9602f92a486842861d64747"
+        },
+        {
+          "name": "tools/windows-actions.js",
+          "bytes": 4458,
+          "sha256": "ee62a71df246aac669fe5ee57b0f578c53f9402eed4c54e98c9fd22a590554a0"
+        }
+      ]
+    },
     {
       "id": "discord-rich-presence",
       "kind": "plugin",
@@ -34,12 +252,12 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/fork-chat",
-      "bytes": 54132,
+      "bytes": 58281,
       "files": [
         {
           "name": "index.js",
-          "bytes": 39195,
-          "sha256": "d678603d44087a571a4a9d7b1d5c21e82e9bb8fef1a3a031bb5be47688056669"
+          "bytes": 42389,
+          "sha256": "b6bfc1833635738b5ad57e605505f9ab0ad57d0a55076b7640668f65e33fa20f"
         },
         {
           "name": "plugin.json",
@@ -53,8 +271,8 @@
         },
         {
           "name": "styles/fork.css",
-          "bytes": 13236,
-          "sha256": "0924c67eb9a739cb8cae18ee9f25024bf79a042d9140d7a3ba4c53a4701523a6"
+          "bytes": 14191,
+          "sha256": "2777430fd249857345d00dc60f979ff20bb88ece6365e7166a02552fac5801ef"
         }
       ]
     },
@@ -90,7 +308,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 685989,
+      "bytes": 854597,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -109,28 +327,33 @@
         },
         {
           "name": "index.js",
-          "bytes": 257284,
-          "sha256": "9a8a6c8d699ec18d9290a4d51d5f6dfc2381fc754f532436dd558586491b1554"
+          "bytes": 347456,
+          "sha256": "93d712a40deeaf96a3862740ba5727e94c47d8e2e3b3afbd720191c2e6f98b18"
         },
         {
           "name": "plugin.json",
-          "bytes": 6170,
-          "sha256": "224c0c23ecf251e0ffc7740c4fd50477b934f621af81b5934137981dbeb875c4"
+          "bytes": 21181,
+          "sha256": "e6100296217b01654a69888d8d6f465b03150a7a6ae772f9170e1c4198cc03ed"
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 67094,
-          "sha256": "e4e28a3c648845f6045551c2b3d3f26e644605ad44ef9e8eeca3258c18d0ae3f"
+          "bytes": 72838,
+          "sha256": "0e449c16fc4870f1fa47e741d33aec3d1961a04c6b1673e9e66b1add01e27a93"
         },
         {
           "name": "styles/dialog.css",
-          "bytes": 6599,
-          "sha256": "3f59ed40c508ee9e7586ee880f5f69f6a2cfe53ae71add2f7ac199c97b1c10f7"
+          "bytes": 9263,
+          "sha256": "1affba6d385793c4bdb97ce9bffddb5d04b8a519cca2fb0664eddaa0db76f9f4"
         },
         {
           "name": "styles/gemini-app.css",
-          "bytes": 2501,
-          "sha256": "e368ecde53c61eb8aa09ca36d79a513116370546d6426c97fe64223a908c40ec"
+          "bytes": 2549,
+          "sha256": "d61bf57731fafc40162ff42cd714f15415af81c577f690e37ff5cba45940e729"
+        },
+        {
+          "name": "styles/history.css",
+          "bytes": 8394,
+          "sha256": "72dc20a14502bc91cc5ffd581ac150407fcdd8942a2f617a69e2b14448696e97"
         },
         {
           "name": "styles/home-composer.css",
@@ -158,9 +381,14 @@
           "sha256": "58292ae88f6b0e57f1d53f007b073021d8f851248975516931852e0e48f0b27a"
         },
         {
+          "name": "styles/schedules.css",
+          "bytes": 43615,
+          "sha256": "24c6f87157aae172914243d93cbbf4375bbe540702064766e859e143749cd407"
+        },
+        {
           "name": "styles/sidebar.css",
-          "bytes": 121019,
-          "sha256": "629b49a70321880a019cb90edc7d37d84d443fe66a144261befc48b62121244d"
+          "bytes": 123979,
+          "sha256": "dabcd2c23c4bd44b3fdd5c35a9669c1ef1e39618030c4f35789b3170704fc15b"
         },
         {
           "name": "styles/skills-tab.css",
@@ -188,7 +416,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/pets",
-      "bytes": 1457416,
+      "bytes": 1478074,
       "files": [
         {
           "name": "assets/rocky.webp",
@@ -197,8 +425,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 206089,
-          "sha256": "5c7d5cc980bde95a31feea8ef2ff4220b5859c3c75b2c5b9b0673f61438b554a"
+          "bytes": 226415,
+          "sha256": "346a5c9cfd4c9eb34eb83b0ca1aed6b68ac0e43df286324431551e732abfef53"
         },
         {
           "name": "plugin.json",
@@ -337,8 +565,8 @@
         },
         {
           "name": "styles/library.css",
-          "bytes": 18791,
-          "sha256": "15e3556f31859f150503bf9c1e66d1a17b55f2c806ee217039cca666e2ade647"
+          "bytes": 19123,
+          "sha256": "1d0a3761fa383288c886155b855f0744f62e7d0883d3d480abf4bc2d5e5581c0"
         },
         {
           "name": "styles/pet.css",

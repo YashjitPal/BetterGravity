@@ -3,9 +3,11 @@
 // Allows users to fork conversations from any message turn or any sidebar thread
 // into a new branch or workspace, matching Codex and Claude Code.
 
-const FORK_ICON_SVG = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M200-440q-17 0-28.5-11.5T160-480q0-17 11.5-28.5T200-520h264l200-200h-64q-17 0-28.5-11.5T560-760q0-17 11.5-28.5T600-800h160q17 0 28.5 11.5T800-760v160q0 17-11.5 28.5T760-560q-17 0-28.5-11.5T720-600v-64L519-463q-11 11-25.5 17t-30.5 6H200Zm400 280q-17 0-28.5-11.5T560-200q0-17 11.5-28.5T600-240h64l-99-98q-12-12-12-28.5t12-28.5q12-12 29-12t29 12l97 99v-64q0-17 11.5-28.5T760-400q17 0 28.5 11.5T800-360v160q0 17-11.5 28.5T760-160H600Z"/></svg>';
+const FORK_ICON_PATH = "M200-440q-17 0-28.5-11.5T160-480q0-17 11.5-28.5T200-520h264l200-200h-64q-17 0-28.5-11.5T560-760q0-17 11.5-28.5T600-800h160q17 0 28.5 11.5T800-760v160q0 17-11.5 28.5T760-560q-17 0-28.5-11.5T720-600v-64L519-463q-11 11-25.5 17t-30.5 6H200Zm400 280q-17 0-28.5-11.5T560-200q0-17 11.5-28.5T600-240h64l-99-98q-12-12-12-28.5t12-28.5q12-12 29-12t29 12l97 99v-64q0-17 11.5-28.5T760-400q17 0 28.5 11.5T800-360v160q0 17-11.5 28.5T760-160H600Z";
+const FORK_ICON_SVG = `<svg viewBox="0 -960 960 960" fill="currentColor"><path d="${FORK_ICON_PATH}"/></svg>`;
 const WORKSPACE_ICON_SVG = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>';
 const BRANCH_ICON_SVG = FORK_ICON_SVG;
+const COPY_ICON_SVG = '<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>';
 
 /* ── Settings ────────────────────────────────────────────────────────────── */
 const settings = plugin.settings.define({
@@ -469,30 +471,72 @@ function getStepIndexForUserStep(stepEl) {
 }
 
 /* ── UI Element Decorators ───────────────────────────────────────────────── */
-function decorateTitlebar() {
-  const moreActions = document.querySelector('[data-testid="titlebar-more-actions"]');
-  if (!moreActions) return;
+function decorateMenus(root = document.body) {
+  if (!root || !root.querySelectorAll) return;
+  const menuItems = root.querySelectorAll('[role="menuitem"]');
+  for (let i = 0; i < menuItems.length; i += 1) {
+    const item = menuItems[i];
+    const text = (item.textContent || "").trim();
 
-  const container = moreActions.parentElement;
-  if (!container || container.querySelector("button[data-fork-titlebar-btn]")) return;
+    // 1. Reframe parent "Fork" menu item in the three dot menu as "Copy session"
+    if (text === "Fork" || (text.startsWith("Fork") && !text.includes("workspace") && !text.includes("worktree") && !text.includes("message") && !text.includes("conversation"))) {
+      const spans = item.querySelectorAll("span");
+      for (let j = 0; j < spans.length; j += 1) {
+        if ((spans[j].textContent || "").trim() === "Fork") {
+          spans[j].textContent = "Copy session";
+          break;
+        }
+      }
+      const svg = item.querySelector("svg");
+      if (svg && !item.dataset.forkCopyDecorated) {
+        item.dataset.forkCopyDecorated = "true";
+        svg.outerHTML = COPY_ICON_SVG;
+      }
+    }
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.setAttribute("data-fork-titlebar-btn", "true");
-  button.className = "bettergravity-fork-titlebar-btn " + (moreActions.className || "");
-  button.setAttribute("aria-label", "Fork conversation");
-  button.title = "Fork conversation";
-  button.innerHTML = `<span class="relative flex items-center justify-center" style="width: 18px; height: 18px;"><span class="absolute inset-0 flex items-center justify-center">${FORK_ICON_SVG}</span></span>`;
-
-  button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const cascadeId = currentConversationId();
-    if (!cascadeId) return;
-
-    openTurnForkPopover(button, cascadeId, -1);
-  });
-
-  container.insertBefore(button, moreActions);
+    // 2. Reframe submenu options:
+    if (text.includes("current workspace") && !item.dataset.forkOptionDecorated) {
+      item.dataset.forkOptionDecorated = "true";
+      const spans = item.querySelectorAll("span");
+      for (let j = 0; j < spans.length; j += 1) {
+        if ((spans[j].textContent || "").includes("current workspace")) {
+          spans[j].textContent = "In current workspace";
+          break;
+        }
+      }
+      if (!item.querySelector("svg")) {
+        item.insertAdjacentHTML("afterbegin", WORKSPACE_ICON_SVG);
+      }
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        const cascadeId = currentConversationId();
+        const title = getConversationTitle(cascadeId);
+        void runFork(cascadeId, -1, 1, title);
+      }, true);
+    } else if (text.includes("shared workspace") && !item.dataset.forkOptionDecorated) {
+      item.dataset.forkOptionDecorated = "true";
+      const spans = item.querySelectorAll("span");
+      for (let j = 0; j < spans.length; j += 1) {
+        if ((spans[j].textContent || "").includes("shared workspace")) {
+          spans[j].textContent = "In shared workspace";
+          break;
+        }
+      }
+      if (!item.querySelector("svg")) {
+        item.insertAdjacentHTML("afterbegin", BRANCH_ICON_SVG);
+      }
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        const cascadeId = currentConversationId();
+        const title = getConversationTitle(cascadeId);
+        void runFork(cascadeId, -1, 2, title);
+      }, true);
+    }
+  }
 }
 
 function scanUserSteps(view) {
@@ -654,7 +698,7 @@ function scanAssistantTurns(view) {
 }
 
 function scanAll() {
-  decorateTitlebar();
+  decorateMenus(document.body);
   const view = document.querySelector('[data-testid="conversation-view"]');
   if (view) {
     removeTopBarIndicator(view);
@@ -755,6 +799,8 @@ function setupObservers() {
       }
     }
 
+    decorateMenus(document.body);
+
     const currentUrl = typeof window !== "undefined" ? window.location?.href || "" : "";
     if (currentUrl && currentUrl !== lastObservedUrl) {
       lastObservedUrl = currentUrl;
@@ -762,9 +808,37 @@ function setupObservers() {
       return;
     }
 
-    scheduleScan();
   });
-  bodyObserver.observe(document.body, { childList: true, subtree: true });
+
+  const attachObserver = () => {
+    if (!bodyObserver || typeof document === "undefined") return;
+    const target = document.body || document.documentElement;
+    if (target) {
+      try {
+        bodyObserver.observe(target, { childList: true, subtree: true });
+      } catch {}
+    }
+  };
+
+  if (typeof document !== "undefined") {
+    if (document.body || document.documentElement) {
+      attachObserver();
+    } else {
+      document.addEventListener("DOMContentLoaded", attachObserver, { once: true });
+    }
+  }
+
+  const onTitlebarMoreClick = (e) => {
+    if (e.target?.closest?.('[data-testid="titlebar-more-actions"]')) {
+      setTimeout(() => decorateMenus(document.body), 30);
+      setTimeout(() => decorateMenus(document.body), 120);
+      setTimeout(() => decorateMenus(document.body), 300);
+    }
+  };
+  if (typeof document !== "undefined") {
+    document.addEventListener("click", onTitlebarMoreClick, true);
+    document.querySelectorAll("button[data-fork-titlebar-btn]").forEach((b) => b.remove());
+  }
 
   if (typeof window !== "undefined") {
     window.addEventListener("popstate", onNavChange);
@@ -800,6 +874,10 @@ function setupObservers() {
   plugin.onDispose(() => {
     bodyObserver?.disconnect();
     clearInterval(periodicCheck);
+    if (typeof document !== "undefined") {
+      document.removeEventListener("click", onTitlebarMoreClick, true);
+      document.querySelectorAll("button[data-fork-chat-btn], button[data-fork-titlebar-btn]").forEach((b) => b.remove());
+    }
     if (typeof window !== "undefined" && window.history) {
       if (origPushState) window.history.pushState = origPushState;
       if (origReplaceState) window.history.replaceState = origReplaceState;
@@ -807,7 +885,6 @@ function setupObservers() {
       window.removeEventListener("hashchange", onNavChange);
     }
     closeActivePopover();
-    document.querySelectorAll("button[data-fork-chat-btn], button[data-fork-titlebar-btn]").forEach((b) => b.remove());
   });
 }
 
@@ -831,7 +908,7 @@ plugin.ui.contextMenu((menu) => {
   return [
     {
       label: "Fork conversation",
-      icon: FORK_ICON_SVG,
+      icon: FORK_ICON_PATH,
       onSelect: () => {
         void runFork(cascadeId, -1, Number(settings.defaultTarget) || 1, title);
       }
