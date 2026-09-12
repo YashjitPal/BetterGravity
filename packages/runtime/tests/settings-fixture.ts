@@ -82,7 +82,7 @@ export const pluginSummary = (overrides: Partial<PluginSummary> = {}): PluginSum
 
 export function runtimeState(overrides: Partial<RuntimeState> = {}): RuntimeState {
   return {
-    version: "0.1.3",
+    version: "0.1.4",
     hostVersion: "2.11.0",
     directories: { root: "C:/bg", themes: "C:/bg/themes", plugins: "C:/bg/plugins" },
     settings: {
@@ -154,7 +154,7 @@ export function createFakeApi(): FakeApi {
   };
 
   (fake as { api: BetterGravityApi }).api = {
-    version: "0.1.3",
+    version: "0.1.4",
     hostVersion: "2.11.0",
     state: () => fake.state,
     getState: () => Promise.resolve(fake.state),

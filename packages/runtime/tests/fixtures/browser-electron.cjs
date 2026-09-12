@@ -1,11 +1,17 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, nativeImage } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const assert = require("node:assert/strict");
 const { pathToFileURL } = require("node:url");
-const [directory, plugins] = process.argv.slice(2);
+const { spawn } = require("node:child_process");
+const readline = require("node:readline");
+const [directory, sourcePlugins] = process.argv.slice(2);
+const plugins = path.join(directory, "plugins");
+fs.cpSync(path.join(sourcePlugins, "in-built-browser"), path.join(plugins, "in-built-browser"), { recursive: true, filter: source => !/^\.env(?:\.|$)/i.test(path.basename(source)) });
 app.setPath("userData", path.join(directory, "profile"));
+fs.mkdirSync(path.join(directory, "downloads"));
+app.setPath("downloads", path.join(directory, "downloads"));
 app.disableHardwareAcceleration();
 const { InBuiltBrowserService, registerBrowserChannels } = require(path.join(directory, "browser.cjs"));
 const service = new InBuiltBrowserService(path.join(directory, "data"), plugins, path.join(directory, "home"));
@@ -15,21 +21,37 @@ const result = { errors: [] };
 function stage(name) { result.stage = name; fs.writeFileSync(path.join(directory, "result.json"), JSON.stringify(result, null, 2)); }
 stage("starting Electron");
 const watchdog = setTimeout(() => { result.errors.push(`Browser QA timed out during ${result.stage}`); fs.writeFileSync(path.join(directory, "result.json"), JSON.stringify(result, null, 2)); app.exit(1); }, 55_000);
-let server, window;
+let server, window, mcp;
+let requestId = 0;
+const requests = new Map(), notifications = [];
+function rpc(method, params = {}) {
+  const id = ++requestId;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { requests.delete(id); reject(new Error(`MCP ${method} timed out`)); }, 6000);
+    requests.set(id, value => { clearTimeout(timer); value.error ? reject(new Error(value.error.message)) : resolve(value.result); });
+    mcp.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
+  });
+}
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(predicate, label, timeout = 6000) { const end = Date.now() + timeout; while (!await predicate()) { if (Date.now() > end) throw new Error(label); await delay(35); } }
 const pluginDir = path.join(plugins, "in-built-browser");
-const fixture = `<!doctype html><html><head><title>Browser QA · Local workspace</title><style>body{font:16px system-ui;margin:0;background:#f6f7fb;color:#18202d}.page{max-width:700px;margin:55px auto;padding:0 38px}small{color:#627187}h1{font-size:34px;letter-spacing:-1px;margin:12px 0}p{line-height:1.6}label{display:block;margin-top:18px}input,select,button{font:inherit;padding:10px 14px;border:1px solid #d6dce6;border-radius:9px}button{background:#1c50cb;color:white;border:0;cursor:pointer}input[type=checkbox]{margin:18px 8px 18px 0}section{height:950px}nav{height:52px;padding:0 28px;background:white;display:flex;align-items:center;border-bottom:1px solid #dfe4ee;font-weight:650}</style></head><body><nav>Local workspace <span style="margin-left:auto;color:#6b778f;font-weight:400">Preview</span></nav><main class="page"><small>BETTERGRAVITY / BROWSER TEST</small><h1>A browser beside your work.</h1><p>One page for you and your model. This is served on localhost and runs inside an isolated Chromium tab.</p><label for="name">Name</label><input id="name" placeholder="Your name"><label><input type="checkbox" id="check">Preview enabled</label><button id="counter">Count: 0</button><button id="dialog">Show dialog</button><p id="output">Ready for interaction</p><label for="theme">Theme</label><select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select><section></section><p id="bottom">End of page</p></main><script>window.clicks=0;window.trusted=false;counter.onclick=e=>{window.trusted=e.isTrusted;counter.textContent='Count: '+(++window.clicks);output.textContent='Clicked with native browser input'};dialog.onclick=()=>alert('Browser dialog');</script></body></html>`;
+const fixture = `<!doctype html><html><head><meta charset="utf-8"><title>Browser QA · Local workspace</title><style>body{font:16px system-ui;margin:0;background:#f6f7fb;color:#18202d}.page{max-width:700px;margin:55px auto;padding:0 38px}small{color:#627187}h1{font-size:34px;letter-spacing:-1px;margin:12px 0}p{line-height:1.6}label{display:block;margin-top:18px}input,select,button{font:inherit;padding:10px 14px;border:1px solid #d6dce6;border-radius:9px}button{background:#1c50cb;color:white;border:0;cursor:pointer}input[type=checkbox]{margin:18px 8px 18px 0}section{height:950px}nav{height:52px;padding:0 28px;background:white;display:flex;align-items:center;border-bottom:1px solid #dfe4ee;font-weight:650}</style></head><body><nav>Local workspace <span style="margin-left:auto;color:#6b778f;font-weight:400">Preview</span></nav><main class="page"><small>BETTERGRAVITY / BROWSER TEST</small><h1>A browser beside your work.</h1><p>One page for you and your model. This is served on localhost and runs inside an isolated Chromium tab.</p><label for="name">Name</label><input id="name" placeholder="Your name"><label><input type="checkbox" id="check">Preview enabled</label><button id="counter">Count: 0</button><button id="dialog">Show dialog</button><p id="output">Ready for interaction</p><label for="theme">Theme</label><select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select><p><a href="/fixture#next" id="next">Next section</a> · <a href="/download" id="download">Download sample</a> · <a href="/popup" target="_blank" id="popup">Open another tab</a></p><iframe title="Nested test" id="frame" src="/frame"></iframe><section></section><p id="bottom">End of page</p></main><script>window.clicks=0;window.trusted=false;counter.onclick=e=>{window.trusted=e.isTrusted;counter.textContent='Count: '+(++window.clicks);output.textContent='Clicked with native browser input'};dialog.onclick=()=>alert('Browser dialog');</script></body></html>`;
 const harness = `<!doctype html><html><head><title>BetterGravity Browser QA</title><link rel="stylesheet" href="/browser.css"><style>*{box-sizing:border-box}body{margin:0;background:#101010;color:#ddd;font:14px system-ui}.title{height:44px;background:#171717;border-bottom:1px solid #262626;padding:11px 20px}.layout{height:calc(100vh - 44px);display:flex}.chat{width:40%;display:flex;flex-direction:column;padding:30px;gap:20px;border-right:1px solid #292929}.conversation{display:flex;flex-direction:column;flex:1;min-height:0}.thread{flex:1;min-height:0}.composer{border:1px solid #333;background:#222;padding:18px;border-radius:22px}.pane{width:60%;height:100%}.pane-inner{height:100%;display:flex;flex-direction:column}.toolbar{display:flex;align-items:center;gap:5px;height:40px;border-bottom:1px solid #262626;padding:4px 10px}.toolbar button{color:#a7a7a7;background:transparent;border:0;border-radius:8px;padding:6px;cursor:pointer}.content{flex:1;overflow:hidden;min-height:0}.overview{padding:26px;color:#999}h2{font-size:15px;font-weight:500}p{line-height:1.6}</style></head><body><div class="title">BetterGravity</div><div class="layout"><section class="chat"><h2>Build an in-app browser</h2><div class="conversation" data-testid="conversation-view"><div class="thread"><p>Open localhost, review a website, and work with the model in the same browser pane.</p><p style="color:#868686">The browser lives beside the conversation.</p></div><div class="composer" contenteditable="true" role="textbox">Ask anything…</div></div></section><section class="pane" data-aux-pane-open="true"><div class="pane-inner"><header class="toolbar" data-active-tab-id="overview"><div><button data-tab-id="overview" aria-label="Overview tab">▤</button><button data-tab-id="review" aria-label="Review tab">▧</button><button data-tab-id="terminal" aria-label="Terminal tab">▣</button></div></header><div class="content"><div class="overview">Subagents<br><br>Files Changed<br><br>Artifacts<br><br>Terminals</div></div></div></section></div><script>const disposers=[];window.testDisposers=disposers;window.plugin={browser:{...window.browserHarness,available:true},settings:{define:s=>Object.fromEntries(Object.entries(s).map(([k,v])=>[k,v.default]))},dom:{observe:(selector,callback)=>document.querySelectorAll(selector).forEach(callback)},patcher:{after:(target,key,callback)=>{const old=target[key];target[key]=function(...args){const result=old.apply(this,args);callback();return result};disposers.push(()=>target[key]=old)}},onDispose:fn=>disposers.push(fn),ui:{toast:()=>{}}};</script><script src="/plugin.js"></script></body></html>`;
 
 async function run() {
   stage("app ready");
   service.sync(disabled); await service.settled;
   assert.equal(service.tools().length, 0); assert.equal(fs.existsSync(service.registration.mcpConfig), false); result.disabledInitially = true;
+  mcp = spawn("node", [path.join(pluginDir, "mcp-server.cjs"), "--bridge", service.registration.descriptorFile], { windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+  readline.createInterface({ input: mcp.stdout }).on("line", line => { const value = JSON.parse(line); if (value.id !== undefined) { requests.get(value.id)?.(value); requests.delete(value.id); } else notifications.push(value); });
+  await rpc("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "browser-qa", version: "1" } });
+  assert.deepEqual((await rpc("tools/list")).tools, []);
   server = http.createServer((req, res) => {
     if (req.url === "/browser.css") { res.writeHead(200, { "content-type": "text/css" }); res.end(fs.readFileSync(path.join(pluginDir, "styles/browser.css"))); }
     else if (req.url === "/plugin.js") { res.writeHead(200, { "content-type": "text/javascript" }); res.end(fs.readFileSync(path.join(pluginDir, "index.js"))); }
-    else { res.writeHead(200, { "content-type": "text/html" }); res.end(req.url.startsWith("/c/") ? harness : fixture); }
+    else if (req.url === "/frame") { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end('<!doctype html><label>Frame name<input id="frame-name"></label><button onclick="this.textContent=\'Frame clicked\'">Frame button</button>'); }
+    else if (req.url === "/download") { res.writeHead(200, { "content-type": "text/plain", "content-disposition": 'attachment; filename="browser-qa.txt"' }); res.end("Browser download fixture"); }
+    else { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(req.url.startsWith("/c/") ? harness : fixture); }
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -39,6 +61,8 @@ async function run() {
   result.toolCount = service.tools().length;
   assert(result.toolCount > 65);
   assert(fs.existsSync(service.registration.mcpConfig)); result.registered = true;
+  await until(() => notifications.length > 0, "MCP did not announce tool registration");
+  assert.equal((await rpc("tools/list")).tools.length, result.toolCount);
   registerBrowserChannels(service);
   window = new BrowserWindow({ show: false, width: 1300, height: 850, webPreferences: { preload: path.join(__dirname, "browser-preload.cjs"), sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
   stage("loading host");
@@ -73,6 +97,7 @@ async function run() {
   await shared.playwright.getByRole("button", { name: "Count: 0", exact: true }).click();
   stage("clicked button");
   assert.equal(await tab.evaluate("document.querySelector('#name').value"), "Shared browser");
+  await until(async () => (await tab.evaluate("window.clicks")) === 1, "Native button click was not received by page", 5000);
   assert.equal(await tab.evaluate("window.clicks"), 1);
   result.trustedClick = await tab.evaluate("window.trusted");
   await shared.playwright.getByLabel("Preview enabled").check();
@@ -82,6 +107,22 @@ async function run() {
   const snapshot = await shared.playwright.domSnapshot(); assert(snapshot.includes("Count: 1"));
   assert.equal(await shared.playwright.getByRole("button", { name: "Count: 1" }).count(), 1);
   result.extractedClient = true;
+  stage("evaluating through original client");
+  assert.equal(await shared.playwright.evaluate(() => document.querySelector("#name").value), "Shared browser");
+  assert.equal(await shared.playwright.getByLabel("Name", { exact: true }).evaluate((element, suffix) => element.value + suffix, "!"), "Shared browser!");
+  assert.equal((await shared.playwright.getByRole("button").evaluateAll(elements => elements.map(e => e.textContent))).length, 2);
+  await shared.playwright.evaluate(() => { window.scrollTo(0, 0); const marker = document.createElement("div"); marker.id = "fresh-paint"; marker.style.cssText = "position:fixed;top:8px;left:8px;width:20px;height:20px;background:rgb(255,0,0);z-index:99"; document.body.append(marker); });
+  await shared.screenshot();
+  await shared.playwright.evaluate(() => document.querySelector("#fresh-paint").style.backgroundColor = "rgb(0,255,0)");
+  stage("capturing fresh full and cropped screenshots");
+  const cropped = await shared.screenshot({ clip: { x: 8, y: 8, width: 20, height: 20 } });
+  const cropImage = nativeImage.createFromBuffer(Buffer.from(cropped));
+  const pixel = cropImage.resize({ width: 1, height: 1 }).toBitmap();
+  assert(pixel[1] > 240 && pixel[0] < 15 && pixel[2] < 15, `Screenshot contains stale pixels: ${[...pixel]}`);
+  const full = await shared.screenshot({ fullPage: true });
+  assert(nativeImage.createFromBuffer(Buffer.from(full)).getSize().height > 1500);
+  fs.writeFileSync(path.join(directory, "browser-full.png"), Buffer.from(full)); result.fullScreenshot = true; result.freshScreenshot = true;
+  await shared.playwright.evaluate(() => document.querySelector("#fresh-paint").remove());
   const shot = await shared.screenshot({ fullPage: false });
   assert(shot instanceof Uint8Array); assert(shot.byteLength > 1000); result.screenshot = true;
   fs.writeFileSync(path.join(directory, "browser-page.png"), Buffer.from(shot));
@@ -90,7 +131,90 @@ async function run() {
   fs.writeFileSync(path.join(directory, "browser-chrome.png"), (await window.webContents.capturePage()).toPNG());
   const layout = await window.webContents.executeJavaScript(`(()=>{const c=document.querySelector('[data-testid="conversation-view"]');return {display:getComputedStyle(c).display,height:c.firstElementChild.getBoundingClientRect().height}})()`);
   assert.equal(layout.display, "flex"); assert(layout.height > 300); result.layoutPreserved = true;
+  stage("concurrent download and navigation waits");
+  const downloading = shared.playwright.waitForEvent("download", { timeoutMs: 8000 });
+  await delay(80);
+  await shared.playwright.getByRole("link", { name: "Download sample" }).click();
+  const downloaded = await downloading;
+  assert.equal(fs.readFileSync(await downloaded.path(), "utf8"), "Browser download fixture");
+  const navigating = shared.playwright.waitForURL("**/fixture#next", { timeoutMs: 8000 });
+  await shared.playwright.getByRole("link", { name: "Next section" }).click(); await navigating;
+  result.concurrentWaits = true;
+  stage("file chooser through the extracted client");
+  const uploadPath = path.join(directory, "browser-upload.txt"); fs.writeFileSync(uploadPath, "Only this selected file");
+  await shared.playwright.evaluate(() => { const label = document.createElement("label"); label.textContent = "Upload sample"; const input = document.createElement("input"); input.type = "file"; input.id = "upload"; label.append(input); document.querySelector("main").prepend(label); });
+  const choosing = shared.playwright.waitForEvent("filechooser", { timeoutMs: 8000 });
+  await until(() => tab.waitingForFileChooser, "File chooser interception was not armed");
+  await shared.playwright.getByLabel("Upload sample").click();
+  const chooser = await choosing; assert.equal(chooser.isMultiple(), false);
+  await assert.rejects(() => chooser.setFiles([path.join(directory, ".env")]), /Environment files/);
+  await chooser.setFiles([uploadPath]);
+  assert.equal(await shared.playwright.evaluate(() => document.querySelector("#upload").files[0].text()), "Only this selected file"); result.fileUpload = true;
+  stage("frame locators and native popups");
+  await shared.playwright.frameLocator("#frame").getByLabel("Frame name").fill("Nested frame");
+  await shared.playwright.frameLocator("#frame").getByRole("button", { name: "Frame button" }).click();
+  assert.equal(await shared.playwright.frameLocator("#frame").getByRole("button", { name: "Frame clicked" }).count(), 1);
+  stage("opening a native popup tab");
+  await shared.playwright.getByRole("link", { name: "Open another tab" }).click();
+  await until(() => host.tabs.size === 2, "Popup did not open in a native browser tab");
+  await service.request(window.webContents, "select", { context: host.context, tabId: tab.id }); result.framesAndPopups = true;
+  stage("dialogs without blocked action queue");
+  const clickingDialog = shared.playwright.getByRole("button", { name: "Show dialog" }).click();
+  await until(() => !!tab.dialog, "Page dialog was not intercepted");
+  const jsDialog = await service.execute("tab_get_js_dialog", { browser_id: host.id, tab_id: tab.id });
+  await service.execute("tab_handle_js_dialog", { browser_id: host.id, tab_id: tab.id, dialog_id: jsDialog.dialog.id, action: "accept" });
+  await clickingDialog; await until(() => !tab.dialog, "Dialog was not dismissed"); result.dialogs = true;
+  stage("annotations and live style preview");
+  const finishAnnotationPaint = await tab.keepPainting();
+  await shared.playwright.getByRole("button", { name: "Count: 1" }).evaluate(element => element.scrollIntoView({ block: "center" }));
+  await service.request(window.webContents, "annotate", { context: host.context, enabled: true });
+  const counter = await tab.driver({ action: "bounds", selector: "#counter" });
+  await tab.click(counter.x, counter.y);
+  await until(() => !!host.selection, "Selecting a page element did not create a comment");
+  assert.equal(await tab.evaluate("window.clicks"), 1, "Annotation selection clicked the page button");
+  await until(() => host.bounds?.visible === true && host.attachedTab === tab, "Annotation hid the live page");
+  const preview = await service.request(window.webContents, "style-preview", { context: host.context, tabId: tab.id, selector: "#counter", styles: { color: "rgb(1, 2, 3)" } });
+  assert.equal(await tab.evaluate("getComputedStyle(document.querySelector('#counter')).color"), "rgb(1, 2, 3)");
+  await service.request(window.webContents, "style-restore", { context: host.context, tabId: tab.id, selector: "#counter", original: preview.original });
+  assert.notEqual(await tab.evaluate("getComputedStyle(document.querySelector('#counter')).color"), "rgb(1, 2, 3)");
+  await service.request(window.webContents, "save-annotation", { context: host.context, comment: "Keep this button visible" });
+  assert.equal((await service.execute("browser_annotations", { browser_id: host.id })).annotations.length, 1); result.annotations = true;
+  await finishAnnotationPaint();
+  stage("original CDP capability and MCP manifest updates");
+  await service.request(window.webContents, "configure", { context: host.context, developerMode: true });
+  assert.equal((await rpc("tools/list")).tools.length, result.toolCount + 2);
+  const developerBrowser = await agent.browsers.get(host.id), developerTab = await developerBrowser.tabs.get(tab.id);
+  const cdp = await developerTab.capabilities.get("cdp");
+  const version = await cdp.send("Runtime.evaluate", { expression: "2+2", returnByValue: true });
+  assert.equal(version.result.value, 4);
+  const baseline = await cdp.readEvents();
+  await cdp.send("Runtime.evaluate", { expression: "performance.mark('browser-qa')" });
+  await cdp.send("Page.navigate", { url: `${base}/fixture?cdp=1` });
+  await shared.playwright.waitForLoadState();
+  const events = await cdp.readEvents({ afterSequence: baseline.cursor, limit: 1 });
+  assert(events.events.length === 1 && events.hasMore && events.cursor > baseline.cursor);
+  const nextEvents = await cdp.readEvents({ afterSequence: events.cursor, limit: 1000 });
+  assert(nextEvents.events.every(event => event.sequence > events.cursor));
+  const beforeBurst = tab.eventSequence;
+  await tab.cdp("Runtime.addBinding", { name: "bgQaEvent" });
+  await tab.cdp("Runtime.evaluate", { expression: "for(let n=0;n<510;n++)bgQaEvent('{}')" });
+  await until(() => tab.eventSequence >= beforeBurst + 510, "CDP event burst was not recorded");
+  // Existing events keep their monotonic identity when the bounded buffer evicts.
+  assert(tab.events.every((event, i) => !i || event.sequence > tab.events[i - 1].sequence));
+  assert.equal((await cdp.readEvents({ afterSequence: beforeBurst })).truncated, true);
+  await tab.cdp("Runtime.removeBinding", { name: "bgQaEvent" });
+  await service.request(window.webContents, "viewport", { context: host.context, width: 390, height: 844 });
+  assert.equal(await tab.evaluate("innerWidth"), 390);
+  await service.request(window.webContents, "viewport", { context: host.context, width: null, height: null });
+  result.cdpAndViewport = true;
+  stage("pausing a pending JavaScript action");
+  const evaluating = shared.playwright.evaluate(() => new Promise(() => {})).then(() => false, () => true);
+  await delay(120); await service.request(window.webContents, "pause", { context: host.context });
+  assert.equal(await evaluating, true); assert.equal(host.paused, true);
+  await service.request(window.webContents, "resume", { context: host.context });
+  assert.equal(await shared.playwright.evaluate(() => 7), 7); result.pausedAction = true;
   const descriptor = JSON.parse(fs.readFileSync(service.registration.descriptorFile, "utf8"));
+  const notificationCount = notifications.length;
   const pending = service.execute("playwright_wait_for_timeout", { browser_id: host.id, tab_id: tab.id, timeout_ms: 5000 }).then(() => false, () => true);
   await delay(70); service.sync(disabled);
   result.cancelledAction = await pending;
@@ -98,14 +222,24 @@ async function run() {
   const config = JSON.parse(fs.readFileSync(service.registration.mcpConfig, "utf8")); assert.equal(config.mcpServers["in-built-browser"], undefined);
   await assert.rejects(() => shared.playwright.domSnapshot(), /disabled|not running/);
   await assert.rejects(() => fetch(`${descriptor.url}/tools`, { headers: { Authorization: `Bearer ${descriptor.token}` } }));
+  await until(() => notifications.length > notificationCount, "MCP did not announce tool removal");
+  assert.deepEqual((await rpc("tools/list")).tools, []);
+  assert.equal((await rpc("tools/call", { name: "list_browsers", arguments: {} })).isError, true);
   result.toolsRevoked = true;
   service.sync(enabled); await service.settled; assert.equal(service.isEnabled, true, service.lastProblem); result.reenabled = true;
+  const restored = await service.request(window.webContents, "attach", { context: host.context });
+  assert.equal(restored.tabs.length, 2); assert.equal(restored.annotations.length, 1); result.tabsRestored = true;
+  const serverScript = path.join(pluginDir, "mcp-server.cjs");
+  fs.renameSync(serverScript, `${serverScript}.disabled`); service.sync(enabled);
+  assert.equal(service.isEnabled, false); assert.equal(service.tools().length, 0); result.uninstallRevokes = true;
+  fs.renameSync(`${serverScript}.disabled`, serverScript); service.sync(enabled); await service.settled;
+  assert.equal(service.isEnabled, true, service.lastProblem);
   service.sync({ ...enabled, plugins: { developerMode: false, enabled: ["in-built-browser"] } }); assert.equal(service.isEnabled, false); assert.equal(service.tools().length, 0);
 }
 
 app.whenReady().then(run).catch(error => { result.errors.push(error.stack || String(error)); }).finally(() => {
   clearTimeout(watchdog);
-  service.dispose(); if (window && !window.isDestroyed()) window.destroy(); server?.close();
+  service.dispose(); mcp?.stdin.end(); if (window && !window.isDestroyed()) window.destroy(); server?.close();
   fs.writeFileSync(path.join(directory, "result.json"), JSON.stringify(result, null, 2));
   app.exit(result.errors.length ? 1 : 0);
 });

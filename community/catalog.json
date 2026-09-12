@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-11T23:46:15.872Z",
+  "generatedAt": "2026-09-12T10:50:23.984Z",
   "entries": [
     {
       "id": "computer-use",
@@ -416,12 +416,12 @@
       "author": "BetterGravity Community",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/in-built-browser",
-      "bytes": 473828,
+      "bytes": 494540,
       "files": [
         {
           "name": "index.js",
-          "bytes": 30772,
-          "sha256": "47ea5ff581389679ff5e62b54f436c36601fc65570ef47c3469acde2b33b84b7"
+          "bytes": 31093,
+          "sha256": "e8a7828e135bbfb91c8c1e423381ad70cd1c02c39b8a39ff63a7c7bb5d80b231"
         },
         {
           "name": "mcp-server.cjs",
@@ -434,9 +434,14 @@
           "sha256": "5163284613a1253129776032ce14a28fb5dab9e470d122a46b15fa20d58b68f4"
         },
         {
+          "name": "README.md",
+          "bytes": 6059,
+          "sha256": "7567f363ecf487dbc0b1bbe85fb1f46e14ed5ff5d45f4a4d9ceeb02fd323b094"
+        },
+        {
           "name": "scripts/browser-client.mjs",
-          "bytes": 1979,
-          "sha256": "81781120c12a0e7646a89c61b685df0437a397b1392e704384aee372c4ea90fb"
+          "bytes": 1909,
+          "sha256": "76787bcdfd959133aee98831ae3a568cb241c80a9463f3ff4832680277288a53"
         },
         {
           "name": "scripts/run-action.mjs",
@@ -445,13 +450,18 @@
         },
         {
           "name": "skills/in-built-browser/SKILL.md",
-          "bytes": 2778,
-          "sha256": "2876cb6ff2eae7159f9a8102402f9d2b2f74043338a5221da62e65c327c4b056"
+          "bytes": 2938,
+          "sha256": "d0eafbf022b325ddbb1d466dbc644d4abddf0a2a1550dc45060295a4bca625f2"
         },
         {
           "name": "styles/browser.css",
-          "bytes": 9991,
-          "sha256": "e6f901b485dedffb9484987fbc28647ff6f1a9acbd161065878c7eab1439976d"
+          "bytes": 9941,
+          "sha256": "e38d9f2c57243cb13c5effbc27f1e0375b8bc6c2b370f48556abd5d39c41fa2b"
+        },
+        {
+          "name": "THIRD_PARTY_NOTICES.md",
+          "bytes": 1480,
+          "sha256": "a980064a8d89c0df0973c74c239978776e63406e1cc23b9f487b2fdaba426c97"
         },
         {
           "name": "vendor/api.json",
@@ -474,9 +484,19 @@
           "sha256": "a04240e66def7ac4f43e003501c968ce722cae1b18848c028e4d95eca117d4d0"
         },
         {
+          "name": "vendor/PLAYWRIGHT-LICENSE",
+          "bytes": 11601,
+          "sha256": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb"
+        },
+        {
           "name": "vendor/provenance.json",
           "bytes": 625,
           "sha256": "4a6185526dd13a9e5a83ead702cbe22f8fdec9bbc4aec1e8e19827b680ca5e00"
+        },
+        {
+          "name": "vendor/ZOD-LICENSE",
+          "bytes": 1211,
+          "sha256": "178e32aa29ac8823a1dca33f85b048b3a549b46726547dd899b55b4f7945272f"
         }
       ]
     },

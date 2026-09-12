@@ -9,6 +9,7 @@ import { NativeBrowserTab } from "./tab.js";
 import { browserOrigin, browserUrl, finiteNumber } from "./url.js";
 import { validateSchema } from "./commands.js";
 import { browserCommands, dispatchBrowserCommand, toolDescription } from "./dispatch.js";
+import { browserOperation } from "./execution.js";
 
 export interface BrowserPermission {
   id: string; origin: string; description: string;
@@ -30,6 +31,8 @@ export interface BrowserHost {
   paused: boolean;
   epoch: number;
   queue: Promise<unknown>;
+  controller: AbortController;
+  operations: Map<symbol, string>;
   viewport: { width: number; height: number } | null;
   permission: BrowserPermission | null;
   selection: Record<string, unknown> | null;
@@ -39,6 +42,12 @@ export interface BrowserHost {
 
 interface BrowserDownload {
   id: string; tabId: string; filename: string; path: string; state: string; received: number; total: number; item: DownloadItem;
+}
+
+interface SavedBrowserContext {
+  context: string; name: string; visible: boolean; activeIndex: number;
+  urls: string[]; viewport: { width: number; height: number } | null;
+  annotations: Record<string, unknown>[];
 }
 
 export class InBuiltBrowserService {
@@ -66,6 +75,8 @@ export class InBuiltBrowserService {
   private selectedHosts = new Map<number, string>();
   private ownerCleanup = new Map<number, () => void>();
   private removeSessionListeners: (() => void) | undefined;
+  private savedContexts = new Map<string, SavedBrowserContext>();
+  private visits = new Map<string, { visitId: number; url: string; title: string }>();
 
   constructor(root: string, plugins: string, home: string) {
     this.dataDirectory = path.join(root, "browser");
@@ -74,6 +85,11 @@ export class InBuiltBrowserService {
 
   sync(settings: RuntimeSettings): void {
     const requested = settings.plugins.developerMode && settings.plugins.enabled.includes(BROWSER_PLUGIN_ID);
+    if (requested && !this.registration.installed) {
+      this.stop(); this.requested = requested;
+      this.lastProblem = "The In Built Browser plugin is incomplete. Reinstall it.";
+      return;
+    }
     if (requested === this.requested && (this.isEnabled || this.starting || !requested)) return;
     this.requested = requested;
     this.lastProblem = undefined;
@@ -115,6 +131,17 @@ export class InBuiltBrowserService {
       for (const permission of Array.isArray(prefs.permissions) ? prefs.permissions : []) if (typeof permission === "string") this.permissionGrants.add(permission);
       const history = readObject(path.join(this.dataDirectory, "history.json"));
       for (const entry of Array.isArray(history.items) ? history.items.slice(-300) : []) if (entry && typeof entry === "object" && typeof entry.url === "string" && typeof entry.title === "string" && typeof entry.dateVisited === "string") this.history.push(entry);
+      const tabs = readObject(path.join(this.dataDirectory, "tabs.json"));
+      for (const entry of Array.isArray(tabs.contexts) ? tabs.contexts.slice(-20) : []) {
+        if (!entry || typeof entry !== "object" || typeof entry.context !== "string" || !Array.isArray(entry.urls)) continue;
+        this.savedContexts.set(entry.context, {
+          context: entry.context, name: typeof entry.name === "string" ? entry.name : "In Built Browser", visible: entry.visible === true,
+          activeIndex: Number.isInteger(entry.activeIndex) ? entry.activeIndex : 0,
+          urls: entry.urls.filter((url: unknown) => { try { return typeof url === "string" && browserUrl(url) === url; } catch { return false; } }).slice(0, 24),
+          viewport: entry.viewport && typeof entry.viewport.width === "number" && entry.viewport.width >= 200 && entry.viewport.width <= 3840 && typeof entry.viewport.height === "number" && entry.viewport.height >= 200 && entry.viewport.height <= 3840 ? entry.viewport : null,
+          annotations: Array.isArray(entry.annotations) ? entry.annotations.filter((a: unknown) => a && typeof a === "object").slice(-20) : []
+        });
+      }
     } catch { /* A damaged browser preference file must not affect host startup. */ }
   }
 
@@ -123,6 +150,7 @@ export class InBuiltBrowserService {
   }
 
   private configureSession(target: Session): void {
+    target.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (_details, callback) => callback({ cancel: !this.isEnabled }));
     target.setPermissionCheckHandler((contents, permission, origin) => !!contents && this.isEnabled && this.permissionGrants.has(`${origin}|${permission}`));
     target.setPermissionRequestHandler((contents, permission, callback, details) => {
       const host = this.hostForTab(contents.id);
@@ -143,7 +171,7 @@ export class InBuiltBrowserService {
       const filename = path.basename(item.getFilename()).replace(/[<>:"/\\|?*\x00-\x1f]/g, "_") || "download";
       let destination = path.join(app.getPath("downloads"), filename);
       const parsed = path.parse(filename);
-      for (let n = 1; fs.existsSync(destination); n++) destination = path.join(app.getPath("downloads"), `${parsed.name} (${n})${parsed.ext}`);
+      for (let n = 1; fs.existsSync(destination) || [...this.downloads.values()].some(d => d.path === destination && d.state === "progressing"); n++) destination = path.join(app.getPath("downloads"), `${parsed.name} (${n})${parsed.ext}`);
       item.setSavePath(destination);
       const record: BrowserDownload = { id: randomUUID(), tabId: tab.id, filename: path.basename(destination), path: destination, state: "progressing", received: 0, total: item.getTotalBytes(), item };
       this.downloads.set(record.id, record);
@@ -153,7 +181,12 @@ export class InBuiltBrowserService {
       this.changed(host);
     };
     target.on("will-download", download);
-    this.removeSessionListeners = () => { target.removeListener("will-download", download); target.setPermissionRequestHandler(null); target.setPermissionCheckHandler(null); };
+    this.removeSessionListeners = () => {
+      target.removeListener("will-download", download);
+      target.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+      target.setPermissionCheckHandler(() => false);
+      void target.closeAllConnections().catch(() => {});
+    };
   }
 
   tools(): any[] {
@@ -175,20 +208,32 @@ export class InBuiltBrowserService {
     const host = this.findHost(args.browser_id);
     const epoch = host.epoch;
     const generation = this.generation;
-    const operation = host.queue.catch(() => undefined).then(async () => {
+    const signal = host.controller.signal;
+    const run = async () => browserOperation(signal, async () => {
       this.assertAgent(host, epoch, generation);
-      host.activity = toolDescription(command).split(".")[0] ?? "Using browser";
+      const key = Symbol(command);
+      host.operations.set(key, toolDescription(command).split(".")[0] ?? "Using browser");
+      host.activity = [...host.operations.values()].at(-1) ?? null;
       const operatingTab = typeof args.tab_id === "string" ? host.tabs.get(args.tab_id) : undefined;
-      if (operatingTab && !operatingTab.destroyed) operatingTab.contents.setBackgroundThrottling(false);
+      let release: (() => Promise<void>) | undefined;
       this.changed(host);
-      try { return await dispatchBrowserCommand(this, command, args); }
+      try { release = await operatingTab?.keepPainting(); return await dispatchBrowserCommand(this, command, args); }
       finally {
-        if (operatingTab && !operatingTab.destroyed) operatingTab.contents.setBackgroundThrottling(true);
-        host.activity = null; this.changed(host);
+        await release?.(); host.operations.delete(key);
+        host.activity = [...host.operations.values()].at(-1) ?? null; this.changed(host);
       }
     });
-    host.queue = operation;
+    // Waiters and dialog replies must be able to run beside the action that
+    // triggers them; serializing these behind one another deadlocks Playwright.
+    const concurrent = /^(playwright_wait_for_|playwright_locator_wait_for|playwright_download_path|tab_get_js_dialog|tab_handle_js_dialog|tab_cdp_|list_tabs|selected_tab|browser_annotations)/.test(command);
+    const operation = concurrent ? run() : host.queue.catch(() => undefined).then(run);
+    if (!concurrent) host.queue = operation;
     return operation;
+  }
+
+  pause(host: BrowserHost): void {
+    host.paused = true; host.epoch++; host.controller.abort(); host.controller = new AbortController();
+    host.permission?.deny(); this.changed(host);
   }
 
   assertAgent(host: BrowserHost, epoch = host.epoch, generation = this.generation): void {
@@ -226,8 +271,17 @@ export class InBuiltBrowserService {
     const existing = this.hosts.get(id);
     if (existing) return existing;
     const host: BrowserHost = { id, context: safeContext, owner, window, tabs: new Map(), activeTabId: null, attachedTab: null,
-      visible: false, bounds: null, activity: null, paused: false, epoch: 0, queue: Promise.resolve(), viewport: null, permission: null, selection: null, annotations: [], name: "In Built Browser" };
+      visible: false, bounds: null, activity: null, paused: false, epoch: 0, queue: Promise.resolve(), controller: new AbortController(), operations: new Map(), viewport: null, permission: null, selection: null, annotations: [], name: "In Built Browser" };
     this.hosts.set(id, host);
+    const saved = this.savedContexts.get(safeContext);
+    if (saved) {
+      host.name = saved.name; host.visible = saved.visible; host.viewport = saved.viewport; host.annotations = saved.annotations;
+      for (const url of saved.urls) {
+        const tab = this.createTab(host);
+        void tab.navigate(url).catch(error => { tab.error = String(error); this.changed(host); });
+      }
+      host.activeTabId = [...host.tabs.keys()][saved.activeIndex] ?? [...host.tabs.keys()][0] ?? null;
+    }
     if (!this.ownerCleanup.has(owner.id)) {
       const close = () => { for (const h of [...this.hosts.values()]) if (h.owner === owner) this.closeHost(h); this.ownerCleanup.get(owner.id)?.(); this.ownerCleanup.delete(owner.id); };
       const navigate = (_event: unknown, _url: string, _inPlace: boolean, main: boolean) => { if (main) { this.selectedHosts.delete(owner.id); for (const h of this.hosts.values()) if (h.owner === owner) this.detachView(h); } };
@@ -237,15 +291,15 @@ export class InBuiltBrowserService {
     return host;
   }
 
-  createTab(host: BrowserHost): NativeBrowserTab {
+  createTab(host: BrowserHost, nativeWindow?: Electron.BrowserWindowConstructorOptions): NativeBrowserTab {
     this.requireEnabled();
     if (host.tabs.size >= 24) throw new Error("Close an unused browser tab before opening another (24 tabs per conversation).");
-    const tab = new NativeBrowserTab({ session: this.nativeSession!, injected: this.injected,
+    const tab = new NativeBrowserTab({ session: this.nativeSession!, injected: this.injected, ...(nativeWindow ? { nativeWindow } : {}),
       changed: () => this.changed(host),
-      popup: () => { const popup = this.createTab(host); host.visible = true; this.changed(host); return popup; },
+      popup: (_url, options) => { const popup = this.createTab(host, options); host.visible = true; setImmediate(() => this.changed(host)); return popup; },
       shortcut: shortcut => { if (!host.owner.isDestroyed()) host.owner.send(CHANNEL.browserState, { ...this.state(host), shortcut }); },
       selection: selection => { host.selection = { ...selection, tabId: tab.id }; this.changed(host); },
-      userInput: () => { if (host.activity) { host.paused = true; host.epoch++; this.changed(host); } }
+      userInput: () => { if (host.activity) this.pause(host); }
     });
     tab.contents.on("context-menu", (_event, params) => {
       const template: Electron.MenuItemConstructorOptions[] = [
@@ -259,13 +313,15 @@ export class InBuiltBrowserService {
       Menu.buildFromTemplate(template).popup({ window: host.window });
     });
     host.tabs.set(tab.id, tab); host.activeTabId = tab.id;
-    this.changed(host);
+    if (host.viewport) void tab.cdp("Emulation.setDeviceMetricsOverride", { ...host.viewport, deviceScaleFactor: 1, mobile: false }).catch(error => { tab.error = String(error); this.changed(host); });
+    if (nativeWindow) setImmediate(() => this.changed(host)); else this.changed(host);
     return tab;
   }
 
   closeTab(host: BrowserHost, tab: NativeBrowserTab): void {
     if (host.attachedTab === tab) this.detachView(host);
-    host.tabs.delete(tab.id); tab.dispose();
+    host.tabs.delete(tab.id); this.visits.delete(tab.id); tab.dispose();
+    if (host.selection?.tabId === tab.id) host.selection = null;
     if (host.activeTabId === tab.id) host.activeTabId = [...host.tabs.keys()].at(-1) ?? null;
     this.changed(host);
   }
@@ -303,17 +359,38 @@ export class InBuiltBrowserService {
     this.layout(host);
     const state = this.state(host);
     host.owner.send(CHANNEL.browserState, state);
+    if (!this.isEnabled) return;
+    let modified = false;
     for (const tab of state.tabs) {
       if (tab.url === "about:blank" || tab.loading || tab.error) continue;
+      const visitId = host.tabs.get(tab.id)!.visitId;
+      const visit = this.visits.get(tab.id);
+      if (visit && visit.visitId === visitId && visit.url === tab.url && visit.title === tab.title) continue;
+      this.visits.set(tab.id, { visitId, url: tab.url, title: tab.title });
       const previous = this.history.find(entry => entry.url === tab.url);
-      if (previous && previous.title === tab.title) continue;
       if (previous) this.history.splice(this.history.indexOf(previous), 1);
-      this.history.push({ url: tab.url, title: tab.title, dateVisited: new Date().toISOString() });
+      this.history.push({ url: tab.url, title: tab.title, dateVisited: visit?.visitId === visitId && visit.url === tab.url && previous ? previous.dateVisited : new Date().toISOString() });
       if (this.history.length > 300) this.history.shift();
+      modified = true;
+    }
+    const saved: SavedBrowserContext = { context: host.context, name: host.name, visible: host.visible, activeIndex: [...host.tabs.keys()].indexOf(host.activeTabId ?? ""),
+      urls: state.tabs.map(tab => tab.url), viewport: host.viewport, annotations: host.annotations.slice(-20) };
+    if (JSON.stringify(saved) !== JSON.stringify(this.savedContexts.get(host.context))) {
+      this.savedContexts.delete(host.context); this.savedContexts.set(host.context, saved); modified = true;
+      while (this.savedContexts.size > 20) this.savedContexts.delete(this.savedContexts.keys().next().value!);
+    }
+    if (modified) {
       if (this.persistTimer) clearTimeout(this.persistTimer);
-      this.persistTimer = setTimeout(() => { this.persistTimer = undefined; if (this.isEnabled) writeObject(path.join(this.dataDirectory, "history.json"), { items: this.history }); }, 400);
+      this.persistTimer = setTimeout(() => { this.persistTimer = undefined; this.persist(); }, 400);
       this.persistTimer.unref();
     }
+  }
+
+  private persist(): void {
+    try {
+      writeObject(path.join(this.dataDirectory, "history.json"), { items: this.history });
+      writeObject(path.join(this.dataDirectory, "tabs.json"), { contexts: [...this.savedContexts.values()] });
+    } catch (error) { this.lastProblem = error instanceof Error ? error.message : String(error); }
   }
 
   setBounds(owner: WebContents, bounds: Record<string, unknown>): void {
@@ -344,12 +421,14 @@ export class InBuiltBrowserService {
   }
 
   private closeHost(host: BrowserHost): void {
-    host.epoch++; host.permission?.deny(); this.detachView(host);
+    if (this.isEnabled) this.persist();
+    host.epoch++; host.controller.abort(); host.permission?.deny(); this.detachView(host);
     for (const tab of host.tabs.values()) tab.dispose();
     host.tabs.clear(); this.hosts.delete(host.id);
   }
 
   stop(): void {
+    if (this.isEnabled) this.persist();
     this.generation++; this.starting = false; this.isEnabled = false;
     this.bridge?.dispose(); this.bridge = undefined;
     this.registration.revoke();
@@ -360,7 +439,8 @@ export class InBuiltBrowserService {
     this.downloads.clear();
     this.removeSessionListeners?.(); this.removeSessionListeners = undefined;
     this.nativeSession = undefined;
-    if (this.persistTimer) { clearTimeout(this.persistTimer); this.persistTimer = undefined; writeObject(path.join(this.dataDirectory, "history.json"), { items: this.history }); }
+    if (this.persistTimer) { clearTimeout(this.persistTimer); this.persistTimer = undefined; }
+    this.savedContexts.clear(); this.visits.clear();
     this.history.length = 0; this.allowedOrigins.clear(); this.persistentOrigins.clear(); this.permissionGrants.clear();
     this.contracts = []; this.injected = "";
     try { this.registration.sync(false); } catch (error) { this.lastProblem = error instanceof Error ? error.message : String(error); }
@@ -404,7 +484,7 @@ export class InBuiltBrowserService {
       case "configure": if (typeof args.developerMode === "boolean") this.developerMode = args.developerMode; if (typeof args.requireApproval === "boolean") this.requireApproval = args.requireApproval; this.savePreferences(); break;
       case "reset-permissions": this.allowedOrigins.clear(); this.persistentOrigins.clear(); this.permissionGrants.clear(); this.savePreferences(); break;
       case "approve": if (host.permission && host.permission.id === args.id) { if (args.allow === true) host.permission.allow(args.always === true); else host.permission.deny(); } break;
-      case "pause": host.paused = true; host.epoch++; host.permission?.deny(); break;
+      case "pause": this.pause(host); break;
       case "resume": host.paused = false; break;
       case "dialog": await active().cdp("Page.handleJavaScriptDialog", { accept: args.accept === true, promptText: String(args.text ?? "") }); break;
       case "annotate": host.selection = null; await active().annotate(args.enabled !== false); break;

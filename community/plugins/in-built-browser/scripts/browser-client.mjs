@@ -7,7 +7,7 @@ import { createCodexBrowserClient } from "../vendor/codex-browser-client.mjs";
 export async function setupBrowserRuntime(options = {}) {
   const descriptorFile = options.bridgeFile ?? path.join(process.env.APPDATA ?? path.join(os.homedir(), ".config"), "BetterGravity", "browser", "bridge.json");
   const apiManifest = JSON.parse(await fs.readFile(new URL("../vendor/api.json", import.meta.url), "utf8"));
-  const disabledMemberIds = new Set(["ContentAPI.exportGsuite", "ContentAPI.exportYouTubeTranscript", "PlaywrightFileChooser.setFiles", "PlaywrightFileChooser.isMultiple"]);
+  const disabledMemberIds = new Set(["ContentAPI.exportGsuite", "ContentAPI.exportYouTubeTranscript"]);
   async function executeAgentCommand({ type, client_timeout_ms, ...args }) {
     let descriptor;
     try { descriptor = JSON.parse(await fs.readFile(descriptorFile, "utf8")); }

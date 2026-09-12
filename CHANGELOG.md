@@ -4,10 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.4] - 2026-09-12
 
 ### Added
 
+- **macOS support and cross-platform installer.** Full native support for macOS
+  (`arm64` Apple Silicon and `x64` Intel) alongside Windows. Includes packaged
+  `.dmg` and `.zip` installers, automatic `/Applications/Antigravity.app` discovery,
+  POSIX process lifecycle management and graceful shutdown, and local certificate
+  authority Keychain integration.
+- **Automated multi-platform release pipeline.** GitHub Actions release workflow
+  compiling Windows (`.exe`) and macOS (`.dmg`, `.zip`) installers and attaching
+  them directly to GitHub Releases.
 - **Settings inside Antigravity.** BetterGravity gets its own heading in
   Antigravity's settings sidebar, alongside the app's own Settings, Projects,
   and Not in Project groups, with Settings, Plugins, and Themes under it. Built

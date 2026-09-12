@@ -24,9 +24,11 @@ let expanded = false;
 let noteStyles = {};
 let originalStyle;
 let previewTimer;
+let previewQueue = Promise.resolve();
 let lastTabs = "";
 let lastBounds = "";
 let historyRequest = 0;
+let pageError = null;
 const hiddenChildren = new Map();
 
 const options = plugin.settings.define({
@@ -99,8 +101,9 @@ function mount(terminal) {
   const frozen = element("img", "bg-browser-frozen"); frozen.alt = "Current browser page"; frozen.hidden = true;
   viewport.append(blank, frozen);
   statusBar = element("div", "bg-browser-status"); statusBar.hidden = true;
+  end.prepend(statusBar);
   note = element("div", "bg-browser-note"); note.hidden = true;
-  root.append(strip, navigation, findBar, errorBox, viewport, statusBar, note);
+  root.append(strip, navigation, findBar, errorBox, viewport, note);
   body.setAttribute("data-bg-browser-container", ""); body.append(root);
   const onNativeTab = event => { const native = event.target.closest?.("[data-tab-id]"); if (native && native !== trigger) hide(); };
   toolbar.addEventListener("click", onNativeTab, true);
@@ -147,7 +150,7 @@ function syncBounds() {
   const tab = activeTab();
   const occluded = !!document.querySelector('[role="dialog"], [data-state="open"][role="menu"]');
   const wrapper = toolbar?.closest("[data-aux-pane-open]");
-  const visible = open && !document.hidden && !overlay && !state?.permission && !state?.dialog && !state?.selection && !occluded && wrapper?.getAttribute("data-aux-pane-open") !== "false" && tab?.url !== "about:blank" && !!tab && !tab.error;
+  const visible = open && !document.hidden && !overlay && !state?.permission && !state?.dialog && !occluded && wrapper?.getAttribute("data-aux-pane-open") !== "false" && tab?.url !== "about:blank" && !!tab && !tab.error;
   const next = { context, x: box.x, y: box.y, width: box.width, height: box.height, visible: !!visible };
   const signature = JSON.stringify(next);
   if (signature !== lastBounds) { lastBounds = signature; plugin.browser?.setBounds(next); }
@@ -182,7 +185,8 @@ function render(next) {
   root.querySelector('[data-control="forward"]').disabled = !active?.canGoForward;
   const reload = root.querySelector('[data-control="reload"]'); reload.innerHTML = svg(active?.loading ? "stop" : "reload"); reload.title = active?.loading ? "Stop loading" : "Reload"; reload.disabled = !active;
   viewport.querySelector(".bg-browser-blank").hidden = !!active && active.url !== "about:blank";
-  if (active?.error) showError(active.error); else if (errorBox.textContent === state?.error) errorBox.hidden = true;
+  if (active?.error) { pageError = active.error; showError(pageError); }
+  else if (pageError || active?.loading) { pageError = null; errorBox.hidden = true; errorBox.textContent = ""; }
   statusBar.replaceChildren(); statusBar.hidden = !(next.activity || next.paused || next.annotations.length);
   if (!statusBar.hidden) {
     const status = element("span", "bg-browser-status-text", next.paused ? "Browser control paused" : next.activity || `${next.annotations.length} page comment${next.annotations.length === 1 ? "" : "s"}`);
@@ -202,7 +206,6 @@ function closeFind() { if (findBar) findBar.hidden = true; act("find", { text: "
 function showFind() { closeOverlay(); findBar.hidden = false; findBar.querySelector("input").focus(); scheduleBounds(); }
 function closeOverlay() { overlay?.remove(); overlay = null; if (viewport) viewport.querySelector(".bg-browser-frozen").hidden = true; scheduleBounds(); }
 function popover(kind, title) {
-  if (overlay?.dataset.kind === kind) return overlay;
   closeOverlay();
   overlay = element("div", "bg-browser-popover"); overlay.dataset.kind = kind;
   if (title) { const heading = element("div", "bg-browser-popover-heading"); heading.append(element("strong", "", title), button("Close", "close", closeOverlay)); overlay.append(heading); }
@@ -304,14 +307,21 @@ function showNote(selection) {
     const field = element("label", "", label); const input = element("input"); input.placeholder = selection.element?.styles?.[key] || ""; field.append(input); styleFields.append(field);
     input.addEventListener("input", () => {
       noteStyles[key] = input.value; clearTimeout(previewTimer);
-      previewTimer = setTimeout(async () => { try { const result = await request("style-preview", { tabId: selection.tabId, selector: selection.element.selector.primary, styles: noteStyles }); if (originalStyle === undefined) originalStyle = result.original; } catch (error) { showError(error); } }, 180);
+      previewTimer = setTimeout(() => {
+        const styles = { ...noteStyles };
+        previewQueue = previewQueue.catch(() => {}).then(async () => {
+          if (disposed || note.dataset.selection !== JSON.stringify(selection)) return;
+          const result = await request("style-preview", { tabId: selection.tabId, selector: selection.element.selector.primary, styles });
+          if (originalStyle === undefined) originalStyle = result.original;
+        }).catch(showError);
+      }, 180);
     });
   }
   note.append(styleFields);
   const actions = element("div", "bg-browser-actions");
   const adjust = element("button", "", "Adjust styles"); adjust.disabled = !selection.element?.selector?.primary; adjust.addEventListener("click", () => { styleFields.hidden = !styleFields.hidden; scheduleBounds(); });
-  const cancel = element("button", "", "Cancel"); cancel.addEventListener("click", () => { clearTimeout(previewTimer); if (originalStyle !== undefined) act("style-restore", { tabId: selection.tabId, selector: selection.element.selector.primary, original: originalStyle }); act("discard-selection"); });
-  const save = element("button", "bg-browser-primary", "Save comment"); save.addEventListener("click", () => { if (!comment.value.trim()) { comment.focus(); return; } clearTimeout(previewTimer); act("save-annotation", { comment: comment.value, styles: noteStyles }); });
+  const cancel = element("button", "", "Cancel"); cancel.addEventListener("click", async () => { clearTimeout(previewTimer); await previewQueue; if (originalStyle !== undefined) await act("style-restore", { tabId: selection.tabId, selector: selection.element.selector.primary, original: originalStyle }); act("discard-selection"); });
+  const save = element("button", "bg-browser-primary", "Save comment"); save.addEventListener("click", async () => { if (!comment.value.trim()) { comment.focus(); return; } clearTimeout(previewTimer); await previewQueue; act("save-annotation", { comment: comment.value, styles: noteStyles }); });
   actions.append(adjust, cancel, save); note.append(actions); comment.focus(); scheduleBounds();
 }
 function showComments() {

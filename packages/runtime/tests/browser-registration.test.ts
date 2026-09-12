@@ -15,7 +15,7 @@ const bridges: BrowserHttpBridge[] = [];
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "bg-browser-registration-"));
   registration = new BrowserRegistration(path.join(directory, "plugins"), path.join(directory, "home"), path.join(directory, "data"));
-  for (const file of ["plugin.json", "index.js", "mcp-server.cjs", "vendor/command-contracts.json", "vendor/playwright-injected.js", "skills/in-built-browser/SKILL.md"]) {
+  for (const file of ["plugin.json", "index.js", "styles/browser.css", "mcp-server.cjs", "scripts/browser-client.mjs", "vendor/api.json", "vendor/codex-browser-client.mjs", "vendor/command-contracts.json", "vendor/playwright-injected.js", "skills/in-built-browser/SKILL.md"]) {
     const target = path.join(registration.pluginDirectory, file); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, "{}");
   }
 });

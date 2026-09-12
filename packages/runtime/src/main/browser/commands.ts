@@ -158,7 +158,7 @@ export async function executeTabCommand(command: string, args: Record<string, an
     case "playwright_evaluate": {
       const script = String(args.script);
       if (script.length > 100_000) throw new Error("The page script is too large.");
-      if (!args.selector) return { value: await tab.evaluate(script) };
+      if (!args.selector) return { value: await tab.evaluate(`(async () => {\n${script}\n})()`, undefined, undefined, finiteNumber(args.timeout_ms ?? 15_000, "timeout_ms", 1, 60_000)) };
       // Selector-bound evaluation stays in the DOM world and uses the same engine.
       return { value: await tab.driver({ action: "evaluate", selector, script, all: args.selector_mode === "all" }) };
     }

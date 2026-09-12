@@ -267,7 +267,7 @@ describe("the Settings screen", () => {
 
   it("shows which versions are running", async () => {
     await open("Settings");
-    expect(textIn("Settings")).toContain("Version 0.1.3 on Antigravity 2.11.0");
+    expect(textIn("Settings")).toContain("Version 0.1.4 on Antigravity 2.11.0");
   });
 
   it("summarises what is installed", async () => {

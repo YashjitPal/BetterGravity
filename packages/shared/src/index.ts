@@ -1,4 +1,4 @@
-export const BETTERGRAVITY_VERSION = "0.1.3";
+export const BETTERGRAVITY_VERSION = "0.1.4";
 export const SUPPORTED_HOST = "Google Antigravity";
 
 /**

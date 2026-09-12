@@ -19,11 +19,11 @@ it.runIf(process.platform === "win32")("runs the extracted browser client and na
       await promisify(execFile)(electron, [resolve("packages/runtime/tests/fixtures/browser-electron.cjs"), directory, resolve("community/plugins")], { env, windowsHide: true, timeout: 65_000 });
     } catch (error) { throw new Error(await readFile(join(directory, "result.json"), "utf8").catch(() => "No browser test report was written."), { cause: error }); }
     const result = JSON.parse(await readFile(join(directory, "result.json"), "utf8"));
-    expect(result).toMatchObject({ disabledInitially: true, registered: true, extractedClient: true, trustedClick: true, localhost: true, screenshot: true, buttonPosition: true, nativeViewAttached: true, layoutPreserved: true, toolsRevoked: true, cancelledAction: true, reenabled: true, errors: [] });
+    expect(result).toMatchObject({ disabledInitially: true, registered: true, extractedClient: true, trustedClick: true, localhost: true, screenshot: true, fullScreenshot: true, freshScreenshot: true, concurrentWaits: true, fileUpload: true, framesAndPopups: true, dialogs: true, annotations: true, cdpAndViewport: true, pausedAction: true, tabsRestored: true, uninstallRevokes: true, buttonPosition: true, nativeViewAttached: true, layoutPreserved: true, toolsRevoked: true, cancelledAction: true, reenabled: true, errors: [] });
     if (process.env.BETTERGRAVITY_BROWSER_QA_DIRECTORY) {
       const destination = resolve(process.env.BETTERGRAVITY_BROWSER_QA_DIRECTORY);
       await mkdir(destination, { recursive: true });
-      for (const file of ["browser-empty.png", "browser-page.png", "browser-chrome.png", "result.json"]) await copyFile(join(directory, file), join(destination, file));
+      for (const file of ["browser-empty.png", "browser-page.png", "browser-chrome.png", "browser-full.png", "result.json"]) await copyFile(join(directory, file), join(destination, file));
     }
   } finally {
     if (dirname(resolve(directory)) !== resolve(tmpdir()) || !basename(directory).startsWith("bettergravity-browser-")) throw new Error("Unexpected browser test directory.");

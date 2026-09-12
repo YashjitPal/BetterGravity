@@ -51,7 +51,7 @@
 .bg-browser-blank p { margin: 0; color: var(--browser-muted); font-size: 14px; }
 .bg-browser-frozen { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
 .bg-browser-error { padding: 10px 14px; color: #f4b4ab; background: #a03b2717; border-bottom: 1px solid #a03b2733; font-size: 12px; overflow-wrap: anywhere; }
-.bg-browser-status { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 4px 10px; min-height: 32px; border-top: 1px solid var(--browser-border); color: var(--browser-muted); }
+.bg-browser-status { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; max-width: 190px; min-width: 0; color: var(--browser-muted); }
 .bg-browser-status-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .bg-browser-find { display: flex; align-items: center; gap: 5px; padding: 7px 12px; border-bottom: 1px solid var(--browser-border); }
 .bg-browser-find input { flex: 1; min-width: 0; background: transparent; border: none; }

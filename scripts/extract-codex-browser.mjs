@@ -11,11 +11,20 @@ import ts from "typescript";
 const reference = process.argv[2];
 if (!reference) throw new Error("Pass the absolute path to Codex's bundled plugins/browser directory.");
 const destination = path.resolve("community/plugins/in-built-browser/vendor");
+const resources = path.resolve(reference, "../../../..");
 const read = name => fs.readFile(path.join(reference, name), "utf8");
 const [client, service, manifestText, apiText] = await Promise.all([
   read("scripts/browser-client.mjs"), read("scripts/browser-service.mjs"),
   read(".codex-plugin/plugin.json"), read("docs/api.json")
 ]);
+const [playwrightLicense, notices] = await Promise.all([
+  fs.readFile(path.join(resources, "cua_node/bin/node_modules/playwright-core/LICENSE"), "utf8"),
+  fs.readFile(path.join(resources, "THIRD_PARTY_NOTICES.txt"), "utf8")
+]);
+const zodStart = notices.indexOf("The following software may be included in this product: zod (3.");
+if (zodStart < 0) throw new Error("The bundled Zod 3 license notice was not found.");
+const zodEnd = notices.indexOf("The following software may be included in this product:", zodStart + 1);
+const zodLicense = notices.slice(zodStart, zodEnd < 0 ? undefined : zodEnd).trim() + "\n";
 const ast = ts.createSourceFile("client.mjs", client, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
 const commands = [];
 let factory;
@@ -80,6 +89,8 @@ function schema(value) {
 const contracts = commandContracts.map(c=>({name:c.commandType,inputSchema:schema(c.PayloadSchema)}));
 await fs.writeFile(path.join(destination,"command-contracts.json"),JSON.stringify(contracts,null,2)+"\n");
 await fs.writeFile(path.join(destination,"api.json"),JSON.stringify(JSON.parse(apiText),null,2)+"\n");
+await fs.writeFile(path.join(destination,"PLAYWRIGHT-LICENSE"), playwrightLicense);
+await fs.writeFile(path.join(destination,"ZOD-LICENSE"), zodLicense);
 await fs.writeFile(path.join(destination,"provenance.json"),JSON.stringify({
   product:"OpenAI Codex",version:JSON.parse(manifestText).version,
   sources:[{file:"scripts/browser-client.mjs",sha256:createHash("sha256").update(client).digest("hex")},{file:"scripts/browser-service.mjs",sha256:createHash("sha256").update(service).digest("hex")}],

@@ -58,7 +58,7 @@ function buildState(
     settings,
     themes: themes.entries,
     plugins: plugins.entries,
-    diagnostics: [...themes.diagnostics, ...plugins.diagnostics]
+    diagnostics: [...themes.diagnostics, ...plugins.diagnostics, ...(browser?.lastProblem ? [{ source: "in-built-browser", message: browser.lastProblem }] : [])]
   };
 }
 

@@ -44,7 +44,7 @@ export class BrowserRegistration {
   }
 
   get installed(): boolean {
-    return ["plugin.json", "index.js", "mcp-server.cjs", "vendor/command-contracts.json", "vendor/playwright-injected.js", "skills/in-built-browser/SKILL.md"]
+    return ["plugin.json", "index.js", "styles/browser.css", "mcp-server.cjs", "scripts/browser-client.mjs", "vendor/api.json", "vendor/codex-browser-client.mjs", "vendor/command-contracts.json", "vendor/playwright-injected.js", "skills/in-built-browser/SKILL.md"]
       .every(file => fs.existsSync(path.join(this.pluginDirectory, file)));
   }
 

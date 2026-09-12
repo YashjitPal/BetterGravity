@@ -42,7 +42,7 @@ export async function browserDomDriver(input: Record<string, any>): Promise<any>
       const element = one();
       element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
       if (!input.force) {
-        const result = await engine.checkElementStates(element, ["visible", "enabled"]);
+        const result = await engine.checkElementStates(element, ["visible", "stable", "enabled"]);
         if (result) throw new Error(`Element is not ready: ${result.missingState ?? result.error ?? "detached"}.`);
       }
       const rect = element.getBoundingClientRect();
@@ -67,12 +67,18 @@ export async function browserDomDriver(input: Record<string, any>): Promise<any>
       return element ? [describe(element as HTMLElement)] : [];
     }
     case "describe": return describe(one());
+    case "framePosition": {
+      const element = one(), rect = element.getBoundingClientRect();
+      const scaleX = rect.width / (element.offsetWidth || rect.width), scaleY = rect.height / (element.offsetHeight || rect.height);
+      return { x: rect.x + element.clientLeft * scaleX, y: rect.y + element.clientTop * scaleY, scaleX, scaleY };
+    }
     case "html": return document.documentElement.outerHTML;
     case "evaluate": {
       const target = input.all ? all() : one();
-      const fn = (0, eval)(`(${String(input.script)})`);
-      if (typeof fn !== "function") throw new Error("Locator evaluation requires a function.");
-      return await fn(target);
+      // The extracted client sends an async function body referring to element
+      // or elements, including its serialized arg; it is not a function literal.
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+      return await new AsyncFunction(input.all ? "elements" : "element", String(input.script))(target);
     }
     case "pageText": return document.body?.innerText ?? "";
     case "selection": {
@@ -139,11 +145,13 @@ export function annotationScript(binding: string): string {
       const el=document.elementFromPoint(e.clientX,e.clientY);
       const selected=el?(${browserDomDriver.toString()})({action:'info',x:e.clientX,y:e.clientY}):Promise.resolve([]);
       selected.then(items => globalThis[${JSON.stringify(binding)}](JSON.stringify({url:location.href,title:document.title,area,element:items[0]??null})));
-      stop();
+      // Chromium dispatches click after pointerup. Keep the click blocker
+      // through that event so picking a button never activates the page.
+      stop(true);
     };
     const click = e => { e.preventDefault(); e.stopImmediatePropagation(); };
     const key = e => { if(e.key==='Escape') stop(); };
-    const stop = () => { box.remove(); document.removeEventListener('pointermove',move,true); document.removeEventListener('pointerdown',down,true); document.removeEventListener('pointerup',up,true); document.removeEventListener('click',click,true); document.removeEventListener('keydown',key,true); delete globalThis.__bgBrowserAnnotationStop; };
+    const stop = (afterPointerUp = false) => { box.remove(); document.removeEventListener('pointermove',move,true); document.removeEventListener('pointerdown',down,true); document.removeEventListener('pointerup',up,true); if(afterPointerUp) setTimeout(() => document.removeEventListener('click',click,true), 0); else document.removeEventListener('click',click,true); document.removeEventListener('keydown',key,true); delete globalThis.__bgBrowserAnnotationStop; };
     document.addEventListener('pointermove',move,true); document.addEventListener('pointerdown',down,true); document.addEventListener('pointerup',up,true); document.addEventListener('click',click,true); document.addEventListener('keydown',key,true);
     globalThis.__bgBrowserAnnotationStop=stop;
   })()`;
