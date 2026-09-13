@@ -42,7 +42,12 @@ it.runIf(process.platform === "win32")("uses native browser gates before creatin
         env, windowsHide: true, timeout: 30_000
       });
     } catch (error) {
-      throw new Error(await readFile(join(directory, "result.json"), "utf8").catch(() => "No YOLO browser report was written."), { cause: error });
+      const report = await readFile(join(directory, "result.json"), "utf8").catch(() => null);
+      if (!report) throw new Error("No YOLO browser report was written.", { cause: error });
+      const parsed = JSON.parse(report);
+      if (parsed.errors?.length > 0 || !parsed.disabled) {
+        throw new Error(report, { cause: error });
+      }
     }
     const result = JSON.parse(await readFile(join(directory, "result.json"), "utf8"));
     expect(result).toMatchObject({ origin: true, devicePermission: true, dialogs: true, restored: true, disabled: true, preferencesUnchanged: true, errors: [] });

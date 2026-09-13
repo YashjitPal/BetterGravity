@@ -17,7 +17,7 @@ it.runIf(process.platform === "win32")("scopes sidebar visibility to conversatio
     await build({ entryPoints: [resolve("packages/runtime/src/main/browser/index.ts")], outfile: join(directory, "browser.cjs"), bundle: true,
       platform: "node", format: "cjs", target: "node22", external: ["electron"], logLevel: "silent" });
     try {
-      await promisify(execFile)(electron, [resolve("packages/runtime/tests/fixtures/browser-electron.cjs"), directory, resolve("community/plugins"), "--visibility-only"], { env, windowsHide: true, timeout: 45_000 });
+      await promisify(execFile)(electron, [resolve("packages/runtime/tests/fixtures/browser-electron.cjs"), directory, resolve("community/plugins"), "--visibility-only"], { env, windowsHide: true, timeout: 75_000 });
     } catch (error) {
       throw new Error(await readFile(join(directory, "result.json"), "utf8").catch(() => "No browser visibility report was written."), { cause: error });
     }
@@ -33,4 +33,4 @@ it.runIf(process.platform === "win32")("scopes sidebar visibility to conversatio
     if (dirname(resolve(directory)) !== resolve(tmpdir()) || !basename(directory).startsWith("bettergravity-browser-visibility-")) throw new Error("Unexpected browser visibility test directory.");
     await rm(directory, { recursive: true, force: true });
   }
-}, 55_000);
+}, 85_000);

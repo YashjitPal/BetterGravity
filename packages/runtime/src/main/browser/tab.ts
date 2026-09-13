@@ -167,7 +167,7 @@ export class NativeBrowserTab {
 
   private async initialize(): Promise<void> {
     if (!this.contents.debugger.isAttached()) this.contents.debugger.attach("1.3");
-    const send = (method: string, params = {}) => browserDeadline(() => this.contents.debugger.sendCommand(method, params), method, 15_000);
+    const send = (method: string, params = {}) => browserDeadline(() => this.contents.debugger.sendCommand(method, params), method, 30_000);
     await send("Page.enable");
     await send("Runtime.enable");
     await send("Network.enable", { maxTotalBufferSize: 8 * 1024 * 1024, maxResourceBufferSize: 1024 * 1024 });
@@ -176,7 +176,7 @@ export class NativeBrowserTab {
     await send("Emulation.setFocusEmulationEnabled", { enabled: true });
   }
 
-  async cdp(method: string, params: Record<string, unknown> = {}, sessionId?: string, timeout = 15_000): Promise<any> {
+  async cdp(method: string, params: Record<string, unknown> = {}, sessionId?: string, timeout = 30_000): Promise<any> {
     if (this.destroyed) throw new Error("The browser tab is closed.");
     await this.ready;
     if (!this.contents.debugger.isAttached()) { this.ready = this.initialize(); await this.ready; }

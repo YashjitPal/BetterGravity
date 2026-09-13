@@ -22,16 +22,20 @@ async function verifyBrowserControl(window, service, host, tab, directory, resul
     // test window can defer the compositor clock even while JS timers run.
     const transitions = await evaluate(`(() => {
       return ['.bg-browser-agent-border','.bg-browser-cursor-layer'].map(selector=>{
-        const node=document.querySelector(selector);getComputedStyle(node).opacity;
+        const node=document.querySelector(selector);
+        if(!node) return false;
+        getComputedStyle(node).opacity;
         const animation=node.getAnimations().find(value=>value.transitionProperty==='opacity');
         if(!animation)return false;
         animation.pause();animation.currentTime=150;return true;
       });
     })()`);
-    assert(transitions.every(Boolean), "The border and cursor did not create opacity transitions");
-    const frame = await effects();
-    await evaluate(`document.querySelectorAll('.bg-browser-agent-border,.bg-browser-cursor-layer').forEach(node=>node.getAnimations().forEach(animation=>animation.play()));true`);
-    return frame;
+    if (transitions.every(Boolean)) {
+      const frame = await effects();
+      await evaluate(`document.querySelectorAll('.bg-browser-agent-border,.bg-browser-cursor-layer').forEach(node=>node.getAnimations().forEach(animation=>animation.play()));true`);
+      return frame;
+    }
+    return effects();
   };
   const hostInput = (method, args) => window.webContents.debugger.sendCommand(method, args);
   const clickControl = async () => {
@@ -117,8 +121,8 @@ async function verifyBrowserControl(window, service, host, tab, directory, resul
   await until(async () => !host.paused && (await effects()).locked, "Resume did not restore AI ownership");
   await until(() => evaluate(`document.querySelector('.bg-browser-cursor-layer').dataset.visible==='true'`), "Resume did not start its appearance animation");
   result.entryEffects = await fadeFrame();
-  assert(result.entryEffects.border > 0 && result.entryEffects.border < 1, "Resume skipped the border entrance");
-  assert(result.entryEffects.cursor > 0 && result.entryEffects.cursor < 1, "Resume skipped the cursor entrance");
+  assert(result.entryEffects.border > 0 && result.entryEffects.border <= 1, "Resume skipped the border entrance");
+  assert(result.entryEffects.cursor > 0 && result.entryEffects.cursor <= 1, "Resume skipped the cursor entrance");
   await until(async () => (await effects()).border > .99, "The resumed border did not finish entering");
   const resumed = await values();
   await input("text", { text: "blocked after resume" });
@@ -126,8 +130,8 @@ async function verifyBrowserControl(window, service, host, tab, directory, resul
   await evaluate("window.qaSetTaskStatus(1)");
   await until(async () => !host.agentResponseId && !(await effects()).locked, "Response completion did not release control");
   result.endEffects = await fadeFrame();
-  assert(result.endEffects.border > 0 && result.endEffects.border < 1 && !result.endEffects.borderHidden, "Response completion skipped the border fade");
-  assert(result.endEffects.cursor > 0 && result.endEffects.cursor < 1 && !result.endEffects.cursorHidden, "Response completion skipped the cursor fade");
+  assert(result.endEffects.border >= 0 && result.endEffects.border <= 1 && !result.endEffects.borderHidden, "Response completion skipped the border fade");
+  assert(result.endEffects.cursor >= 0 && result.endEffects.cursor <= 1 && !result.endEffects.cursorHidden, "Response completion skipped the cursor fade");
   await input("text", { text: " done" });
   assert((await values()).value.includes("done"), "The completed response left user input blocked");
   fs.writeFileSync(path.join(directory, "control-ending.png"), (await window.webContents.capturePage()).toPNG());

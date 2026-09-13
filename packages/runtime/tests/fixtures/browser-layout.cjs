@@ -93,9 +93,10 @@ async function installLayout(window) {
     const collapse = document.createElement('button'); collapse.dataset.testid = 'qa-collapse-sidebar'; collapse.textContent = 'Toggle sidebar'; collapse.addEventListener('click', () => sidebar.style.width = sidebar.style.width === '0px' ? '160px' : '0px');
     document.querySelector('.title').append(maximize, collapse);
     window.qaResize = delta => {
-      const x = handle.getBoundingClientRect().x, y = 200;
+      const activeHandle = document.querySelector('[data-bg-browser-resize-handle]') || handle;
+      const x = activeHandle.getBoundingClientRect().x, y = 200;
       const fire = (target, type, at, buttons) => target.dispatchEvent(new MouseEvent(type, {bubbles:true,cancelable:true,view:window,button:0,buttons,clientX:at,clientY:y,screenX:at,screenY:y}));
-      fire(handle, 'mousedown', x, 1); fire(document.body, 'mousemove', x + delta, 1); fire(document.body, 'mouseup', x + delta, 0);
+      fire(activeHandle, 'mousedown', x, 1); fire(document.body, 'mousemove', x + delta, 1); fire(document.body, 'mouseup', x + delta, 0);
     };
   })()`);
 }

@@ -91,5 +91,5 @@ app.whenReady().then(async () => {
   if (window && !window.isDestroyed()) window.destroy();
   server?.close();
   report();
-  app.exit(result.errors.length ? 1 : 0);
+  setTimeout(() => app.exit(result.errors.length ? 1 : 0), 50);
 });

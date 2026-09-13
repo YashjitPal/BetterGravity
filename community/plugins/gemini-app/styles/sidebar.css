@@ -2433,7 +2433,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   flex-direction: row !important;
   align-items: center !important;
   gap: 10px !important;
-  padding: 4px 8px 4px 6px !important;
+  padding: 4px 8px 4px 4px !important;
   height: 40px !important;
   max-height: 40px !important;
   min-width: 0 !important;
@@ -2462,6 +2462,8 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   height: 28px !important;
   min-width: 28px !important;
   min-height: 28px !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
   border-radius: 50% !important;
   overflow: hidden !important;
   flex-shrink: 0 !important;
@@ -2470,6 +2472,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   align-items: center !important;
   justify-content: center !important;
   background-color: #333537 !important;
+  aspect-ratio: 1 / 1 !important;
 }
 
 #gemini-sidebar-user-pill .gemini-user-avatar {
@@ -2477,6 +2480,7 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   height: 100% !important;
   border-radius: 50% !important;
   object-fit: cover !important;
+  aspect-ratio: 1 / 1 !important;
   display: block !important;
 }
 
@@ -2618,18 +2622,27 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   padding: 0 !important;
   margin: 0 auto !important;
   align-self: center !important;
+  align-items: center !important;
   justify-content: center !important;
   border-radius: 9999px !important;
   display: flex !important;
+  gap: 0 !important;
+  box-sizing: border-box !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-text {
-  opacity: 0 !important;
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
   max-width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
   overflow: hidden !important;
+  opacity: 0 !important;
   pointer-events: none !important;
-  display: inline-block !important;
-  transition: opacity 80ms ease !important;
 }
 
 [role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-avatar-wrap {
@@ -2637,7 +2650,26 @@ div:has(> [role="menu"][data-gemini-conversation-menu]) {
   height: 28px !important;
   min-width: 28px !important;
   min-height: 28px !important;
-  margin: 0 !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
+  margin: 0 auto !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  aspect-ratio: 1 / 1 !important;
+}
+
+[role="navigation"][aria-label="Sidebar"][data-collapsed="true"] #gemini-sidebar-user-pill .gemini-user-avatar {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  aspect-ratio: 1 / 1 !important;
+  display: block !important;
 }
 
 /* Settings button styling */

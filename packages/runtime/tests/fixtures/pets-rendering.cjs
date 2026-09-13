@@ -313,6 +313,10 @@ app.whenReady().then(async () => {
   try {
     await window.loadURL(`http://127.0.0.1:${server.address().port}/c/previous`);
     await window.webContents.insertCSS(css);
+    window.webContents.debugger.attach("1.3");
+    await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "no-preference" }]
+    });
     for (const desktop of [false, true]) {
       await evaluate(`${surface}\npetSurface({
         send() {}, setInteractive() {}, setFocusable() {},
@@ -459,7 +463,9 @@ app.whenReady().then(async () => {
       assert.equal(interaction.closed.replyHeight, 0);
       assert.equal(interaction.closed.height, reply.before.height);
 
-      window.webContents.debugger.attach("1.3");
+      if (!window.webContents.debugger.isAttached()) {
+        window.webContents.debugger.attach("1.3");
+      }
       await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", {
         features: [{ name: "prefers-reduced-motion", value: "reduce" }]
       });
@@ -479,8 +485,9 @@ app.whenReady().then(async () => {
         return { animations: badge.getAnimations().length, opacity: getComputedStyle(badge).opacity };
       })()`);
       assert.deepEqual(reducedBadge, { animations: 0, opacity: '1' });
-      await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: [] });
-      window.webContents.debugger.detach();
+      await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", {
+        features: [{ name: "prefers-reduced-motion", value: "no-preference" }]
+      });
       const disposedBadge = await evaluate(`(async () => {
         await new Promise(resolve => requestAnimationFrame(resolve));
         receivePetMessage({ t: 'activity', entries: [] });
@@ -492,6 +499,9 @@ app.whenReady().then(async () => {
       })()`);
       assert.deepEqual(disposedBadge, { wasAnimating: true, playState: 'idle', connected: false });
       inlineReplies++;
+    }
+    if (window.webContents.debugger.isAttached()) {
+      window.webContents.debugger.detach();
     }
     // A real contenteditable editor refuses insertText while its page is inert.
     // jsdom's textarea assignment does not exercise this tab-to-chat transition.
