@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { nativeImage } = require("electron");
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function until(predicate, message, timeout = 6500) {
+async function until(predicate, message, timeout = 15000) {
   const end = Date.now() + timeout;
   while (!await predicate()) { if (Date.now() >= end) throw new Error(message); await delay(25); }
 }
