@@ -108,7 +108,7 @@ async function verifyAgentBrowser(window, service, host, tab, directory, result)
   fs.writeFileSync(path.join(directory, "browser-agent-cursor.png"), (await window.webContents.capturePage()).toPNG());
   await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
   assert.equal(await evaluate(`getComputedStyle(document.querySelector('.bg-browser-agent-glow')).animationName`), "none");
-  await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: [] });
+  await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "no-preference" }] });
   await holding;
   result.activityBorder = true;
   result.agentCursor = true;
