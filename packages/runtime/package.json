@@ -17,7 +17,7 @@
     "@bettergravity/theme-api": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^26.5.1",
     "electron": "^41.0.2",
     "esbuild": "^0.25.0",
     "jsdom": "^30.0.1",
