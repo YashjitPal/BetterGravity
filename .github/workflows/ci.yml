@@ -22,6 +22,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Set display resolution on Windows
+        if: runner.os == 'Windows'
+        run: |
+          try {
+            if (Get-Command Set-DisplayResolution -ErrorAction SilentlyContinue) {
+              Set-DisplayResolution -Width 1920 -Height 1080 -Force
+            }
+          } catch {
+            Write-Warning "Could not set display resolution: $_"
+          }
+          try {
+            Add-Type -AssemblyName System.Windows.Forms
+            Write-Host "Display resolution: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width)x$([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height)"
+          } catch {}
+        shell: powershell
       - uses: pnpm/action-setup@v4
         with:
           version: 10.27.0
