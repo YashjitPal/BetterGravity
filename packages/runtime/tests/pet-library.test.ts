@@ -102,6 +102,34 @@ describe("validated local pet packages", () => {
     expect((await library.read()).pets[0]).not.toHaveProperty("spritesheetDataUrl");
   });
 
+  it("ignores folders without manifests before applying the pet package limit", async () => {
+    for (let index = 0; index < 101; index++) {
+      fs.mkdirSync(path.join(library.directory, `artifact-${index}`));
+    }
+    fs.mkdirSync(path.join(library.directory, "output", "hatch-pet"), { recursive: true });
+    packagePet();
+
+    const state = await library.read();
+    expect(state.pets.map(pet => pet.id)).toEqual(["willow"]);
+    expect(state.message).toBeUndefined();
+    expect(fs.existsSync(path.join(library.directory, "output", "hatch-pet"))).toBe(true);
+
+    // A real pet may also be named output; discovery depends on its manifest.
+    packagePet("output");
+    expect((await library.read()).pets.map(pet => pet.id)).toEqual(["output", "willow"]);
+  });
+
+  it("still reports a missing sprite sheet in a folder with a pet manifest", async () => {
+    const folder = packagePet("broken");
+    fs.unlinkSync(path.join(folder, "spritesheet.webp"));
+    packagePet();
+
+    const state = await library.read();
+    expect(state.pets.map(pet => pet.id)).toEqual(["willow"]);
+    expect(state.message).toContain("broken:");
+    expect(state.message).toContain("spritesheet.webp");
+  });
+
   it.each([
     [{ spriteVersionNumber: 1 }, { width: 1536, height: 1872 }],
     [{}, { width: 1536, height: 1872 }],

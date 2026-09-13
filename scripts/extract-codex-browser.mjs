@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { build, transform } from "esbuild";
 import ts from "typescript";
+import { extractBrowserInstructions } from "./extract-codex-browser-instructions.mjs";
 
 const reference = process.argv[2];
 if (!reference) throw new Error("Pass the absolute path to Codex's bundled plugins/browser directory.");
@@ -98,3 +99,5 @@ await fs.writeFile(path.join(destination,"provenance.json"),JSON.stringify({
   commandCount:contracts.length
 },null,2)+"\n");
 process.stdout.write(`Extracted ${contracts.length} browser command contracts, the client, and Playwright DOM engine.\n`);
+const guidance = await extractBrowserInstructions(reference);
+process.stdout.write(`Imported ${guidance.documents} Codex browser guides and ${guidance.descriptions} original tool descriptions.\n`);

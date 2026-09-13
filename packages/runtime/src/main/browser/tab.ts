@@ -3,7 +3,7 @@ import { WebContentsView, type Session, type WebContents } from "electron";
 import type { BrowserTabState } from "../../protocol.js";
 import { annotationScript, browserDomDriver } from "./dom-driver.js";
 import { browserUrl, finiteNumber } from "./url.js";
-import { browserCleanup, browserDeadline } from "./execution.js";
+import { browserCleanup, browserDeadline, isBrowserOperation } from "./execution.js";
 
 const WORLD = "bettergravity-browser-tools";
 const MAX_EVENTS = 500;
@@ -13,11 +13,16 @@ export interface NativeTabOptions {
   session: Session;
   injected: string;
   nativeWindow?: Electron.BrowserWindowConstructorOptions;
+  autoApprove?(): boolean;
   changed(): void;
   popup(url: string, nativeWindow: Electron.BrowserWindowConstructorOptions): NativeBrowserTab;
   shortcut(action: string): void;
   selection(value: Record<string, unknown>): void;
   userInput(): void;
+  userInputBlocked?(): boolean;
+  frame?(data: string, sequence: number, size: { width: number; height: number }): void;
+  cursor?(value: string): void;
+  agentCursor?(x: number, y: number, animateMovement: boolean): Promise<void>;
 }
 
 /** Each tab is a separate sandboxed renderer, never in the host's session. */
@@ -41,23 +46,45 @@ export class NativeBrowserTab {
   private disposed = false;
   private awakeCount = 0;
   private captureQueue: Promise<unknown> = Promise.resolve();
+  private capturing = false;
   private paintCount = 0;
   private paintReady: Promise<unknown> = Promise.resolve();
+  private presentation = false;
+  private composited = false;
+  private emulatedViewport = false;
+  private pendingPresentationSize: { width: number; height: number } | null = null;
+  private resizingPresentation: Promise<void> | null = null;
+  private playing = false;
+  private paintMode: "none" | "tiny" | "full" = "none";
+  private frameSequence = 0;
+  private lastFrameAt = 0;
+  private pendingFrame: { data: string; width: number; height: number; timestamp: number } | null = null;
+  private lastFrameTimestamp = 0;
+  private frameTimer: NodeJS.Timeout | undefined;
+  private throttled = true;
 
   constructor(private readonly options: NativeTabOptions) {
     this.view = new WebContentsView({ ...options.nativeWindow, webPreferences: {
       ...options.nativeWindow?.webPreferences,
       session: options.session, sandbox: true, contextIsolation: true, nodeIntegration: false,
       nodeIntegrationInSubFrames: false, webSecurity: true, allowRunningInsecureContent: false,
-      backgroundThrottling: true, spellcheck: true
+      // Antigravity launches its shell with automation enabled. Browser tabs
+      // use their own scoped CDP transport, independently of that shell flag.
+      disableBlinkFeatures: "AutomationControlled", backgroundThrottling: true, spellcheck: true
     } });
     this.view.setBackgroundColor("#181818");
     this.contents = this.view.webContents;
     const contents = this.contents;
+    // Use the actual Chromium version without the host application's product
+    // tokens, which some sites mistake for an unsupported browser engine.
+    contents.setUserAgent(contents.getUserAgent().replace(/\s(?:Antigravity|Electron)\/\S+/g, ""));
     const changed = () => options.changed();
     contents.on("page-title-updated", changed);
     contents.on("did-start-loading", changed);
     contents.on("did-stop-loading", changed);
+    contents.on("media-started-playing", () => { this.playing = true; this.updateThrottling(); });
+    contents.on("media-paused", () => { this.playing = false; this.updateThrottling(); });
+    contents.on("cursor-changed", (_event, value) => { if (this.composited) options.cursor?.(value); });
     contents.on("did-navigate", () => { this.error = null; this.fileChooser = null; this.visitId++; changed(); });
     contents.on("did-navigate-in-page", (_event, _url, mainFrame) => { if (mainFrame) this.visitId++; changed(); });
     contents.on("page-favicon-updated", (_event, icons) => { this.favicon = icons.find(url => /^https?:/i.test(url)) ?? null; changed(); });
@@ -81,6 +108,13 @@ export class NativeBrowserTab {
       return { action: "allow", outlivesOpener: true, createWindow: nativeWindow => options.popup(url, nativeWindow).contents };
     });
     contents.on("before-input-event", (event, input) => {
+      // A native page can retain keyboard focus while its image is composited
+      // in the host. CDP key dispatch bypasses this physical-input event.
+      if (options.userInputBlocked?.()) {
+        event.preventDefault();
+        if (input.type === "keyDown" && input.key === "Escape" && !input.control && !input.meta) options.userInput();
+        return;
+      }
       if (input.type !== "keyDown") return;
       const modifier = input.control || input.meta;
       const key = input.key.toLowerCase();
@@ -92,18 +126,23 @@ export class NativeBrowserTab {
       if (key === "escape" && !modifier) options.userInput();
     });
     contents.debugger.on("message", (_event, method, params, sessionId) => {
-      if (this.paintCount && method === "Page.screencastFrame") {
-        void contents.debugger.sendCommand("Page.screencastFrameAck", { sessionId: params.sessionId }).catch(() => {});
+      if (method === "Page.screencastFrame") {
+        this.receiveFrame(params);
         return;
       }
-      if (this.paintCount && method === "Page.screencastVisibilityChanged") return;
+      if ((this.paintCount || this.composited) && method === "Page.screencastVisibilityChanged") return;
       const targetId = sessionId ? [...this.children].find(([, id]) => id === sessionId)?.[0] : undefined;
       this.events.push({ method, params, sequence: ++this.eventSequence, source: { ...(sessionId ? { sessionId } : {}), ...(targetId ? { targetId } : {}) } });
       if (this.events.length > MAX_EVENTS) this.events.shift();
       if (method === "Target.attachedToTarget") this.children.set(params.targetInfo.targetId, params.sessionId);
       if (method === "Target.detachedFromTarget") for (const [id, child] of this.children) if (child === params.sessionId) this.children.delete(id);
       if (method === "Page.javascriptDialogOpening") {
-        this.dialog = { id: randomUUID(), type: params.type, message: params.message, defaultPrompt: params.defaultPrompt ?? "" }; changed();
+        const dialog = { id: randomUUID(), type: params.type, message: params.message, defaultPrompt: params.defaultPrompt ?? "" };
+        if (options.autoApprove?.() && ["alert", "confirm", "beforeunload"].includes(params.type)) {
+          void contents.debugger.sendCommand("Page.handleJavaScriptDialog", { accept: true }, sessionId || undefined).catch(() => {
+            if (!this.destroyed) { this.dialog = dialog; changed(); }
+          });
+        } else { this.dialog = dialog; changed(); }
       }
       if (method === "Page.javascriptDialogClosed") { this.dialog = null; changed(); }
       if (method === "Page.fileChooserOpened" && this.waitingForFileChooser) this.fileChooser = { id: randomUUID(), backendNodeId: params.backendNodeId, multiple: params.mode === "selectMultiple", ...(sessionId ? { sessionId } : {}) };
@@ -134,33 +173,124 @@ export class NativeBrowserTab {
     await send("Network.enable", { maxTotalBufferSize: 8 * 1024 * 1024, maxResourceBufferSize: 1024 * 1024 });
     await send("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
     await send("Runtime.addBinding", { name: this.binding, executionContextName: WORLD });
+    await send("Emulation.setFocusEmulationEnabled", { enabled: true });
   }
 
   async cdp(method: string, params: Record<string, unknown> = {}, sessionId?: string, timeout = 15_000): Promise<any> {
     if (this.destroyed) throw new Error("The browser tab is closed.");
     await this.ready;
     if (!this.contents.debugger.isAttached()) { this.ready = this.initialize(); await this.ready; }
-    return browserDeadline(() => this.contents.debugger.sendCommand(method, params, sessionId), method, timeout, () => {
+    if (!sessionId && method === "Input.dispatchMouseEvent" && ["mouseMoved", "mouseWheel"].includes(String(params.type)) && typeof params.x === "number" && typeof params.y === "number") {
+      await this.moveAgentCursor(params.x, params.y, !params.buttons);
+    }
+    const result = await browserDeadline(() => this.contents.debugger.sendCommand(method, params, sessionId), method, timeout, () => {
       if (!this.destroyed && /^(Runtime.evaluate|Runtime.callFunctionOn)$/.test(method)) {
         void this.contents.debugger.sendCommand("Runtime.terminateExecution", {}, sessionId).catch(() => {});
       }
     });
+    if (!sessionId && method === "Emulation.setDeviceMetricsOverride") this.emulatedViewport = Number(params.width) > 0 || Number(params.height) > 0;
+    if (!sessionId && method === "Emulation.clearDeviceMetricsOverride") { this.emulatedViewport = false; await this.resizePresentation(); }
+    return result;
   }
 
   keepAwake(): () => void {
-    if (this.awakeCount++ === 0 && !this.destroyed) this.contents.setBackgroundThrottling(false);
+    this.awakeCount++; this.updateThrottling();
     let released = false;
-    return () => { if (!released) { released = true; if (--this.awakeCount === 0 && !this.destroyed) this.contents.setBackgroundThrottling(true); } };
+    return () => { if (!released) { released = true; this.awakeCount--; this.updateThrottling(); } };
+  }
+
+  private updateThrottling(): void {
+    const throttle = !(this.presentation || this.playing || this.awakeCount);
+    if (!this.destroyed && this.throttled !== throttle) { this.throttled = throttle; this.contents.setBackgroundThrottling(throttle); }
+  }
+
+  private receiveFrame(params: Record<string, any>): void {
+    if (this.destroyed) return;
+    // Always acknowledge late frames, including those from a stopped capture.
+    void this.contents.debugger.sendCommand("Page.screencastFrameAck", { sessionId: params.sessionId }).catch(() => {});
+    if (!this.composited || this.capturing || this.paintMode !== "full" || typeof params.data !== "string" || !params.data.startsWith("/9j/")) return;
+    const width = params.metadata?.deviceWidth, height = params.metadata?.deviceHeight;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    // Keep capture geometry with the pixels and let the presenter validate it
+    // against the current native or explicitly emulated viewport. A late old
+    // frame must not overwrite the last current frame in the coalescing queue.
+    const timestamp = Number.isFinite(params.metadata.timestamp) ? params.metadata.timestamp : Date.now() / 1000;
+    if (timestamp < (this.pendingFrame?.timestamp ?? this.lastFrameTimestamp)) return;
+    this.pendingFrame = { data: params.data, width, height, timestamp };
+    if (!this.frameTimer) this.frameTimer = setTimeout(() => this.flushFrame(), Math.max(0, 33 - (Date.now() - this.lastFrameAt)));
+  }
+
+  private flushFrame(): void {
+    this.frameTimer = undefined;
+    const frame = this.pendingFrame; this.pendingFrame = null;
+    if (!frame || this.destroyed || !this.composited || this.capturing || this.paintMode !== "full") return;
+    this.lastFrameAt = Date.now(); this.lastFrameTimestamp = frame.timestamp;
+    this.options.frame?.(`data:image/jpeg;base64,${frame.data}`, ++this.frameSequence, frame);
+  }
+
+  setPresentation(visible: boolean, composited = false): void {
+    this.presentation = visible; this.updateThrottling();
+    if (this.composited === (visible && composited)) return;
+    this.composited = visible && composited; this.lastFrameAt = Date.now();
+    clearTimeout(this.frameTimer); this.frameTimer = undefined; this.pendingFrame = null;
+    void browserCleanup(async () => { await this.resizePresentation(); return this.updateScreencast(); }).catch(error => { if (!this.destroyed) { this.error = String(error); this.options.changed(); } });
+  }
+
+  resizePresentation(): Promise<void> {
+    if (this.destroyed || !this.composited || this.capturing || this.emulatedViewport) return Promise.resolve();
+    const { width, height } = this.view.getBounds();
+    this.pendingPresentationSize = { width, height };
+    if (this.resizingPresentation) return this.resizingPresentation;
+    // Windows can defer RenderWidgetHost resizing while the native view is
+    // parked offscreen for overlays. Resize that viewport explicitly, without
+    // changing device emulation or the user's control. Coalesce animation sizes
+    // and restart capture so a static page supplies its final resized frame.
+    this.resizingPresentation = browserCleanup(async () => {
+      while (this.pendingPresentationSize && !this.destroyed && this.composited && !this.capturing && !this.emulatedViewport) {
+        const size = this.pendingPresentationSize; this.pendingPresentationSize = null;
+        await this.cdp("Emulation.setVisibleSize", size);
+        await this.updateScreencast();
+        // Size acknowledgement precedes the compositor commit. Keep a capturer
+        // active through that paint before asking a new stream for its frame.
+        if (this.composited && !this.destroyed && !this.dialog) await this.evaluate("new Promise(resolve => { const timer = setTimeout(() => resolve(true), 80); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(timer); resolve(true); })); })", undefined, undefined, 3000);
+        await this.updateScreencast(true);
+      }
+    }).catch(error => {
+      if (!this.destroyed) { this.error = String(error); this.options.changed(); }
+    }).finally(() => {
+      this.resizingPresentation = null; this.pendingPresentationSize = null;
+    });
+    return this.resizingPresentation;
+  }
+
+  private updateScreencast(refresh = false): Promise<unknown> {
+    // Capture helpers and the live host compositor share one CDP screencast.
+    // Serialize mode changes so finishing a screenshot cannot stop live video.
+    this.paintReady = this.paintReady.catch(() => {}).then(async () => {
+      if (this.destroyed) return;
+      const mode = this.composited && !this.capturing ? "full" : this.paintCount ? "tiny" : "none";
+      if (mode === this.paintMode && (!refresh || mode !== "full")) return;
+      if (this.paintMode !== "none") await this.cdp("Page.stopScreencast");
+      if (this.destroyed) return;
+      this.paintMode = mode;
+      if (mode !== "none") await this.cdp("Page.startScreencast", mode === "full"
+        ? { format: "jpeg", quality: 90, maxWidth: 2560, maxHeight: 1600, everyNthFrame: 1 }
+        : { format: "png", maxWidth: 1, maxHeight: 1 });
+    });
+    return this.paintReady;
   }
 
   async keepPainting(): Promise<() => Promise<void>> {
     const releaseAwake = this.keepAwake();
-    if (this.paintCount++ === 0) this.paintReady = this.cdp("Page.startScreencast", { format: "png", maxWidth: 1, maxHeight: 1 });
+    this.paintCount++;
+    const ready = this.updateScreencast();
+    let released = false;
     const release = async () => {
-      if (--this.paintCount === 0 && !this.destroyed) await browserCleanup(() => browserDeadline(() => this.contents.debugger.sendCommand("Page.stopScreencast"), "Stop capture", 3000)).catch(() => {});
-      releaseAwake();
+      if (released) return;
+      released = true; this.paintCount--;
+      try { await browserCleanup(() => this.updateScreencast()).catch(() => {}); } finally { releaseAwake(); }
     };
-    try { await this.paintReady; return release; }
+    try { await ready; return release; }
     catch (error) { await release(); throw error; }
   }
 
@@ -232,6 +362,10 @@ export class NativeBrowserTab {
     }
   }
 
+  async moveAgentCursor(x: number, y: number, animateMovement = true): Promise<void> {
+    if (isBrowserOperation() && Number.isFinite(x) && Number.isFinite(y)) await this.options.agentCursor?.(x, y, animateMovement);
+  }
+
   async keypress(keys: string[]): Promise<void> {
     const aliases: Record<string, string> = { CTRL: "Control", CONTROL: "Control", META: "Meta", CMD: "Meta", COMMAND: "Meta", SUPER: "Meta", SHIFT: "Shift", ALT: "Alt", ENTER: "Enter", RETURN: "Enter", ESC: "Escape", ESCAPE: "Escape", SPACE: " ", BACKSPACE: "Backspace", DELETE: "Delete", TAB: "Tab", UP: "ArrowUp", DOWN: "ArrowDown", LEFT: "ArrowLeft", RIGHT: "ArrowRight", ARROWUP: "ArrowUp", ARROWDOWN: "ArrowDown", ARROWLEFT: "ArrowLeft", ARROWRIGHT: "ArrowRight" };
     const normalized = keys.flatMap(key => key.split("+")).map(key => aliases[key.toUpperCase()] ?? key);
@@ -253,11 +387,17 @@ export class NativeBrowserTab {
   }
 
   private async capture(args: Record<string, unknown>): Promise<string> {
-    const release = await this.keepPainting();
+    // CDP temporarily changes its capture dimensions for crops and full pages.
+    // Keep the last host frame while capturing so those dimensions cannot leak
+    // into the live preview or compete with its full-resolution screencast.
+    this.capturing = true;
+    clearTimeout(this.frameTimer); this.frameTimer = undefined; this.pendingFrame = null;
+    let release: (() => Promise<void>) | undefined;
     try {
+      release = await this.keepPainting();
       // A screencast holds Chromium's capturer count above zero while a hidden
       // view paints. This also prevents full-page captures waiting indefinitely.
-      if (!this.dialog) await this.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))", undefined, undefined, 3000);
+      if (!this.dialog) await this.evaluate("new Promise(resolve => { const timer = setTimeout(() => resolve(true), 80); requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(timer); resolve(true); })); })", undefined, undefined, 3000);
       let clip: Record<string, number> | undefined;
       if (args.fullPage === true) {
         const metrics = await this.cdp("Page.getLayoutMetrics");
@@ -279,7 +419,10 @@ export class NativeBrowserTab {
       if (image.isEmpty()) throw new Error("The browser page has not produced a screenshot yet.");
       return image.toPNG().toString("base64");
     } finally {
-      await release();
+      this.capturing = false; this.lastFrameAt = Date.now();
+      await this.resizePresentation();
+      if (release) await release();
+      else await browserCleanup(() => this.updateScreencast()).catch(() => {});
     }
   }
 
@@ -297,6 +440,7 @@ export class NativeBrowserTab {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    clearTimeout(this.frameTimer); this.frameTimer = undefined; this.pendingFrame = null;
     this.logs.length = 0; this.events.length = 0; this.children.clear();
     if (!this.contents.isDestroyed()) {
       try { this.contents.debugger.detach(); } catch { /* The renderer may already be gone. */ }

@@ -1,0 +1,14 @@
+{
+  "product": "Willow Code",
+  "source": "features/code/src/workbench/WorkbenchPreview.tsx",
+  "sourceSha256": "a9c6838da3dc6a33955486f52259a76c0d0a2d09f8d2c3dc74f241779b95aee3",
+  "components": [
+    "TestModeGlow",
+    "TestStatusIndicator",
+    "pulseGlowOpacity"
+  ],
+  "adaptation": "Preserved blue inset shadows, three-second breathing curve, fade and floating status layout. Translated React rendering to the plugin DOM, replaced Stop Testing with browser Take over task / Resume, and connected visibility to the current Antigravity task.",
+  "license": "MIT",
+  "licenseFile": "WILLOW-LICENSE",
+  "licenseSha256": "ac58caf713a4713f27573ca5fe9ef9826a94121ee519d4648852422624c3aa0e"
+}

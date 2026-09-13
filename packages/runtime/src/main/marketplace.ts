@@ -75,9 +75,27 @@ function explain(error: unknown): string {
   return message;
 }
 
-export async function fetchCatalog(force = false): Promise<CatalogResult> {
+/**
+ * Checks whether an entry is compatible with the given OS platform.
+ * If the entry does not specify `platforms`, it is universal.
+ */
+export function matchesPlatform(entry: CatalogEntry, platform: string = process.platform): boolean {
+  if (!entry.platforms || entry.platforms.length === 0) return true;
+  const current = platform === "win32" ? "windows" : platform === "darwin" ? "macos" : platform;
+  return entry.platforms.some((p) => {
+    const target = p.toLowerCase();
+    return (
+      target === "all" ||
+      target === platform.toLowerCase() ||
+      target === current ||
+      (target === "mac" && current === "macos")
+    );
+  });
+}
+
+export async function fetchCatalog(force = false, platform: string = process.platform): Promise<CatalogResult> {
   if (!force && cache && Date.now() - cache.at < CACHE_MS) {
-    return { ok: true, entries: cache.entries, cached: true };
+    return { ok: true, entries: cache.entries.filter((entry) => matchesPlatform(entry, platform)), cached: true };
   }
 
   try {
@@ -89,7 +107,7 @@ export async function fetchCatalog(force = false): Promise<CatalogResult> {
     if (!isCatalogShape(parsed)) throw new Error("the catalog is not in a format this version understands");
 
     cache = { entries: parsed.entries, at: Date.now() };
-    return { ok: true, entries: parsed.entries, cached: false };
+    return { ok: true, entries: parsed.entries.filter((entry) => matchesPlatform(entry, platform)), cached: false };
   } catch (error) {
     logger.error("Could not read the community catalog.", error);
     return { ok: false, message: explain(error) };
@@ -137,7 +155,16 @@ function totalBytes(files: readonly CatalogFile[]): number {
  * Downloads everything before writing anything, so a failure halfway through
  * cannot leave a half-installed plugin that BetterGravity would then try to run.
  */
-export async function installEntry(paths: RuntimePaths, entry: CatalogEntry): Promise<ContentResult> {
+export async function installEntry(
+  paths: RuntimePaths,
+  entry: CatalogEntry,
+  platform: string = process.platform
+): Promise<ContentResult> {
+  if (!matchesPlatform(entry, platform)) {
+    const required = entry.platforms?.join(", ") ?? "other platforms";
+    return { ok: false, message: `${entry.name} is only available on ${required}.` };
+  }
+
   if (entry.kind !== "theme" && entry.kind !== "plugin") return { ok: false, message: "Unknown kind of listing." };
 
   // The catalog arrives over the network, so a listing is checked rather than

@@ -1,0 +1,652 @@
+{
+  "list_browsers": {
+    "members": [
+      "Browsers.list"
+    ],
+    "source": "docs/api.json",
+    "text": "List available browsers."
+  },
+  "get_browser": {
+    "members": [
+      "Browsers.get"
+    ],
+    "source": "docs/api.json",
+    "text": "Get a browser by id or client type."
+  },
+  "get_default_browser": {
+    "members": [
+      "Browsers.getDefault"
+    ],
+    "source": "docs/api.json",
+    "text": "Get the default browser from those currently available."
+  },
+  "get_documentation": {
+    "members": [
+      "Documentation.get"
+    ],
+    "source": "docs/api.json",
+    "text": "Read packaged documentation by its extensionless relative path."
+  },
+  "get_browser_documentation": {
+    "members": [
+      "Browser.documentation"
+    ],
+    "source": "docs/api.json",
+    "text": "Read browser guidance and the core API reference."
+  },
+  "get_browser_for_url": {
+    "members": [
+      "Browsers.getForUrl"
+    ],
+    "source": "docs/api.json",
+    "text": "Get the browser best suited to interact with the provided URL."
+  },
+  "create_tab": {
+    "members": [
+      "Tabs.new"
+    ],
+    "source": "docs/api.json",
+    "text": "Create and return a new tab in the browser."
+  },
+  "get_tab": {
+    "members": [
+      "Tabs.get"
+    ],
+    "source": "docs/api.json",
+    "text": "Get a tab by id."
+  },
+  "close_tab": {
+    "members": [
+      "Tab.close"
+    ],
+    "source": "docs/api.json",
+    "text": "Close this tab."
+  },
+  "mark_tab": {
+    "members": [
+      "Tab.markDeliverable",
+      "Tab.markHandoff"
+    ],
+    "source": "docs/api.json",
+    "text": "Keep this tab as a deliverable after the turn completes. Keep this tab available for a later turn after the current turn completes."
+  },
+  "tab_manual_handoff_request": {
+    "members": [
+      "Tab.requestManualHandoff"
+    ],
+    "source": "docs/api.json",
+    "text": "Request manual user control of this Cloud Browser tab."
+  },
+  "runtime_config": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "runtime_config",
+    "internal": true
+  },
+  "name_session": {
+    "members": [
+      "Browser.nameSession"
+    ],
+    "source": "docs/api.json",
+    "text": "Name the current browser automation session."
+  },
+  "selected_tab": {
+    "members": [
+      "Tabs.selected"
+    ],
+    "source": "docs/api.json",
+    "text": "Return the currently selected tab, if any."
+  },
+  "list_tabs": {
+    "members": [
+      "Tabs.list"
+    ],
+    "source": "docs/api.json",
+    "text": "List open tabs in the browser."
+  },
+  "tabs_content": {
+    "members": [
+      "Tabs.content"
+    ],
+    "source": "docs/api.json",
+    "text": "Load one or more URLs in temporary background tabs and extract their content without changing the selected tab."
+  },
+  "webmcp_list_tools": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "webmcp_list_tools",
+    "internal": true
+  },
+  "webmcp_invoke_tool": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "webmcp_invoke_tool",
+    "internal": true
+  },
+  "navigate_tab_url": {
+    "members": [
+      "Tab.goto"
+    ],
+    "source": "docs/api.json",
+    "text": "Open a URL in this tab."
+  },
+  "navigate_tab_back": {
+    "members": [
+      "Tab.back"
+    ],
+    "source": "docs/api.json",
+    "text": "Navigate this tab back in history."
+  },
+  "navigate_tab_forward": {
+    "members": [
+      "Tab.forward"
+    ],
+    "source": "docs/api.json",
+    "text": "Navigate this tab forward in history."
+  },
+  "navigate_tab_reload": {
+    "members": [
+      "Tab.reload"
+    ],
+    "source": "docs/api.json",
+    "text": "Reload this tab."
+  },
+  "browser_user_claim_tab": {
+    "members": [
+      "BrowserUser.claimTab"
+    ],
+    "source": "docs/api.json",
+    "text": "Claim a user tab returned by `openTabs()` and return it as a controllable agent tab."
+  },
+  "browser_user_get_tab_context": {
+    "members": [
+      "BrowserUser.getTabContext"
+    ],
+    "source": "docs/api.json",
+    "text": "Read bounded page context from an open user tab without claiming it."
+  },
+  "browser_user_open_tabs": {
+    "members": [
+      "BrowserUser.openTabs"
+    ],
+    "source": "docs/api.json",
+    "text": "List open top-level tabs across the user's browser windows ordered by `lastOpened` descending."
+  },
+  "browser_user_history": {
+    "members": [
+      "Browser.history"
+    ],
+    "source": "docs/api.json",
+    "text": "List recent browsing history ordered by `dateVisited` descending."
+  },
+  "tab_dev_logs": {
+    "members": [
+      "TabDevAPI.logs"
+    ],
+    "source": "docs/api.json",
+    "text": "Read console log messages captured for this tab."
+  },
+  "tab_get_js_dialog": {
+    "members": [
+      "Tab.getJsDialog"
+    ],
+    "source": "docs/api.json",
+    "text": "Get the active JavaScript dialog for this tab, if one is currently open."
+  },
+  "tab_handle_js_dialog": {
+    "members": [
+      "AlertDialog.dismiss",
+      "ConfirmDialog.accept",
+      "ConfirmDialog.dismiss",
+      "PromptDialog.accept",
+      "PromptDialog.dismiss",
+      "BeforeUnloadDialog.dismiss"
+    ],
+    "source": "docs/api.json",
+    "text": "dismiss(): Promise<void>;\naccept(): Promise<void>;\ndismiss(): Promise<void>;\naccept(text: string): Promise<void>;\ndismiss(): Promise<void>;\ndismiss(): Promise<void>;"
+  },
+  "tab_content_export": {
+    "members": [
+      "ContentAPI.export"
+    ],
+    "source": "docs/api.json",
+    "text": "Export the tab's content to a file on disk using the default asset-loader path."
+  },
+  "tab_content_export_gsuite": {
+    "members": [
+      "ContentAPI.exportGsuite"
+    ],
+    "source": "docs/api.json",
+    "text": "Export a Google Workspace tab using an explicit GSuite export type."
+  },
+  "tab_content_export_youtube_transcript": {
+    "members": [
+      "ContentAPI.exportYouTubeTranscript"
+    ],
+    "source": "docs/api.json",
+    "text": "Export an HTTPS youtube.com or www.youtube.com /watch transcript to a UTF-8 .txt file."
+  },
+  "tab_clipboard_read_text": {
+    "members": [
+      "TabClipboardAPI.readText"
+    ],
+    "source": "docs/api.json",
+    "text": "Read plain text from the browser clipboard."
+  },
+  "tab_clipboard_write_text": {
+    "members": [
+      "TabClipboardAPI.writeText"
+    ],
+    "source": "docs/api.json",
+    "text": "Write plain text to the browser clipboard."
+  },
+  "tab_clipboard_read": {
+    "members": [
+      "TabClipboardAPI.read"
+    ],
+    "source": "docs/api.json",
+    "text": "Read clipboard items, including text and binary payloads."
+  },
+  "tab_clipboard_write": {
+    "members": [
+      "TabClipboardAPI.write"
+    ],
+    "source": "docs/api.json",
+    "text": "Write clipboard items."
+  },
+  "tab_screenshot": {
+    "members": [
+      "Tab.screenshot"
+    ],
+    "source": "docs/api.json",
+    "text": "Capture a screenshot of this tab."
+  },
+  "tab_ax_get_state": {
+    "members": [
+      "AXAPI.get",
+      "AXAPI.write"
+    ],
+    "source": "docs/api.json",
+    "text": "Return accessibility state without displaying it; prefer write() for model-visible observation. Return screenshot bytes without displaying an image or advancing accessibility state. Return accessibility state and screenshot bytes when available. Prefer this method to display current accessibility state to the model. Display a screenshot without advancing accessibility state. Display accessibility state followed by its corresponding screenshot."
+  },
+  "tab_ax_action": {
+    "members": [
+      "AXAPI.click",
+      "AXAPI.drag",
+      "AXAPI.pressKey",
+      "AXAPI.scroll",
+      "AXAPI.selectText",
+      "AXAPI.setValue",
+      "AXAPI.typeText",
+      "AXAPI.performSecondaryAction"
+    ],
+    "source": "docs/api.json",
+    "text": "Click an accessibility element or viewport coordinate. Drag between two viewport coordinates. Press a key or key combination in the current tab. Scroll an accessibility element or a viewport coordinate. Select text or position the cursor within an editable element. Set the value of an accessibility element. Type text into the currently focused element. Invoke an additional action exposed by an accessibility element."
+  },
+  "playwright_evaluate": {
+    "members": [
+      "PlaywrightAPI.evaluate",
+      "PlaywrightLocator.evaluate",
+      "PlaywrightLocator.evaluateAll"
+    ],
+    "source": "docs/api.json",
+    "text": "Evaluate JavaScript in a read-only page scope. Evaluate JavaScript in a read-only scope; the locator must resolve unambiguously to one element. Evaluate read-only JavaScript against all elements matched by this locator."
+  },
+  "cua_click": {
+    "members": [
+      "CUAAPI.click"
+    ],
+    "source": "docs/api.json",
+    "text": "Click at a coordinate in the current viewport."
+  },
+  "cua_download_media": {
+    "members": [
+      "CUAAPI.downloadMedia"
+    ],
+    "source": "docs/api.json",
+    "text": "Trigger a media download at a viewport coordinate."
+  },
+  "cua_double_click": {
+    "members": [
+      "CUAAPI.double_click"
+    ],
+    "source": "docs/api.json",
+    "text": "Double click at a coordinate in the current viewport."
+  },
+  "cua_keypress": {
+    "members": [
+      "CUAAPI.keypress"
+    ],
+    "source": "docs/api.json",
+    "text": "Press control characters at the current focused element (focus it first via click/dblclick)."
+  },
+  "cua_drag": {
+    "members": [
+      "CUAAPI.drag"
+    ],
+    "source": "docs/api.json",
+    "text": "Drag from a point to a point by the provided path."
+  },
+  "cua_move": {
+    "members": [
+      "CUAAPI.move"
+    ],
+    "source": "docs/api.json",
+    "text": "Move the mouse to a point by the provided x and y coordinates."
+  },
+  "cua_scroll": {
+    "members": [
+      "CUAAPI.scroll"
+    ],
+    "source": "docs/api.json",
+    "text": "Scroll by a delta from a specific viewport coordinate."
+  },
+  "cua_type": {
+    "members": [
+      "CUAAPI.type"
+    ],
+    "source": "docs/api.json",
+    "text": "Type text at the current focus."
+  },
+  "dom_cua_click": {
+    "members": [
+      "DomCUAAPI.click"
+    ],
+    "source": "docs/api.json",
+    "text": "Click a DOM node by its id from the visible DOM snapshot."
+  },
+  "dom_cua_download_media": {
+    "members": [
+      "DomCUAAPI.downloadMedia"
+    ],
+    "source": "docs/api.json",
+    "text": "Trigger a media download for a DOM node."
+  },
+  "dom_cua_double_click": {
+    "members": [
+      "DomCUAAPI.double_click"
+    ],
+    "source": "docs/api.json",
+    "text": "Double-click a DOM node by its id."
+  },
+  "dom_cua_get_visible_dom": {
+    "members": [
+      "DomCUAAPI.get_visible_dom"
+    ],
+    "source": "docs/api.json",
+    "text": "Return a filtered DOM with node ids for interactable elements."
+  },
+  "dom_cua_keypress": {
+    "members": [
+      "DomCUAAPI.keypress"
+    ],
+    "source": "docs/api.json",
+    "text": "Press control characters at the currently focused element (focus it first via click/dblclick)."
+  },
+  "dom_cua_scroll": {
+    "members": [
+      "DomCUAAPI.scroll"
+    ],
+    "source": "docs/api.json",
+    "text": "Scroll either the page or a specific node (if node_id provided) by deltas."
+  },
+  "dom_cua_type": {
+    "members": [
+      "DomCUAAPI.type"
+    ],
+    "source": "docs/api.json",
+    "text": "Type text into the currently focused element (focus via click first)."
+  },
+  "playwright_locator_click": {
+    "members": [
+      "PlaywrightLocator.click"
+    ],
+    "source": "docs/api.json",
+    "text": "Click the element matched by this locator."
+  },
+  "playwright_locator_dblclick": {
+    "members": [
+      "PlaywrightLocator.dblclick"
+    ],
+    "source": "docs/api.json",
+    "text": "Double-click the element matched by this locator."
+  },
+  "playwright_locator_download_media": {
+    "members": [
+      "PlaywrightLocator.downloadMedia"
+    ],
+    "source": "docs/api.json",
+    "text": "Trigger a download for the media or file link in the first matched element."
+  },
+  "playwright_locator_fill": {
+    "members": [
+      "PlaywrightLocator.fill"
+    ],
+    "source": "docs/api.json",
+    "text": "Replace the element's value with the provided text."
+  },
+  "playwright_locator_press": {
+    "members": [
+      "PlaywrightLocator.press"
+    ],
+    "source": "docs/api.json",
+    "text": "Press a keyboard key while this locator is focused."
+  },
+  "playwright_locator_press_sequentially": {
+    "members": [
+      "PlaywrightLocator.pressSequentially"
+    ],
+    "source": "docs/api.json",
+    "text": "Focus the element and press each character in the text sequentially without clearing its existing value."
+  },
+  "playwright_locator_wait_for": {
+    "members": [
+      "PlaywrightLocator.waitFor"
+    ],
+    "source": "docs/api.json",
+    "text": "Wait for the element to reach a specific state."
+  },
+  "playwright_locator_count": {
+    "members": [
+      "PlaywrightLocator.count"
+    ],
+    "source": "docs/api.json",
+    "text": "Number of elements matching this locator."
+  },
+  "playwright_locator_select_option": {
+    "members": [
+      "PlaywrightLocator.selectOption"
+    ],
+    "source": "docs/api.json",
+    "text": "Select one or more options on a native `<select>` element."
+  },
+  "playwright_locator_set_checked": {
+    "members": [
+      "PlaywrightLocator.setChecked"
+    ],
+    "source": "docs/api.json",
+    "text": "Set a checkbox or switch-like control to a checked/unchecked state."
+  },
+  "playwright_locator_is_visible": {
+    "members": [
+      "PlaywrightLocator.isVisible"
+    ],
+    "source": "docs/api.json",
+    "text": "Whether the first matched element is currently visible."
+  },
+  "playwright_locator_is_enabled": {
+    "members": [
+      "PlaywrightLocator.isEnabled"
+    ],
+    "source": "docs/api.json",
+    "text": "Whether the first matched element is currently enabled."
+  },
+  "playwright_locator_all_text_contents": {
+    "members": [
+      "PlaywrightLocator.allTextContents"
+    ],
+    "source": "docs/api.json",
+    "text": "Return `textContent` for *all* elements matched by this locator."
+  },
+  "playwright_locator_text_content": {
+    "members": [
+      "PlaywrightLocator.textContent"
+    ],
+    "source": "docs/api.json",
+    "text": "Return the raw textContent of the first matched element (or null if missing)."
+  },
+  "playwright_locator_inner_text": {
+    "members": [
+      "PlaywrightLocator.innerText"
+    ],
+    "source": "docs/api.json",
+    "text": "Return the rendered (visible) text of the first matched element."
+  },
+  "playwright_locator_get_attribute": {
+    "members": [
+      "PlaywrightLocator.getAttribute"
+    ],
+    "source": "docs/api.json",
+    "text": "Return an attribute value from the first matched element."
+  },
+  "playwright_locator_read_all": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "playwright_locator_read_all",
+    "internal": true
+  },
+  "playwright_wait_for_url": {
+    "members": [
+      "PlaywrightAPI.waitForURL"
+    ],
+    "source": "docs/api.json",
+    "text": "Wait for the page URL to match the provided value."
+  },
+  "playwright_wait_for_load_state": {
+    "members": [
+      "PlaywrightAPI.waitForLoadState"
+    ],
+    "source": "docs/api.json",
+    "text": "Wait for the page to reach a specific load state."
+  },
+  "playwright_wait_for_timeout": {
+    "members": [
+      "PlaywrightAPI.waitForTimeout"
+    ],
+    "source": "docs/api.json",
+    "text": "Wait for a fixed duration."
+  },
+  "playwright_dom_snapshot": {
+    "members": [
+      "PlaywrightAPI.domSnapshot"
+    ],
+    "source": "docs/api.json",
+    "text": "Return a snapshot of the current DOM as a string, including expanded iframe body content when available."
+  },
+  "playwright_element_info": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "playwright_element_info",
+    "internal": true
+  },
+  "playwright_element_screenshot": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "playwright_element_screenshot",
+    "internal": true
+  },
+  "playwright_wait_for_download": {
+    "members": [
+      "PlaywrightAPI.waitForEvent"
+    ],
+    "source": "docs/api.json",
+    "text": "Wait for the next event on the page."
+  },
+  "playwright_download_path": {
+    "members": [
+      "PlaywrightDownload.path"
+    ],
+    "source": "docs/api.json",
+    "text": "Return the local path to the downloaded file, if available."
+  },
+  "playwright_wait_for_file_chooser": {
+    "members": [
+      "PlaywrightAPI.waitForEvent"
+    ],
+    "source": "docs/api.json",
+    "text": "Wait for the next event on the page."
+  },
+  "playwright_file_chooser_set_files": {
+    "members": [
+      "PlaywrightFileChooser.setFiles"
+    ],
+    "source": "docs/api.json",
+    "text": "Set the files for this chooser."
+  },
+  "tab_bot_detection_report": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "tab_bot_detection_report",
+    "internal": true
+  },
+  "tab_cdp_call": {
+    "members": [],
+    "source": "docs/capabilities/tab/cdp.md",
+    "text": "Send a permitted CDP command to this tab or an attached child target."
+  },
+  "tab_cdp_events": {
+    "members": [],
+    "source": "docs/capabilities/tab/cdp.md",
+    "text": "Read buffered CDP events, optionally waiting for the first match."
+  },
+  "tab_browser_auth_handoff": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "tab_browser_auth_handoff",
+    "internal": true
+  },
+  "tab_page_assets_bundle": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "tab_page_assets_bundle",
+    "internal": true
+  },
+  "tab_page_assets_list": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "tab_page_assets_list",
+    "internal": true
+  },
+  "browser_management_call": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "browser_management_call",
+    "internal": true
+  },
+  "browser_management_get_audit_trail": {
+    "members": [],
+    "source": "vendor/command-contracts.json",
+    "text": "browser_management_get_audit_trail",
+    "internal": true
+  },
+  "browser_visibility_get": {
+    "members": [],
+    "source": "docs/capabilities/browser/visibility.md",
+    "text": "Read whether the browser is visually presented to the user."
+  },
+  "browser_visibility_set": {
+    "members": [],
+    "source": "docs/capabilities/browser/visibility.md",
+    "text": "Set whether the browser is visually presented to the user."
+  },
+  "browser_viewport_reset": {
+    "members": [],
+    "source": "docs/capabilities/browser/viewport.md",
+    "text": "Clear the explicit viewport override and return to default browser sizing."
+  },
+  "browser_viewport_set": {
+    "members": [],
+    "source": "docs/capabilities/browser/viewport.md",
+    "text": "Apply an explicit browser viewport override."
+  }
+}

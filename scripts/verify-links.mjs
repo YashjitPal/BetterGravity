@@ -6,7 +6,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 const root = path.dirname(import.meta.dirname);
-const skip = new Set(["node_modules", ".git", "dist", "dist-electron", "release", "coverage", "output"]);
+const skip = new Set(["node_modules", ".git", "dist", "dist-electron", "release", "coverage", "output", "vendor"]);
 
 function markdownFiles(directory) {
   const found = [];
@@ -26,7 +26,7 @@ for (const file of markdownFiles(root)) {
   const contents = readFileSync(file, "utf8");
   for (const match of contents.matchAll(linkPattern)) {
     const target = match[1] ?? match[2];
-    if (!target || /^(https?:|mailto:|#)/.test(target)) continue;
+    if (!target || /^(https?:|mailto:|plugin:|#)/i.test(target) || /^[a-z][a-z0-9+.-]*:\/\//i.test(target)) continue;
 
     const [withoutAnchor] = target.split("#");
     if (!withoutAnchor) continue;

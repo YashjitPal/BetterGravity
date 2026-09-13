@@ -29,6 +29,7 @@ interface OverlayApi {
   readonly bounds: OverlayBounds | undefined;
   setInteractive(interactive: boolean): void;
   setFocusable(focusable: boolean): void;
+  focusOwner(): void;
   send(message: unknown): void;
   onMessage(listener: (message: unknown) => void): () => void;
   onResize(listener: (bounds: OverlayBounds) => void): () => void;
@@ -61,6 +62,10 @@ export function attachOverlaySurface(): void {
       if (focusable === wanted) return;
       focusable = wanted;
       ipcRenderer.send(CHANNEL.overlayFocusable, wanted);
+    },
+    focusOwner: () => {
+      api.setFocusable(false);
+      ipcRenderer.send(CHANNEL.overlaySend, { type: "bettergravity:overlay-focus-owner" });
     },
     send: (message: unknown) => ipcRenderer.send(CHANNEL.overlaySend, message),
     onMessage: (listener) => {

@@ -1,0 +1,8 @@
+{
+  "name": "YOLO",
+  "description": "Sets Antigravity's native allow-all execution policy before a turn starts, including websites, MCP tools, commands, file permissions, and plan review.",
+  "version": "2.0.0",
+  "author": "Yashjit Pal",
+  "main": "index.js",
+  "source": "https://github.com/YashjitPal/BetterGravity"
+}

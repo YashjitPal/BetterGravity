@@ -1435,6 +1435,8 @@ function ensureDisplayOptionsRow(block) {
  * Gemini App — Skills Section & Tab (Willow Spark Skills Fidelity)
  * ======================================================================== */
 
+const INPUT_BOX = '[data-testid="agent-input-box"]';
+
 function setComposerPromptText(text) {
   const textarea = document.querySelector('textarea');
   if (!textarea) return;
@@ -1617,6 +1619,123 @@ function deleteUserSkill(id) {
   }
 }
 
+let liveAntigravitySkills = [];
+let liveSkillsFetchPromise = null;
+
+function skillScopeFromPath(p) {
+  if (!p || typeof p !== 'string') return 'Skill';
+  const pLower = p.toLowerCase().replace(/\\/g, '/');
+  if (pLower.includes('/.agents/') || pLower.includes('/.agent/') || pLower.includes('/_agents/') || pLower.includes('/_agent/')) {
+    return 'Workspace';
+  }
+  if (pLower.includes('/builtin/') || pLower.includes('/built-in/')) {
+    return 'Built-in';
+  }
+  if (pLower.includes('/plugins/') || pLower.includes('bettergravity')) {
+    return 'Plugin';
+  }
+  return 'Skill';
+}
+
+function refreshLiveAntigravitySkills() {
+  if (liveSkillsFetchPromise) return liveSkillsFetchPromise;
+  const props = composerProps();
+  if (!props || typeof props.getSlashCommandItems !== 'function') {
+    return Promise.resolve(liveAntigravitySkills);
+  }
+
+  liveSkillsFetchPromise = Promise.resolve()
+    .then(() => props.getSlashCommandItems())
+    .then((items) => {
+      if (!Array.isArray(items)) return liveAntigravitySkills;
+      const discovered = [];
+      const seen = new Set();
+      for (const item of items) {
+        if (!item || typeof item !== 'object') continue;
+        const isSkill = (
+          item.info?.type === 2 ||
+          (typeof item.info?.modelFacingText === 'string' && item.info.modelFacingText.includes('<SKILL>')) ||
+          (typeof item.info?.definitionPath === 'string' && item.info.definitionPath.toLowerCase().includes('skill'))
+        );
+        if (!isSkill) continue;
+
+        const name = (typeof item.info?.name === 'string' ? item.info.name : item.name) || '';
+        const cleanName = name.trim();
+        if (!cleanName || seen.has(cleanName.toLowerCase())) continue;
+        seen.add(cleanName.toLowerCase());
+
+        const path = typeof item.info?.definitionPath === 'string' ? item.info.definitionPath : '';
+        const title = typeof item.title === 'string' && item.title.trim() ? item.title.trim() : cleanName;
+        const description = typeof item.description === 'string' ? item.description.trim() : '';
+        const modelFacingText = typeof item.info?.modelFacingText === 'string' ? item.info.modelFacingText : '';
+        const scope = skillScopeFromPath(path);
+
+        discovered.push({
+          id: cleanName,
+          name: cleanName,
+          title,
+          description,
+          path,
+          instructions: description,
+          modelFacingText,
+          scope,
+          isHostSkill: true
+        });
+      }
+
+      if (discovered.length > 0) {
+        liveAntigravitySkills = discovered;
+        if (isSkillsViewOpen()) {
+          renderSkillsLibrary(currentFilterQuery);
+        }
+      }
+      return liveAntigravitySkills;
+    })
+    .catch(() => liveAntigravitySkills)
+    .finally(() => {
+      liveSkillsFetchPromise = null;
+    });
+
+  return liveSkillsFetchPromise;
+}
+
+function getAllSkills() {
+  const userSkills = getUserSkills();
+  const baseSkills = liveAntigravitySkills.length > 0 ? liveAntigravitySkills : ANTIGRAVITY_BUILTIN_SKILLS;
+
+  const result = [];
+  const seen = new Set();
+
+  for (const s of userSkills) {
+    const key = (s.name || s.id || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(s);
+  }
+
+  for (const s of baseSkills) {
+    const key = (s.name || s.id || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(s);
+  }
+
+  if (baseSkills !== ANTIGRAVITY_BUILTIN_SKILLS) {
+    for (const s of ANTIGRAVITY_BUILTIN_SKILLS) {
+      const key = (s.name || s.id || '').toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push(s);
+    }
+  }
+
+  return result;
+}
+
+setTimeout(() => {
+  refreshLiveAntigravitySkills();
+}, 200);
+
 function downloadSkillFile(skill) {
   const frontmatter = [
     '---',
@@ -1749,7 +1868,145 @@ function isSkillsViewOpen() {
   return !!(view && view.parentElement && view.style.display !== 'none');
 }
 
+function getActiveCustomView() {
+  if (isSkillsViewOpen()) {
+    return { id: 'gemini-skills-view', buttonId: 'gemini-skills-button' };
+  }
+  const petsView = document.getElementById('bettergravity-pets-view');
+  if ((petsView && petsView.isConnected && petsView.style.display !== 'none') || document.body.classList.contains('bettergravity-pets-open')) {
+    return { id: 'bettergravity-pets-view', buttonSelector: '[data-bettergravity-button="Pets"]' };
+  }
+
+  // Any custom view mounted in the main viewport or marked with data-bettergravity-view
+  const container = getMainViewportContainer();
+  if (container) {
+    for (const child of container.children) {
+      if (child.nodeType === 1 &&
+          child.id &&
+          (child.id.endsWith('-view') || child.id.endsWith('-page') || child.hasAttribute('data-bettergravity-view')) &&
+          child.id !== 'conversation-view' &&
+          child.id !== 'gemini-skills-view' &&
+          child.id !== 'bettergravity-pets-view' &&
+          child.dataset.testid !== 'conversation-view' &&
+          child.dataset.testid !== 'sidecars-view' &&
+          child.isConnected &&
+          child.style.display !== 'none') {
+        const btnId = child.id.replace(/-view$|-page$/, '-button');
+        return { id: child.id, buttonId: btnId, buttonSelector: `[data-bettergravity-button], #${btnId}` };
+      }
+    }
+  }
+
+  // Any sidebar button explicitly active via aria-pressed or data-bettergravity-active
+  const activePluginBtn = document.querySelector(
+    '[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][aria-pressed="true"], ' +
+    '[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-bettergravity-active="true"], ' +
+    '[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > [aria-pressed="true"]:not(#gemini-skills-button):not(#gemini-scheduled-tasks-button)'
+  );
+  if (activePluginBtn) {
+    return { id: 'custom-plugin-active', buttonElement: activePluginBtn };
+  }
+
+  return null;
+}
+
+function isAnyCustomViewOpen() {
+  return getActiveCustomView() !== null;
+}
+
+function syncActiveSidebarState() {
+  const activeView = getActiveCustomView();
+  const hasCustomView = !!activeView;
+  document.body.classList.toggle('gemini-custom-view-open', hasCustomView);
+  if (hasCustomView && activeView.id) {
+    document.body.dataset.geminiActiveTab = activeView.id;
+  } else {
+    delete document.body.dataset.geminiActiveTab;
+  }
+
+  // Update Scheduled Tasks row
+  const schedRow = document.getElementById('gemini-scheduled-tasks-button');
+  const automations = document.querySelector(AUTOMATIONS_SELECTOR);
+  if (schedRow && automations) {
+    const shouldHighlight = automations.classList.contains('bg-sidebar-secondary') && !hasCustomView;
+    schedRow.classList.toggle('bg-sidebar-secondary', shouldHighlight);
+  }
+
+  // Update Skills row
+  const skillsRow = document.getElementById('gemini-skills-button');
+  if (skillsRow) {
+    skillsRow.classList.toggle('bg-sidebar-secondary', isSkillsViewOpen());
+  }
+
+  // Update adopted plugin buttons in #gemini-scroll-nav
+  const pluginButtons = document.querySelectorAll(
+    '[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button], ' +
+    '[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > button:not(#gemini-skills-button):not(#gemini-scheduled-tasks-button):not(#gemini-new-project-button):not(#gemini-display-options-button)'
+  );
+  for (const btn of pluginButtons) {
+    const isThisActive = (
+      btn.getAttribute('aria-pressed') === 'true' ||
+      btn.getAttribute('data-active') === 'true' ||
+      btn.getAttribute('data-bettergravity-active') === 'true' ||
+      (activeView?.buttonElement === btn) ||
+      (activeView?.buttonSelector && btn.matches(activeView.buttonSelector)) ||
+      (activeView?.buttonId && btn.id === activeView.buttonId)
+    );
+    btn.classList.toggle('bg-sidebar-secondary', isThisActive);
+    if (isThisActive && btn.getAttribute('aria-pressed') !== 'true') {
+      btn.setAttribute('aria-pressed', 'true');
+    } else if (!isThisActive && !hasCustomView && btn.getAttribute('aria-pressed') === 'true') {
+      btn.setAttribute('aria-pressed', 'false');
+    }
+  }
+}
+
+function closeOpenCustomViews(exceptTarget) {
+  if (isSkillsViewOpen() && (!exceptTarget || !exceptTarget.closest('#gemini-skills-view, #gemini-skills-button'))) {
+    closeSkillsView();
+  }
+  const petsView = document.getElementById('bettergravity-pets-view');
+  if (petsView && (!exceptTarget || !exceptTarget.closest('#bettergravity-pets-view, [data-bettergravity-button="Pets"]'))) {
+    const petBtn = document.querySelector('[data-bettergravity-button="Pets"]');
+    if (petBtn) {
+      if (petBtn.getAttribute('aria-pressed') === 'true') {
+        petBtn.click();
+      }
+      petBtn.classList.remove('bg-sidebar-secondary');
+      petBtn.setAttribute('aria-pressed', 'false');
+      petBtn.removeAttribute('data-bettergravity-active');
+    }
+    petsView.remove();
+    document.body.classList.remove('bettergravity-pets-open');
+  }
+
+  const viewport = getMainViewportContainer();
+  if (viewport) {
+    for (const child of Array.from(viewport.children)) {
+      if (child.nodeType === 1 &&
+          child.id &&
+          (child.id.endsWith('-view') || child.id.endsWith('-page') || child.hasAttribute('data-bettergravity-view')) &&
+          child.id !== 'conversation-view' &&
+          child.dataset.testid !== 'conversation-view' &&
+          child.dataset.testid !== 'sidecars-view' &&
+          child.id !== 'gemini-skills-view' &&
+          child.id !== 'bettergravity-pets-view') {
+        if (!exceptTarget || !exceptTarget.closest(`#${CSS.escape(child.id)}`)) {
+          const btnId = child.id.replace(/-view$|-page$/, '-button');
+          const btn = document.getElementById(btnId) || document.querySelector(`[data-bettergravity-button]`);
+          if (btn && btn.getAttribute('aria-pressed') === 'true') {
+            btn.click();
+          } else {
+            child.style.display = 'none';
+          }
+        }
+      }
+    }
+  }
+}
+
 function openSkillsView() {
+  closeOpenCustomViews(document.getElementById('gemini-skills-button'));
   const container = getMainViewportContainer();
   if (!container) return;
 
@@ -1780,7 +2037,9 @@ function openSkillsView() {
   );
   for (const b of otherBtns) b.classList.remove('bg-sidebar-secondary');
 
+  syncActiveSidebarState();
   renderSkillsLibrary();
+  refreshLiveAntigravitySkills();
 }
 
 function closeSkillsView() {
@@ -1811,6 +2070,7 @@ function closeSkillsView() {
   const skillsBtn = document.getElementById('gemini-skills-button');
   if (skillsBtn) skillsBtn.classList.remove('bg-sidebar-secondary');
   closeActiveKebabPopover();
+  syncActiveSidebarState();
 }
 
 function renderSkillsLibrary(filterText = '', showAllRecs = showAllRecommendationsState) {
@@ -1822,8 +2082,10 @@ function renderSkillsLibrary(filterText = '', showAllRecs = showAllRecommendatio
 
   closeActiveKebabPopover();
 
-  const userSkills = getUserSkills();
-  const allSkills = [...userSkills, ...ANTIGRAVITY_BUILTIN_SKILLS];
+  const allSkills = getAllSkills();
+  if (liveAntigravitySkills.length === 0) {
+    refreshLiveAntigravitySkills();
+  }
 
   const q = filterText.toLowerCase().trim();
   const filtered = q
@@ -1923,11 +2185,12 @@ function renderSkillsLibrary(filterText = '', showAllRecs = showAllRecommendatio
       const cardBtn = document.createElement('button');
       cardBtn.type = 'button';
       cardBtn.className = 'spark-skill-card';
+      const scopeSlug = (skill.scope || 'Custom').toLowerCase().replace(/[^a-z0-9]+/g, '-');
       cardBtn.innerHTML = `
         <span class="spark-skill-card__copy">
           <span class="spark-skill-card__header">
             <span class="spark-skill-card__title">${escapeHtml(skill.name)}</span>
-            <span class="spark-skill-badge ${skill.scope === 'Custom' ? 'spark-skill-badge--custom' : ''}">${escapeHtml(skill.scope || 'Custom')}</span>
+            <span class="spark-skill-badge spark-skill-badge--${scopeSlug}">${escapeHtml(skill.scope || 'Custom')}</span>
           </span>
           <span class="spark-skill-card__description">${escapeHtml(skill.description || 'Custom reusable instructions')}</span>
         </span>
@@ -2209,6 +2472,7 @@ listenToPage(document, 'click', (e) => {
   if (
     target.closest('#gemini-skills-view') ||
     target.closest('#gemini-skills-button') ||
+    target.closest('#bettergravity-pets-view') ||
     target.closest('.spark-row-action-menu__popover') ||
     target.closest('.spark-upload-dialog-backdrop')
   ) {
@@ -2228,17 +2492,15 @@ listenToPage(document, 'click', (e) => {
     target.closest('#gemini-scroll-nav > *')
   ) {
     cancelSentPromptGlide();
-    if (isSkillsViewOpen()) {
-      closeSkillsView();
-    }
+    closeOpenCustomViews(target);
+    setTimeout(syncActiveSidebarState, 0);
   }
 }, true);
 
 listenToPage(window, 'popstate', () => {
   cancelSentPromptGlide();
-  if (isSkillsViewOpen()) {
-    closeSkillsView();
-  }
+  closeOpenCustomViews();
+  setTimeout(syncActiveSidebarState, 0);
 });
 
 listenToPage(document, 'pointerdown', (e) => {
@@ -2270,6 +2532,7 @@ function ensureScheduledTasksRow(block) {
     row.innerHTML = '<span class="icon-box"></span><span class="truncate"></span>';
     row.addEventListener('click', (e) => {
       e.preventDefault();
+      closeOpenCustomViews();
       document.querySelector(AUTOMATIONS_SELECTOR)?.click();
     });
   }
@@ -2279,7 +2542,9 @@ function ensureScheduledTasksRow(block) {
   const label = original.querySelector('span:last-child')?.textContent?.trim();
   const slot = row.querySelector('span:last-child');
   if (label && slot.textContent !== label) slot.textContent = label;
-  row.classList.toggle('bg-sidebar-secondary', original.classList.contains('bg-sidebar-secondary'));
+  const customActive = isAnyCustomViewOpen();
+  const shouldHighlight = original.classList.contains('bg-sidebar-secondary') && !customActive;
+  row.classList.toggle('bg-sidebar-secondary', shouldHighlight);
   if (row.parentElement !== block) block.appendChild(row);
 }
 
@@ -2366,7 +2631,10 @@ function ensureScrollNav() {
     if (!item.classList.contains('gemini-nav-item')) {
       item.classList.add('gemini-nav-item');
     }
-    item.classList.remove('bg-sidebar-secondary');
+    const isItemActive = item.getAttribute('aria-pressed') === 'true' ||
+                         item.getAttribute('data-active') === 'true' ||
+                         item.getAttribute('data-bettergravity-active') === 'true';
+    item.classList.toggle('bg-sidebar-secondary', isItemActive);
     if (item.firstElementChild && item.firstElementChild.tagName.toLowerCase() === 'svg') {
       const iconWrap = document.createElement('span');
       iconWrap.className = 'icon-box shrink-0 flex items-center';
@@ -2393,6 +2661,8 @@ function ensureScrollNav() {
       scroller.insertBefore(block, scroller.firstChild);
     }
   }
+
+  syncActiveSidebarState();
 }
 
 /* ---------------------------------------------------------------------------
@@ -2513,6 +2783,45 @@ plugin.dom.observe(AUTOMATIONS_SELECTOR, (autoBtn) => {
     remember(autoBtn.parentElement, columnObserver);
   }
 });
+
+const activeViewBodyObserver = new MutationObserver((mutations) => {
+  const hasRelevant = mutations.some(m => {
+    if (m.type === 'childList') {
+      const added = Array.from(m.addedNodes);
+      const removed = Array.from(m.removedNodes);
+      return added.concat(removed).some(n =>
+        n.nodeType === 1 && (
+          n.id === 'bettergravity-pets-view' ||
+          n.id === 'gemini-skills-view' ||
+          n.id?.endsWith('-view') ||
+          n.id?.endsWith('-page') ||
+          n.getAttribute?.('data-bettergravity-button') !== null
+        )
+      );
+    }
+    if (m.type === 'attributes') {
+      if (m.attributeName === 'aria-pressed' || m.attributeName === 'data-bettergravity-active') return true;
+      if (m.attributeName === 'class' && m.target === document.body) {
+        const oldClass = m.oldValue || '';
+        const newClass = document.body.className;
+        return oldClass.includes('bettergravity-') !== newClass.includes('bettergravity-') ||
+               oldClass.includes('gemini-skills-') !== newClass.includes('gemini-skills-');
+      }
+    }
+    return false;
+  });
+  if (hasRelevant) {
+    syncActiveSidebarState();
+  }
+});
+activeViewBodyObserver.observe(document.body, {
+  attributes: true,
+  attributeFilter: ['class', 'aria-pressed', 'data-bettergravity-active'],
+  attributeOldValue: true,
+  childList: true,
+  subtree: true
+});
+plugin.onDispose(() => activeViewBodyObserver.disconnect());
 
 const HEADERBTN_SELECTOR = '.group\\/headerbtn, button[class*="group/headerbtn"]';
 
@@ -3885,7 +4194,6 @@ plugin.onDispose(() => {
  * ------------------------------------------------------------------------- */
 
 const PLUS_TRIGGER = 'button[aria-label="Add context"]';
-const INPUT_BOX = '[data-testid="agent-input-box"]';
 /* Antigravity's slash and mention typeahead, and the label span inside a row. */
 const TYPEAHEAD = "[data-mention-menu]";
 const OPTION = '[role="option"]';
@@ -4903,7 +5211,25 @@ const DISCLAIMER_TEXT = "Antigravity is AI and can make mistakes.";
 function ensureAiDisclaimer(box) {
   if (!box || !box.isConnected) return;
 
-  let disclaimer = box.querySelector(".gemini-ai-disclaimer");
+  // Defensively remove any stray disclaimers attached to persistent dock wrappers
+  const strays = document.querySelectorAll(
+    '.relative.w-full.px-4.pb-2 > .gemini-ai-disclaimer, .relative.w-full.px-4.pb-2 > div > .gemini-ai-disclaimer'
+  );
+  for (const s of strays) {
+    if (s.parentElement !== box) {
+      s.remove();
+    }
+  }
+
+  // Ensure this container has at most one disclaimer as its direct child
+  const directDisclaimers = box.querySelectorAll(':scope > .gemini-ai-disclaimer');
+  if (directDisclaimers.length > 1) {
+    for (let i = 1; i < directDisclaimers.length; i++) {
+      directDisclaimers[i].remove();
+    }
+  }
+
+  let disclaimer = directDisclaimers[0];
   if (!disclaimer) {
     disclaimer = document.createElement("p");
     disclaimer.className = "gemini-ai-disclaimer";
@@ -4919,7 +5245,17 @@ function ensureAiDisclaimer(box) {
   }
 }
 
+plugin.dom.observe('[data-testid="interaction-continue-button"], [data-testid="interaction-skip-button"]', (button) => {
+  const card = button.closest('.relative.flex.flex-col.p-px.rounded-2xl.bg-card-border.w-full') ||
+               button.closest('.bg-card')?.parentElement;
+  const questionBox = card?.parentElement;
+  if (questionBox && questionBox.isConnected) {
+    ensureAiDisclaimer(questionBox);
+  }
+});
+
 plugin.dom.observe(INPUT_BOX, (box) => {
+  refreshLiveAntigravitySkills();
   ensureAiDisclaimer(box);
   checkPromptExpansion(box);
 
@@ -5769,6 +6105,7 @@ function applyConversationScrollbar(view) {
   if (innerScrollers.length > 0) {
     for (let i = 0; i < innerScrollers.length; i++) {
       const scroller = innerScrollers[i];
+      if (scroller.closest('[data-mention-menu]')) continue;
       if (!scroller.classList.contains('gemini-chat-scrollbar')) {
         scroller.classList.add('gemini-chat-scrollbar');
       }
@@ -6000,6 +6337,10 @@ function setupUserMessageBubble(step) {
   }
 
   const onFlexClick = (e) => {
+    // React delegates attachment actions to its root. Stopping their clicks
+    // here would prevent native controls, including image previews, from firing.
+    const control = e.target?.closest?.('button, a[href], input, select, textarea, [role="button"], [role="link"], [contenteditable="true"]');
+    if (control && flex1.contains(control)) return;
     if (window.getSelection()?.toString()) return;
     e.stopPropagation();
   };

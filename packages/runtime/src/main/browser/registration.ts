@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const BROWSER_PLUGIN_ID = "in-built-browser";
+export const BROWSER_REQUIRED_FILES = ["plugin.json", "index.js", "styles/browser.css", "mcp-server.cjs", "scripts/browser-client.mjs", "vendor/api.json", "vendor/codex-browser-client.mjs", "vendor/command-contracts.json", "vendor/playwright-injected.js", "skills/in-built-browser/SKILL.md", "skills/in-built-browser/COMPATIBILITY.md", "vendor/codex-instructions/docs/api.json", "vendor/codex-instructions/docs/documents.json", "vendor/codex-instructions/tool-descriptions.json"];
 const MAX_CONFIG_BYTES = 2 * 1024 * 1024;
 
 export function readObject(file: string): Record<string, unknown> {
@@ -44,8 +45,7 @@ export class BrowserRegistration {
   }
 
   get installed(): boolean {
-    return ["plugin.json", "index.js", "styles/browser.css", "mcp-server.cjs", "scripts/browser-client.mjs", "vendor/api.json", "vendor/codex-browser-client.mjs", "vendor/command-contracts.json", "vendor/playwright-injected.js", "skills/in-built-browser/SKILL.md"]
-      .every(file => fs.existsSync(path.join(this.pluginDirectory, file)));
+    return BROWSER_REQUIRED_FILES.every(file => fs.existsSync(path.join(this.pluginDirectory, file)));
   }
 
   sync(enabled: boolean): void {

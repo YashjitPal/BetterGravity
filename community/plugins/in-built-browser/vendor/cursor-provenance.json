@@ -1,0 +1,16 @@
+{
+  "product": "OpenAI Codex",
+  "version": "26.903.71938",
+  "sources": [
+    {
+      "file": "webview\\assets\\cursor-chat-34408bd74625.js",
+      "sha256": "f6d84abd08860776c6782c6ab9dbf100596f7e73048c53812fac7e1269f65213"
+    },
+    {
+      "file": "webview\\assets\\app-initial-f094ef01c64d.js",
+      "sha256": "364622097d1440b55bcd85b1068245a773f5821f4fd6c1e2de73e5789487c75a"
+    }
+  ],
+  "extraction": "Original cursor spring renderer, Bezier path selection, motion constants and embedded PNG. App bootstrap replaced with a local initializer; no app services, telemetry, profile or credentials.",
+  "outputSha256": "a3ca6bf46d487e191e380b50dbae650b89a9a74f86c6aa7269ea60320f332004"
+}

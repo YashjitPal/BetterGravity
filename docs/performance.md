@@ -221,6 +221,25 @@ Check the current value first. This matters for resize callbacks on message
 bubbles: rewriting every unchanged expand button wakes the conversation watchers
 again. The same guard on toolbar styles avoids needless root style notifications.
 
+## Keep image bytes out of animated inline styles
+
+A generated pet sheet can put megabytes of base64 image data in a `style`
+attribute. Each sprite-frame update then changes that same attribute. Theme
+selectors that inspect inline styles can make the browser serialize and scan the
+image again even though only its background position changed.
+
+On a custom pet with a 2.4-million-character inline image, a forced style update
+took about **14–16 ms**. Giving the identical image bytes a local object URL cut
+the same check to about **0.2 ms**, preserving the artwork, animation frames,
+frame rate, and geometry.
+
+Create the object URL once when the image changes, inside the window that uses
+it. Keep the source data for storage and for sending to another window. Revoke
+the old URL after assigning its replacement, when switching back to built-in
+artwork, and when disposing the surface. Preserve the original image path if
+conversion is unavailable, and verify the decoded bytes and rendering in a real
+browser; jsdom alone does not exercise image loading.
+
 ## Cache a measurement, briefly
 
 Some numbers need measuring but do not change from one element to the next — the
@@ -279,6 +298,15 @@ function listenToPage(target, type, listener, options) {
 For a dropdown's outside-click and Escape handlers, attach them when the dropdown
 opens and remove them when it closes or is destroyed. Keeping them on `document`
 while the dropdown is closed retains its editor after navigating away.
+
+Scroll handlers, queued animation frames, and delayed retries need the same
+cleanup. Fork Chat now releases the previous conversation's scroll listener on
+navigation and cancels its pending retries when stopped. Its fallback check asks
+whether a native button still needs hiding; a button already hidden must not
+trigger another full scan forever. Within a pass, collect action bars in a set
+before decorating them, since feedback buttons, containers and articles can all
+lead to the same bar. A 36-turn replay kept identical DOM while reducing a pass
+from about 1.3–1.6 ms to 0.8 ms and eliminating its redundant attribute writes.
 
 `dom.observe` calls back immediately for elements already on screen. Initialize
 the state a mount callback uses before registering it, or wait until that state

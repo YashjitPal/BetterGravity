@@ -2,3 +2,5 @@
 *.png binary
 *.jpg binary
 *.ico binary
+# Imported Codex instruction files retain the exact bytes recorded in provenance.
+community/plugins/in-built-browser/vendor/codex-instructions/** -text

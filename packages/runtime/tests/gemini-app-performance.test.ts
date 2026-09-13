@@ -298,6 +298,56 @@ describe("Gemini App repeated work", () => {
     }
   });
 
+  it.each([
+    ['image thumbnail', '<button type="button"><img data-click-target alt="User uploaded media"></button>'],
+    ['attachment button', '<button type="button"><span data-click-target>Document</span></button>'],
+    ['attachment link', '<a href="#attachment"><span data-click-target>Document</span></a>'],
+    ['accessible attachment control', '<div role="button" tabindex="0"><span data-click-target>Attachment</span></div>'],
+  ])("lets %s clicks reach the native delegated handler after mount and reload", async (_name, attachment) => {
+    document.body.innerHTML = `<div id="native-root"><div data-testid="user-input-step"><div data-testid="lifted-context-menu-trigger"><div class="bg-card"><div class="flex-1"><div data-no-scroll-jump>${attachment}</div><div class="whitespace-pre-wrap">A user message</div></div></div></div></div></div>`;
+    const root = document.getElementById("native-root")!;
+    const step = root.querySelector<HTMLElement>('[data-testid="user-input-step"]')!;
+    const target = step.querySelector<HTMLElement>("[data-click-target]")!;
+    // React delegates these handlers above the message bubble. A listener on
+    // the attachment itself would run too early to catch this regression.
+    const nativeClick = vi.fn((event: Event) => event.preventDefault());
+    root.addEventListener("click", nativeClick);
+    for (let cycle = 0; cycle < 2; cycle++) {
+      startPlugin();
+      mount('[data-testid="user-input-step"]', step);
+      await settle();
+      nativeClick.mockClear();
+      target.click();
+      expect(nativeClick).toHaveBeenCalledTimes(1);
+      expect(nativeClick.mock.calls[0]![0].target).toBe(target);
+      expect(step.querySelector("[data-gemini-expanded='true']")).toBeNull();
+      stopPlugin();
+    }
+  });
+
+  it("keeps plain message clicks from toggling native expansion while its own toggle still works", async () => {
+    document.body.innerHTML = '<div id="native-root"><div data-testid="user-input-step"><div data-testid="lifted-context-menu-trigger"><div class="bg-card"><div class="flex-1"><div class="whitespace-pre-wrap"><span data-click-target>A long user message</span></div></div></div></div></div></div>';
+    const root = document.getElementById("native-root")!;
+    const step = root.querySelector<HTMLElement>('[data-testid="user-input-step"]')!;
+    const text = step.querySelector<HTMLElement>(".whitespace-pre-wrap")!;
+    const target = text.querySelector<HTMLElement>("[data-click-target]")!;
+    vi.spyOn(text, "getBoundingClientRect").mockReturnValue({ height: 200 } as DOMRect);
+    const nativeClick = vi.fn();
+    root.addEventListener("click", nativeClick);
+    startPlugin();
+    mount('[data-testid="user-input-step"]', step);
+    await settle();
+    const toggle = step.querySelector<HTMLButtonElement>(".willow-bubble-toggle-btn")!;
+    target.click();
+    expect(nativeClick).not.toHaveBeenCalled();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    toggle.click();
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    toggle.click();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(nativeClick).not.toHaveBeenCalled();
+  });
+
   it("measures all newly mounted and resized bubbles before updating their controls", async () => {
     startPlugin();
     document.body.innerHTML = Array.from({ length: 3 }, (_, index) =>

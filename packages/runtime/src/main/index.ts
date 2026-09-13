@@ -128,7 +128,9 @@ function registerOverlayChannels(overlay: OverlayWindow): void {
     if (!overlay.ownedBy(String(owner ?? ""))) return overlay.status();
     return overlay.close();
   });
-  ipcMain.on(CHANNEL.overlayInteractive, (_event, interactive: boolean) => overlay.setInteractive(interactive === true));
+  ipcMain.on(CHANNEL.overlayInteractive, (event, interactive: boolean) => {
+    if (overlay.isOverlay(event.sender)) overlay.setInteractive(interactive === true);
+  });
   ipcMain.on(CHANNEL.overlayFocusable, (event, focusable: boolean) => {
     if (overlay.isOverlay(event.sender)) overlay.setFocusable(focusable === true);
   });
@@ -221,6 +223,7 @@ function registerChannels(
 
   ipcMain.on(CHANNEL.writeStorage, (_event, pluginId: string, key: string, value: unknown) => {
     storage.write(pluginId, key, value);
+    if (pluginId === "in-built-browser" && key === `${SETTING_PREFIX}sharedTabsAcrossConversations`) browser.setSharedTabsAcrossConversations(value !== false);
   });
 
   ipcMain.handle(CHANNEL.setSettings, (_event, patch: SettingsPatch) => {
@@ -305,6 +308,7 @@ export function activate(context: RuntimeContext): void {
   const computerUse = new ComputerUseService(paths.plugins, app.getPath("home"));
   computerUse.sync(readSettings(paths.settings));
   const browser = new InBuiltBrowserService(paths.root, paths.plugins, app.getPath("home"));
+  browser.setSharedTabsAcrossConversations(storage.namespace("in-built-browser")[`${SETTING_PREFIX}sharedTabsAcrossConversations`] !== false);
   browser.sync(readSettings(paths.settings));
   registerChannels(paths, context, storage, gemini, pets, computerUse, browser);
   registerBrowserChannels(browser);

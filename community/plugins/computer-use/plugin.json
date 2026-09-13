@@ -1,9 +1,12 @@
 {
   "name": "Computer Use",
   "description": "Control desktop apps on Windows through Computer Use, with the 7-spring cursor physics engine, Bezier trajectory planner, tool activity indicators, and computer-use tools from OpenAI Codex.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "OpenAI & BetterGravity Community",
   "main": "index.js",
   "styles": "styles/computer-use.css",
+  "platforms": [
+    "windows"
+  ],
   "source": "https://github.com/YashjitPal/BetterGravity"
 }

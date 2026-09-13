@@ -42,8 +42,14 @@ export async function browserDomDriver(input: Record<string, any>): Promise<any>
       const element = one();
       element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
       if (!input.force) {
-        const result = await engine.checkElementStates(element, ["visible", "stable", "enabled"]);
+        const result = await engine.checkElementStates(element, ["visible", "enabled"]);
         if (result) throw new Error(`Element is not ready: ${result.missingState ?? result.error ?? "detached"}.`);
+        // Chromium can suspend animation frames in a minimized native view.
+        // Check layout stability with timers, which keepAwake keeps running.
+        const previous = element.getBoundingClientRect();
+        await new Promise(resolve => setTimeout(resolve, 32));
+        const current = element.getBoundingClientRect();
+        if (!element.isConnected || ["x", "y", "width", "height"].some(key => Math.abs((previous as any)[key] - (current as any)[key]) > 0.5)) throw new Error("Element is still moving.");
       }
       const rect = element.getBoundingClientRect();
       const x = Math.max(0, Math.min(innerWidth - 1, rect.x + rect.width / 2));

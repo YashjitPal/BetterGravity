@@ -43,6 +43,9 @@ const { buildCatalog, sha256, validatePlugin, validateTheme, validateThemeFolder
 function listFiles(directory, prefix = "") {
   const found = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    // A running computer-use plugin writes this local stop signal. It is not
+    // a distributable asset and must not enter another plugin's catalog build.
+    if (entry.name === "interrupt.signal") continue;
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) found.push(relative, ...listFiles(path.join(directory, entry.name), relative));
     else found.push(relative);

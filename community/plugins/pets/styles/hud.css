@@ -1,5 +1,5 @@
 /*
- * Pets — the heads-up display: the indicator under the pet's feet, the stack of
+ * Pets — the heads-up display: the corner activity badge, the stack of
  * cards naming what the agent is doing, the controls that appear on those cards,
  * and the quick-chat pill.
  *
@@ -18,8 +18,8 @@
  * to --vscode-editorWarning-foreground; these are the same mappings, and the
  * literals are the raw scale those tokens fall back to in the dark theme.
  *
- * FOCUS. Cards do not take keyboard focus. Only the chat input requests the
- * caret and, on the desktop, native window focus while it is being used.
+ * FOCUS. The inline follow-up and quick-chat editors request native window
+ * focus only while they are being used.
  */
 
 /* The desktop starts in a blank document without Antigravity's CSS reset.
@@ -55,52 +55,9 @@
   --pet-material-border: #ffffff1f;
   --pet-material-shadow: inset 0 1px 1px #fff3, inset 0 -1px 2px #ffffff14, 0 3px 16px #00000059;
 
-  /* initial 22117: the petControlsAppearance defaults. compactControlWidth 17
-     and compactControlGap -10.5 give Kt() = 17 * 2 - 10.5 for the collapsed
-     pill's width; js 3778 gives the rest of its box, and hoverControlSize 24 is
-     the expanded one. */
-  --pet-badge-compact-width: 23.5px;
-  --pet-badge-compact-height: 6px;
-  --pet-badge-compact-radius: 6.5px;
-  --pet-badge-hover-size: 24px;
-
-  /* initial 22117: contentHiddenBlurRadiusPx / contentHiddenScale. */
-  --pet-content-hidden-blur: 14px;
-  --pet-content-hidden-scale: 0.75;
-
-  /* ── Motion ───────────────────────────────────────────────────────────────
-   *
-   * Codex animates the badge with framer-motion, so the shipped values are
-   * springs and not durations. Two of them are already curves and go across
-   * verbatim; the other four are physical springs, and each one becomes the
-   * duration it takes to settle within 1% paired with a back-out curve holding
-   * its overshoot.
-   *
-   * For a spring, w0 = sqrt(k / m) and z = c / (2 * sqrt(k * m)). An
-   * underdamped one overshoots by exp(-z * pi / sqrt(1 - z^2)) and is within 1%
-   * after ln(100) / (z * w0); a critically damped one never overshoots and is
-   * within 1% at 6.638 / w0. The one approximation is the mapping from
-   * overshoot to the curve's second control point, which is linear against
-   * cubic-bezier(.34, 1.56, .64, 1) — the curve Codex itself uses for a 10%
-   * overshoot, so the two families agree where they overlap.
-   *
-   * mascot-button 26 (m): the geometry curve while the content is showing.
-   * mascot-button 27 (h): the same, while it is hidden. Both 0.3s, verbatim.
-   * mascot-button 515 (se): d20 m0.7 k420   -> z 0.583, 10.5%, 0.32s.
-   * mascot-button 28 (g): d26.18 m1 k685.39 -> z 0.5,   16.3%, 0.35s,
-   *                       and its filter track d52.36   -> z 1, none, 0.25s.
-   * mascot-button 31 (v): d32.67 m1 k631.65 -> z 0.65,   6.8%, 0.28s,
-   *                       and its filter track 2*sqrt(k) -> z 1, none, 0.26s.
-   * initial 22033  (hbe): d18.85 m1 k180    -> z 0.703,  4.5%, 0.49s.
-   */
-  --pet-ease-geometry-shown: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  --pet-ease-geometry-hidden: 0.3s cubic-bezier(0.22, 1.35, 0.36, 1);
-  --pet-spring-badge: 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
-  --pet-spring-reveal: 0.35s cubic-bezier(0.34, 1.87, 0.64, 1);
-  --pet-spring-reveal-blur: 0.25s cubic-bezier(0.33, 1, 0.68, 1);
-  --pet-spring-conceal: 0.28s cubic-bezier(0.34, 1.36, 0.64, 1);
-  --pet-spring-conceal-blur: 0.26s cubic-bezier(0.33, 1, 0.68, 1);
-  --pet-spring-stack: 0.49s cubic-bezier(0.34, 1.24, 0.64, 1);
+  /* Codex's stack spring: damping 18.85, mass 1, stiffness 180, velocity 0.
+     Sampled at 120Hz through settling, including its 4.5% overshoot. */
+  --pet-spring-stack: 800ms linear(0, 0.005929, 0.022483, 0.047927, 0.080674, 0.119284, 0.162458, 0.209035, 0.257981, 0.308387, 0.359457, 0.410505, 0.460944, 0.510281, 0.558104, 0.604082, 0.647951, 0.689512, 0.728618, 0.765176, 0.799133, 0.830475, 0.85922, 0.885413, 0.909123, 0.930436, 0.949455, 0.966293, 0.981073, 0.993923, 1.004975, 1.014363, 1.022221, 1.028679, 1.033868, 1.03791, 1.040927, 1.043033, 1.044335, 1.044935, 1.044929, 1.044405, 1.043444, 1.04212, 1.040502, 1.038652, 1.036623, 1.034467, 1.032225, 1.029937, 1.027636, 1.02535, 1.023103, 1.020916, 1.018805, 1.016784, 1.014862, 1.013048, 1.011347, 1.009762, 1.008295, 1.006945, 1.005712, 1.004591, 1.00358, 1.002675, 1.001871, 1.001162, 1.000542, 1.000006, 0.999549, 0.999162, 0.998842, 0.998582, 0.998376, 0.998218, 0.998104, 0.998029, 0.997987, 0.997975, 0.997988, 0.998022, 0.998074, 0.998141, 0.998219, 0.998307, 0.998401, 0.998501, 0.998603, 0.998706, 0.99881, 0.998912, 0.999012, 0.999108, 0.999201, 0.99929, 1);
 
   /* frame 392-424: the _activityPill_ variables, verbatim. */
   --pet-pill-control-size: 28px;
@@ -124,195 +81,112 @@
   --pet-stack-bottom-clip-headroom: 0px;
 }
 
-/* ── The indicator ───────────────────────────────────────────────────────────
- *
- * Codex positions this with $t({surfaceId: "mascot-badge"}). Collapsed it uses
- * the row layout with controlGap set to the negative of the control width, so
- * n = max(0, size + gap) is 0 and every slot piles onto the mascot's centre
- * line: x = 0, y = mascot.height + compactOffsetY. The pill therefore sits
- * exactly on the sprite's bottom edge. (compactGlassSpacing 14 is a liquid-glass
- * parameter for the native material and has no business moving the pill.)
- *
- * Expanded it moves onto the arc $t() lays the hover controls out along:
- * d = mascot.width / 2 + hoverControlSize / 2, f = 2 * asin((size + gap) / 2d),
- * p = (slot - (count - 1) / 2) * f. index.js runs that arithmetic and writes the
- * result, because both terms depend on how wide the pet is.
- *
- * With the indicator alone in the cluster — see BADGE_SLOT_COUNT for why the
- * count is one and not Codex's four — p is 0 and so is x, and the only thing
- * left of the arc is y = mascot.height / 2 + d - hoverControlSize / 2 +
- * hoverOffsetY. At the default 112px pet that is 127 against the collapsed 121,
- * which is not a coincidence: the six pixels are the collapsed pill's height, so
- * the disc's top edge lands on the bar's bottom edge and it grows downwards out
- * of it rather than jumping.
- */
-
+/* The standard Codex mascot badge is a 24px button at top-end. It does
+   not turn into the separate native voice-controls bar on pointer exit. */
 .bettergravity-pet__badge {
   position: absolute;
-  left: 50%;
-  top: 100%;
-
+  z-index: 40;
+  top: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  width: var(--pet-badge-compact-width);
-  height: var(--pet-badge-compact-height);
-  border-radius: var(--pet-badge-compact-radius);
-  translate: -50% 0;
-
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--pet-material-border);
+  border-radius: 12px;
   background: var(--pet-badge-background, var(--pet-info-soft));
   color: var(--pet-badge-foreground, var(--pet-text));
-
-  /* mascot-button 311: the glassy variant. Dark drops the border to white/20. */
-  border: 1px solid #ffffff33;
-  box-shadow: 0 0 8px rgb(0 0 0 / 0.2);
-  backdrop-filter: blur(24px);
-
-  /* Collapsed it is part of the pet: a press here picks the pet up. Expanded it
-     is Codex's "Show activity" button. */
-  pointer-events: none;
-  overflow: hidden;
-
-  /* mascot-button 259: the box animates on `z = p ? m : h`, unconditionally and
-     in both directions — this rule is the content-hidden end, so it gets h.
-     transitionDurationMs and collapseTransitionDurationMs are not this element's
-     to spend: main 13006 passes them to prepareSurfaces as animationDurationMs,
-     which times the OS glass Codex composites behind the DOM and which we draw
-     in CSS instead. What is left here is the badge's own arrival, and
-     mascot-button 307 animates to {opacity: 1, scale: 1, y: 0} on se. The 0.16s
-     easeOut in the shipped code is the exit only, so it lives on the hidden rule
-     below rather than here. */
-  transition: width var(--pet-ease-geometry-hidden), height var(--pet-ease-geometry-hidden),
-    border-radius var(--pet-ease-geometry-hidden), top var(--pet-ease-geometry-hidden),
-    left var(--pet-ease-geometry-hidden), opacity var(--pet-spring-badge),
-    scale var(--pet-spring-badge), translate var(--pet-spring-badge);
+  box-shadow: var(--pet-material-shadow);
+  backdrop-filter: blur(4px);
+  font: 500 12px / 1 var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+  outline: none;
+  -webkit-app-region: no-drag;
 }
 
-/* mascot-button 311: before:inset-0 before:rounded-full, empty until pressed. */
+.bettergravity-pet__badge[hidden] {
+  display: none;
+}
+
+.bettergravity-pet__badge:active {
+  cursor: grabbing;
+}
+
 .bettergravity-pet__badge::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: transparent;
   pointer-events: none;
 }
 
-.bettergravity-pet__badge[data-pet-pressed="true"]::before {
+.bettergravity-pet__badge:active::before {
   background: color-mix(in srgb, var(--pet-text) 15%, transparent);
 }
 
-/*
- * js 3935: the badge is mounted only while there is something to count
- * (Ve = notifications.length > 0), and mounts from {opacity: 0, scale: 0.7,
- * y: 3} with a 0.16s easeOut exit.
- */
-.bettergravity-pet[data-pet-badge="hidden"] .bettergravity-pet__badge {
-  opacity: 0;
-  scale: 0.7;
-  translate: -50% 3px;
-
-  /* mascot-button 362, the exit transition: 0.16s easeOut, and only leaving. */
-  transition: opacity 0.16s ease-out, scale 0.16s ease-out, translate 0.16s ease-out;
+.bettergravity-pet__badge:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, #339cff);
+  outline-offset: 0;
 }
 
-/* mascot-button 356: text-xs leading-none font-medium, inside a size-6 box. */
-.bettergravity-pet__badge-count {
-  font: 500 12px / 1 var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
-  color: inherit;
-
-  /* initial 22117: contentVisibilityAnimation hides the count rather than
-     shrinking the type — there is no room for twelve pixels of text in a pill
-     six pixels tall. mascot-button 187 picks the transition by direction:
-     `p ? a.revealTransition : y`. This rule is the hidden end, so it is the one
-     that runs on the way out — y, whose filter track is critically damped and
-     therefore has to be timed apart from the rest. */
-  opacity: 0;
-  filter: blur(var(--pet-content-hidden-blur));
-  scale: var(--pet-content-hidden-scale);
-  transition: opacity var(--pet-spring-conceal), scale var(--pet-spring-conceal),
-    filter var(--pet-spring-conceal-blur);
+.bettergravity-pet[data-pet-badge-corner="top-start"] .bettergravity-pet__badge {
+  left: 0;
+  right: auto;
 }
 
-.bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge {
-  top: var(--pet-badge-arc-y, 100%);
-  left: calc(50% + var(--pet-badge-arc-x, 0px));
-  width: var(--pet-badge-hover-size);
-  height: var(--pet-badge-hover-size);
-  border-radius: calc(var(--pet-badge-hover-size) / 2);
-
-  pointer-events: auto;
-  cursor: pointer;
-
-  /* mascot-button 259 and 275: with the content showing, the box animates on m
-     and everything else on the default spring. */
-  transition: width var(--pet-ease-geometry-shown), height var(--pet-ease-geometry-shown),
-    border-radius var(--pet-ease-geometry-shown), top var(--pet-ease-geometry-shown),
-    left var(--pet-ease-geometry-shown), opacity var(--pet-spring-badge),
-    scale var(--pet-spring-badge), translate var(--pet-spring-badge);
+.bettergravity-pet[data-pet-badge-corner="bottom-start"] .bettergravity-pet__badge {
+  top: auto;
+  bottom: 0;
+  left: 0;
+  right: auto;
 }
 
-.bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge-count {
-  opacity: 1;
-  filter: none;
-  scale: 1;
-
-  /* The other half of mascot-button 187: coming in, it is the revealTransition
-     the frame hands down, and js 4492 passes the 16% spring. */
-  transition: opacity var(--pet-spring-reveal), scale var(--pet-spring-reveal),
-    filter var(--pet-spring-reveal-blur);
+/* Codex's bottom-end slot is right-7, reserving 28px at that corner. */
+.bettergravity-pet[data-pet-badge-corner="bottom-end"] .bettergravity-pet__badge {
+  top: auto;
+  bottom: 0;
+  right: 28px;
 }
 
-/*
- * The chevron, which is what the disc holds while the pills are out.
- *
- * js 3897 makes that branch `backgroundColor: transparent, foregroundColor:
- * currentColor, isIconOnly: !0` — glass and an icon and no tone at all. Only the
- * stashed branch paints Le.badgeBackgroundColor, so the coloured disc with a
- * number on it is the exception rather than the resting state.
- */
 .bettergravity-pet[data-pet-badge-kind="chevron"] .bettergravity-pet__badge {
-  background: transparent;
+  background: var(--pet-material-background);
   color: var(--pet-text);
 }
 
+.bettergravity-pet__badge-count,
 .bettergravity-pet__badge-chevron {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  /* Same contentVisibilityAnimation as the count: eighteen pixels of icon has no
-     more room in a six-pixel pill than twelve pixels of text. The rotate is the
-     tray flip rather than the reveal, so it keeps the badge's own spring. */
-  opacity: 0;
-  filter: blur(var(--pet-content-hidden-blur));
-  scale: var(--pet-content-hidden-scale);
-  transition: opacity var(--pet-spring-conceal), scale var(--pet-spring-conceal),
-    filter var(--pet-spring-conceal-blur), rotate var(--pet-spring-badge);
+  color: inherit;
 }
 
 .bettergravity-pet__badge-chevron svg {
   display: block;
 }
 
-/* `f.placement.startsWith("bottom") && "rotate-180"` — it points at the mascot. */
 .bettergravity-pet[data-pet-tray-above="false"] .bettergravity-pet__badge-chevron {
   rotate: 180deg;
-}
-
-.bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge-chevron {
-  opacity: 1;
-  filter: none;
-  scale: 1;
-
-  transition: opacity var(--pet-spring-reveal), scale var(--pet-spring-reveal),
-    filter var(--pet-spring-reveal-blur), rotate var(--pet-spring-badge);
 }
 
 .bettergravity-pet[data-pet-badge-kind="chevron"] .bettergravity-pet__badge-count,
 .bettergravity-pet[data-pet-badge-kind="count"] .bettergravity-pet__badge-chevron {
   display: none;
+}
+
+@media (forced-colors: active) {
+  .bettergravity-pet__badge {
+    border-color: ButtonBorder !important;
+    background: ButtonFace !important;
+    color: ButtonText !important;
+    backdrop-filter: none;
+  }
 }
 
 /*
@@ -381,6 +255,8 @@
 
 .bettergravity-pet-tray {
   position: fixed;
+  /* Width measurement and the card text must use the same resolved family. */
+  font-family: var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
   /* Under the pet, so a card can never cover the thing it belongs to. */
   z-index: 2147482999;
 
@@ -469,6 +345,7 @@
    rather than left to paint over the card behind it. */
 .bettergravity-pet-card {
   position: absolute;
+  display: flow-root;
   inset-inline: 0;
   top: 0;
   min-height: var(--pet-card-height);
@@ -492,6 +369,28 @@
      slower and far less bouncy than it looks like it should be, which is what
      makes a pile of cards settle rather than snap. */
   transition: transform var(--pet-spring-stack), height var(--pet-spring-stack);
+}
+
+.bettergravity-pet-card[hidden] {
+  display: none;
+}
+
+.bettergravity-pet-card__header {
+  position: relative;
+}
+
+/* The inline editor owns the height animation. Keep the measured stack and
+   quick chat on that same frame instead of adding another spring behind it. */
+.bettergravity-pet-tray[data-pet-reply-layout="true"] {
+  transition: opacity 0.2s ease, visibility 0.2s;
+}
+
+.bettergravity-pet-tray[data-pet-reply-layout="true"] .bettergravity-pet-card {
+  transition: none;
+}
+
+.bettergravity-pet-tray[data-pet-reply-layout="true"] + .bettergravity-pet-chat {
+  transition-property: opacity, visibility;
 }
 
 .bettergravity-pet-card[data-pet-slot="0"] {
@@ -956,6 +855,79 @@
  * (300) after the pointer leaves, which is the same delay the whole cluster uses.
  */
 
+/* Codex 26.903, avatar-overlay-native-page Tu(): the reply expands inside its
+   card with independent height, fade, and two-pixel movement timings. */
+.bettergravity-pet-card__reply {
+  height: 0;
+  margin: 0 14px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+  /* Height and margin use the 220ms Codex curve in the same frame as the stack. */
+  transition: opacity 0.12s ease-out, transform 0.16s ease-out;
+}
+
+.bettergravity-pet-card[data-pet-replying="true"] .bettergravity-pet-card__reply {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.bettergravity-pet-card__reply-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  margin: 0;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 0.5px solid var(--pet-material-border);
+  border-radius: 12.5px;
+  background: var(--pet-surface-secondary);
+  cursor: text;
+  -webkit-app-region: no-drag;
+}
+
+.bettergravity-pet-card__reply-input {
+  display: block;
+  field-sizing: content;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: 80px;
+  margin: 0;
+  padding: 4.5px 0;
+  resize: none;
+  overflow-y: auto;
+  font: 400 13px / 16px var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+  color: var(--pet-text);
+}
+
+.bettergravity-pet-card__reply-input,
+.bettergravity-pet-card__reply-input:focus,
+.bettergravity-pet-card__reply-input:focus-visible {
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.bettergravity-pet-card__reply-input::placeholder {
+  color: var(--pet-text-secondary);
+}
+
+.bettergravity-pet-card__reply-error {
+  padding-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 11px / 12px var(--vscode-font-family, ui-sans-serif, system-ui, sans-serif);
+  color: var(--pet-danger);
+}
+
 .bettergravity-pet-chat {
   position: fixed;
   z-index: 2147483001;
@@ -996,7 +968,7 @@
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0.2s, top 0.2s ease, left 0.2s ease;
+  transition: opacity 0.2s ease, visibility 0.2s, top var(--pet-spring-stack);
 }
 
 .bettergravity-pet-chat[data-pet-chat="open"] {
@@ -1004,7 +976,64 @@
   opacity: 1;
   visibility: visible;
   /* Reply can be pressed during the fade-in; the editor must already accept focus. */
-  transition-property: opacity, top, left;
+  transition-property: opacity, top;
+}
+
+/* The pointer owns placement during a drag. Both surfaces follow the same
+   frame; a separate left/top transition makes the composer trail the cards. */
+.bettergravity-pet-tray[data-pet-dragging="true"],
+.bettergravity-pet-chat[data-pet-dragging="true"] {
+  transition-property: opacity, visibility, height;
+}
+
+/* Codex's non-native context-menu presentation. Desktop surfaces request the
+   platform menu; this also serves hosts without native popup support. */
+.bettergravity-pet-menu {
+  position: fixed;
+  z-index: 2147483647;
+  display: flex;
+  min-width: 200px;
+  max-width: calc(100vw - 12px);
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 4px;
+  border: 0.5px solid #ffffff26;
+  border-radius: 16px;
+  background: #282828e6;
+  color: #ededed;
+  box-shadow: 0 8px 24px #0005;
+  backdrop-filter: blur(8px);
+  font: 14px/20px ui-sans-serif, system-ui, sans-serif;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+.bettergravity-pet-menu[hidden] { display: none; }
+
+.bettergravity-pet-menu__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.bettergravity-pet-menu__item:hover,
+.bettergravity-pet-menu__item:focus-visible {
+  background: #ffffff14;
+  outline: none;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  box-shadow: none;
 }
 
 .bettergravity-pet-chat__input {
@@ -1120,7 +1149,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bettergravity-pet__badge,
-  .bettergravity-pet[data-pet-badge="expanded"] .bettergravity-pet__badge,
   .bettergravity-pet__badge-count,
   .bettergravity-pet__badge-chevron,
   .bettergravity-pet-tray,
@@ -1128,8 +1156,12 @@
   .bettergravity-pet-card__content,
   .bettergravity-pet-card__controls,
   .bettergravity-pet-card__close,
+  .bettergravity-pet-card__reply,
   .bettergravity-pet-chat {
     transition: none;
+  }
+  .bettergravity-pet-card__reply {
+    transform: none;
   }
 
   .bettergravity-pet-card__text[data-pet-loading="true"] {

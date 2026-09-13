@@ -1,0 +1,448 @@
+/* ===========================================================================
+ * Question Box (Willow Spark Question Panel parity)
+ * ===========================================================================
+ * When an agent calls `ask_question`, Antigravity's composer transitions into
+ * an interactive question box ($U / yGb).
+ *
+ * This stylesheet matches Willow Spark's question panel:
+ *   features/spark/src/SparkQuestionPanel.tsx
+ *   features/spark/src/SparkQuestionPanel.css
+ *
+ * Characteristics:
+ * - 32px pill radius matching the chat composer surface (#1e1f21).
+ * - Level 1 elevation: 0 0 20px 0 rgba(0, 0, 0, 0.28).
+ * - Entrance curve: 220ms cubic-bezier(0, 0, 0.2, 1) rise and settle.
+ * - Clean 12px option cards without heavy borders, subtle 5% hover fill.
+ * - Flat embedded write-in textarea with 12px radius.
+ * - Pill-shaped action buttons: ghost Skip and Willow/Gemini Blue Submit.
+ *
+ * IMPORTANT SCOPING RULE:
+ * Every selector in this file MUST be scoped under:
+ *   [data-testid="conversation-view"] .relative.w-full.px-4.pb-2
+ * to prevent leaking generic Tailwind utility styles (.flex, .outline-none,
+ * .text-sm, etc.) into the left sidebar or top-right window controls.
+ */
+
+/* --- 1. Shell & Card Surface --------------------------------------------- */
+
+/* Outer wrapper inside the conversation composer dock */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 > div:has([data-testid="interaction-continue-button"]) {
+  width: 100% !important;
+  max-width: 660px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  margin-bottom: 0 !important;
+}
+
+/* Clear outer card-border border and background */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .relative.flex.flex-col.p-px.rounded-2xl.bg-card-border.w-full:has([data-testid="interaction-continue-button"]) {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 32px !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* The question card surface */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-height: 65.6px !important;
+  padding: 14px 16px 12px 16px !important;
+  gap: 8px !important;
+  border-radius: 32px !important;
+  border: none !important;
+  background: var(--gemini-composer-bg, #1e1f21) !important;
+  box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.28) !important;
+  animation: spark-question-enter 220ms cubic-bezier(0, 0, 0.2, 1) !important;
+  transform-origin: 50% 0 !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes) !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  box-sizing: border-box !important;
+}
+
+@keyframes spark-question-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.96);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.28);
+  }
+}
+
+@keyframes spark-question-step {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]),
+  [data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] {
+    animation: none !important;
+  }
+}
+
+/* --- 2. Header & Stepper -------------------------------------------------- */
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) .flex.justify-between.items-center {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  min-height: 20px !important;
+  padding: 0 2px 2px 2px !important;
+}
+
+/* Hide unstyled/raw live_help fallback icon container */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) .min-h-\[21px\] {
+  display: none !important;
+}
+
+/* Question prompt text */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) .flex.min-w-0.text-sm {
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  color: #e6e6e6 !important;
+  font-family: var(--gemini-font) !important;
+  font-variation-settings: var(--gemini-font-axes) !important;
+}
+
+/* Multi-select pill badge */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) .bg-secondary.rounded-full {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 11px !important;
+  height: 20px !important;
+  padding: 0 8px !important;
+  border-radius: 999px !important;
+  font-weight: 500 !important;
+  font-family: var(--gemini-font) !important;
+}
+
+/* Stepper count "1 of N" */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) .text-xs.text-secondary-foreground.whitespace-nowrap {
+  font-size: 12px !important;
+  line-height: 16px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-family: var(--gemini-font) !important;
+  padding: 0 4px !important;
+}
+
+/* Stepper circular buttons */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Previous question"],
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Next question"] {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+  font-size: 0 !important;
+  transition: background-color 0.15s linear, color 0.15s linear !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Previous question"]:hover:not(:disabled),
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Next question"]:hover:not(:disabled) {
+  background: rgba(230, 230, 230, 0.08) !important;
+  color: #e6e6e6 !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Previous question"]:disabled,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Next question"]:disabled {
+  opacity: 0.32 !important;
+  cursor: default !important;
+}
+
+/* Hide raw ligature text inside stepper buttons */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Previous question"] *,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Next question"] * {
+  display: none !important;
+}
+
+/* Crisp SVG vector chevrons matching Willow Spark */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Previous question"]::before,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Next question"]::before {
+  content: "" !important;
+  display: block !important;
+  width: 14px !important;
+  height: 14px !important;
+  background-color: currentColor !important;
+  -webkit-mask-repeat: no-repeat !important;
+  -webkit-mask-position: center !important;
+  -webkit-mask-size: 14px 14px !important;
+  mask-repeat: no-repeat !important;
+  mask-position: center !important;
+  mask-size: 14px 14px !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Previous question"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 18-6-6 6-6'/%3E%3C/svg%3E") !important;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 18-6-6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) button[aria-label="Next question"]::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") !important;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") !important;
+}
+
+/* --- 3. Options List & Option Cards --------------------------------------- */
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  margin-top: 4px !important;
+  animation: spark-question-step 160ms cubic-bezier(0, 0, 0.2, 1) !important;
+}
+
+/* Individual option card */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 32px !important;
+  padding: 6px 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s linear !important;
+  box-shadow: none !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:hover {
+  background: rgba(230, 230, 230, 0.05) !important;
+  border-color: transparent !important;
+}
+
+/* Selected option card - clean background without border */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label.bg-secondary,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:has(input:checked) {
+  background: rgba(230, 230, 230, 0.08) !important;
+  border: 1px solid transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Completely remove the light blue border/ring on option click/press */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:active,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:focus,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:focus-within,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:focus-visible,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] input,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] input:focus,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] div {
+  box-shadow: none !important;
+  outline: none !important;
+  border-color: transparent !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+}
+
+/* Monospace shortcut key badge (A, B, C...) */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label > .rounded.bg-border {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s linear !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:has(input:checked) > .rounded.bg-border,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label.bg-secondary > .rounded.bg-border {
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label > .rounded.bg-border span {
+  font-family: var(--gemini-code-font, "Google Sans Code", monospace) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label:has(input:checked) > .rounded.bg-border span,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label.bg-secondary > .rounded.bg-border span {
+  color: #ffffff !important;
+}
+
+/* Option label text */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [role="radiogroup"] label > span:last-child {
+  font-family: var(--gemini-font) !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+}
+
+/* --- 4. Freeform / Write-in Textarea --------------------------------------- */
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]) {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 34px !important;
+  padding: 6px 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  background: rgba(230, 230, 230, 0.04) !important;
+  transition: background-color 0.15s linear !important;
+  box-shadow: none !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  margin-top: 2px !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]):hover {
+  background: rgba(230, 230, 230, 0.06) !important;
+  border-color: transparent !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]):focus,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]):focus-within,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]):focus-visible,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]):active,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]).bg-secondary,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) label:has([data-testid="ask-question-writein"]):has(input:checked) {
+  background: rgba(230, 230, 230, 0.08) !important;
+  border: 1px solid transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [data-testid="ask-question-writein"],
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [data-testid="ask-question-writein"]:focus,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [data-testid="ask-question-writein"]:focus-visible {
+  width: 100% !important;
+  min-height: 20px !important;
+  max-height: 96px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--gemini-text, #e6e6e6) !important;
+  font-family: var(--gemini-font) !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  resize: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) [data-testid="ask-question-writein"]::placeholder {
+  color: rgba(255, 255, 255, 0.38) !important;
+}
+
+/* --- 5. Action Buttons (Skip & Submit) ------------------------------------- */
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 .bg-card:has([data-testid="interaction-continue-button"]) .flex.items-center.justify-end {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  padding: 2px 0 4px !important;
+  margin-top: 4px !important;
+}
+
+/* Skip button */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 [data-testid="interaction-skip-button"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-family: var(--gemini-font) !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s linear, color 0.15s linear !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 [data-testid="interaction-skip-button"]:hover {
+  background: rgba(230, 230, 230, 0.08) !important;
+  color: #e6e6e6 !important;
+}
+
+/* Submit / Continue button */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 [data-testid="interaction-continue-button"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 16px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-family: var(--gemini-font) !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 500 !important;
+  background: var(--gemini-send-bg, #1b3f95) !important;
+  color: #e6e6e6 !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s linear, color 0.15s linear !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 [data-testid="interaction-continue-button"]:hover:not(:disabled) {
+  background: var(--gemini-send-bg-hover, #153277) !important;
+}
+
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 [data-testid="interaction-continue-button"]:disabled {
+  background: rgba(230, 230, 230, 0.12) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+  cursor: default !important;
+}
+
+/* Hide shortcut hint inside submit button (↵) for clean Willow Spark appearance */
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 [data-testid="interaction-continue-button"] span,
+[data-testid="conversation-view"] .relative.w-full.px-4.pb-2 [data-testid="interaction-continue-button"] svg {
+  display: none !important;
+}

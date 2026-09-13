@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, type Rectangle } from "electron";
+import { BrowserWindow, Menu, screen, type Rectangle } from "electron";
 import { CHANNEL, OVERLAY_ARGUMENT, type OverlayBounds, type OverlayStatus, type OverlaySurface } from "../protocol.js";
 import { logger } from "./logger.js";
 
@@ -12,9 +12,10 @@ import { logger } from "./logger.js";
  * in another application.
  *
  * The window options are deliberately the ones a desktop companion needs and
- * nothing more. `focusable: false` keeps it out of the window cycle until the
- * surface explicitly asks for keyboard input. `skipTaskbar` keeps it off the
- * taskbar. `setIgnoreMouseEvents(true, { forward: true })` is the important one:
+ * nothing more. It starts non-focusable; Windows also needs click focus while
+ * the pointer is over an interactive surface. Only an explicit text-entry
+ * request actively takes keyboard focus. `skipTaskbar` keeps it off the taskbar.
+ * `setIgnoreMouseEvents(true, { forward: true })` is the important one:
  * clicks pass through to whatever is underneath, while the overlay still hears
  * `mousemove`, which is how its contents can know the pointer is over them and
  * ask for input back.
@@ -46,6 +47,9 @@ function displayFor(which: OverlaySurface["display"]): Electron.Display {
 
 export class OverlayWindow {
   private live: Live | undefined;
+
+  private pointerTimer: NodeJS.Timeout | undefined;
+  private contextMenu: { menu: Menu; live: Live; finish(id: string | null): void } | undefined;
 
   private listeners = new Set<(status: OverlayStatus) => void>();
 
@@ -140,15 +144,17 @@ export class OverlayWindow {
     window.webContents.on("will-navigate", (event) => event.preventDefault());
 
     window.webContents.once("dom-ready", () => {
-      if (window.isDestroyed()) return;
+      if (window.isDestroyed() || this.live !== live) return;
       live.attached = true;
       window.webContents.send(CHANNEL.overlaySurface, surface);
       window.showInactive();
+      this.startPointerTracking(live);
       this.announce();
     });
 
     const gone = () => {
       if (this.live === live) {
+        this.stopPointerTracking();
         this.live = undefined;
         this.announce();
       }
@@ -170,6 +176,8 @@ export class OverlayWindow {
   }
 
   close(): OverlayStatus {
+    this.closeContextMenu();
+    this.stopPointerTracking();
     const live = this.live;
     this.live = undefined;
     if (live && !live.window.isDestroyed()) live.window.destroy();
@@ -206,13 +214,61 @@ export class OverlayWindow {
     const live = this.live;
     if (!live || live.window.isDestroyed() || live.focusable === focusable) return;
     live.focusable = focusable;
-    live.window.setFocusable(focusable);
+    this.applyFocusable(live);
     if (focusable) live.window.focus();
   }
 
   private applyInteractive(live: Live): void {
-    if (live.interactive) live.window.setIgnoreMouseEvents(false);
+    if (live.interactive || this.contextMenu?.live === live) live.window.setIgnoreMouseEvents(false);
     else live.window.setIgnoreMouseEvents(true, { forward: true });
+    this.applyFocusable(live);
+  }
+
+  private applyFocusable(live: Live): void {
+    // A non-focusable transparent window can lose native clicks on Windows
+    // while another application is foreground. Permit click focus over the
+    // surface without activating it on hover. Text entry keeps focusability
+    // when the pointer leaves, until the editor itself gives focus back.
+    const focusable = live.focusable || this.contextMenu?.live === live || (process.platform === "win32" && live.interactive);
+    if (live.window.isFocusable() !== focusable) live.window.setFocusable(focusable);
+  }
+
+  /** Recover input if Windows stops forwarding movement to a click-through window. */
+  private startPointerTracking(live: Live): void {
+    this.stopPointerTracking();
+    let previous: { x: number; y: number; sentAt: number } | undefined;
+    const sample = () => {
+      if (this.live !== live || live.window.isDestroyed() || live.window.webContents.isDestroyed()) {
+        clearInterval(timer);
+        if (this.pointerTimer === timer) this.pointerTimer = undefined;
+        return;
+      }
+      try {
+        const cursor = screen.getCursorScreenPoint();
+        const bounds = live.window.getContentBounds();
+        const zoom = live.window.webContents.getZoomFactor();
+        if (!Number.isFinite(zoom) || zoom <= 0) return;
+        const x = (cursor.x - bounds.x) / zoom;
+        const y = (cursor.y - bounds.y) / zoom;
+        const now = Date.now();
+        // Normal movement is still handled by DOM events. An occasional repeat
+        // also repairs lost state after focus changes with a stationary cursor.
+        if (previous?.x === x && previous.y === y && now - previous.sentAt < 250) return;
+        previous = { x, y, sentAt: now };
+        live.window.webContents.send(CHANNEL.overlayMessage, { type: "bettergravity:overlay-pointer", x, y });
+      } catch {
+        // Display reconfiguration can temporarily make a native cursor read fail.
+      }
+    };
+    const timer = setInterval(sample, 50);
+    timer.unref();
+    this.pointerTimer = timer;
+    sample();
+  }
+
+  private stopPointerTracking(): void {
+    if (this.pointerTimer !== undefined) clearInterval(this.pointerTimer);
+    this.pointerTimer = undefined;
   }
 
   /** Page to overlay. */
@@ -226,7 +282,64 @@ export class OverlayWindow {
   toPage(message: unknown): void {
     const page = this.page;
     if (!page || page.isDestroyed()) return;
+    if (message !== null && typeof message === "object" &&
+      "type" in message && message.type === "bettergravity:overlay-context-menu") {
+      this.showContextMenu(message);
+      return;
+    }
+    if (message !== null && typeof message === "object" &&
+      "type" in message && message.type === "bettergravity:overlay-focus-owner") {
+      const live = this.live;
+      if (!live || live.window.isDestroyed()) return;
+      const owner = BrowserWindow.fromWebContents(page);
+      if (!owner || owner.isDestroyed() || owner === live.window) return;
+      if (owner.isMinimized()) owner.restore();
+      if (!owner.isVisible()) owner.show();
+      owner.focus();
+      page.focus();
+      return;
+    }
     page.send(CHANNEL.overlayMessage, message);
+  }
+
+  /** A surface can offer plain actions using the same native popup as the host. */
+  private showContextMenu(request: object): void {
+    const live = this.live;
+    if (!live || live.window.isDestroyed() || !live.attached ||
+      !("requestId" in request) || typeof request.requestId !== "string" ||
+      request.requestId.length > 128 || !("items" in request) || !Array.isArray(request.items)) return;
+    const requestId = request.requestId;
+    const items = request.items.slice(0, 32).filter((item): item is { id: string; label: string } =>
+      item !== null && typeof item === "object" && typeof item.id === "string" &&
+      item.id.length > 0 && item.id.length <= 128 && typeof item.label === "string" &&
+      item.label.length > 0 && item.label.length <= 200
+    );
+    if (items.length === 0) return;
+    this.closeContextMenu();
+    let settled = false;
+    const finish = (id: string | null) => {
+      if (settled) return;
+      settled = true;
+      this.contextMenu = undefined;
+      if (this.live !== live || live.window.isDestroyed()) return;
+      this.applyInteractive(live);
+      this.toOverlay({ type: "bettergravity:overlay-context-menu-result", requestId, id });
+    };
+    try {
+      const menu = Menu.buildFromTemplate(items.map(item => ({ label: item.label, click: () => finish(item.id) })));
+      this.contextMenu = { menu, live, finish };
+      this.applyInteractive(live);
+      menu.popup({ window: live.window, callback: () => finish(null) });
+    } catch {
+      finish(null);
+    }
+  }
+
+  private closeContextMenu(): void {
+    const popup = this.contextMenu;
+    if (!popup) return;
+    popup.finish(null);
+    popup.menu.closePopup();
   }
 
   dispose(): void {

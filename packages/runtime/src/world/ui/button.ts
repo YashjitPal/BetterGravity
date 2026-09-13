@@ -103,9 +103,26 @@ export function addToolbarButton(spec: ButtonSpec): ButtonHandle {
     },
     setActive: (active) => {
       registration.active = active;
+      if (active && spec.area === "sidebar") {
+        for (const other of registrations) {
+          if (other !== registration && other.spec.area === "sidebar" && other.active) {
+            other.active = false;
+            if (other.element) {
+              other.element.setAttribute("aria-pressed", "false");
+              other.element.removeAttribute("data-bettergravity-active");
+              other.element.className = TOOLBAR[other.spec.area].shape;
+            }
+          }
+        }
+      }
       const element = registration.element;
       if (!element) return;
       element.setAttribute("aria-pressed", String(active));
+      if (active) {
+        element.setAttribute("data-bettergravity-active", "true");
+      } else {
+        element.removeAttribute("data-bettergravity-active");
+      }
       element.className = active ? `${TOOLBAR[spec.area].shape} ${CHROME.accent.success}` : TOOLBAR[spec.area].shape;
     },
     remove: () => {

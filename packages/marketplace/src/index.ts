@@ -44,6 +44,8 @@ export interface CatalogEntry {
   readonly author: string;
   /** Where the author publishes it. The repository remains the source of truth. */
   readonly source?: string;
+  /** Supported OS platforms (e.g. ["windows"]). Omitted if universal. */
+  readonly platforms?: readonly string[];
   /**
    * Repository-relative path: the file itself for a single-file theme, the
    * folder otherwise. A client fetches `path` for a single-file theme, whose one
@@ -381,6 +383,20 @@ export function validatePlugin(folderName: string, files: PluginFiles): Validati
     if (pattern.test(source)) findings.push(note(`Entry script ${why}.`));
   }
 
+  const declaredPlatforms = manifest["platforms"];
+  let platforms: string[] | undefined;
+  if (declaredPlatforms !== undefined) {
+    const list = Array.isArray(declaredPlatforms) ? declaredPlatforms : [declaredPlatforms];
+    platforms = [];
+    for (const item of list) {
+      if (typeof item !== "string" || !item.trim()) {
+        findings.push(error("platforms must be a string or a list of strings."));
+        continue;
+      }
+      platforms.push(item.trim().toLowerCase());
+    }
+  }
+
   if (findings.some((finding) => finding.severity === "error")) return { findings };
 
   const declaredSource = manifest["source"];
@@ -394,6 +410,7 @@ export function validatePlugin(folderName: string, files: PluginFiles): Validati
       version,
       author,
       ...(typeof declaredSource === "string" ? { source: declaredSource } : {}),
+      ...(platforms && platforms.length > 0 ? { platforms } : {}),
       path: `community/plugins/${folderName}`,
       bytes: files.totalBytes,
       files: [...files.files].sort((a, b) => a.name.localeCompare(b.name))

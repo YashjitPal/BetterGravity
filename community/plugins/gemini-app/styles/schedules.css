@@ -1009,7 +1009,7 @@ div[role="listbox"]::-webkit-scrollbar-button,
   --tw-ring-offset-shadow: 0 0 #0000 !important;
 }
 
-div[role="listbox"]:has([role="option"]),
+div[role="listbox"]:has([role="option"]):not([data-mention-menu]),
 div:has(> div > [data-testid="schedule-frequency-option"]),
 [data-radix-popper-content-wrapper] [role="listbox"] {
   background-color: #1f1f1f !important;
@@ -1024,7 +1024,7 @@ div:has(> div > [data-testid="schedule-frequency-option"]),
   animation: spark-row-action-menu-in 120ms cubic-bezier(0, 0, 0.2, 1) !important;
 }
 
-div[role="listbox"] [role="option"],
+div[role="listbox"]:not([data-mention-menu]) [role="option"],
 [data-testid="schedule-frequency-option"] {
   display: flex !important;
   align-items: center !important;
@@ -1043,9 +1043,9 @@ div[role="listbox"] [role="option"],
   user-select: none !important;
 }
 
-div[role="listbox"] [role="option"]:hover,
-div[role="listbox"] [role="option"][data-highlighted],
-div[role="listbox"] [role="option"]:focus,
+div[role="listbox"]:not([data-mention-menu]) [role="option"]:hover,
+div[role="listbox"]:not([data-mention-menu]) [role="option"][data-highlighted],
+div[role="listbox"]:not([data-mention-menu]) [role="option"]:focus,
 [data-testid="schedule-frequency-option"]:hover,
 [data-testid="schedule-frequency-option"][data-highlighted] {
   background-color: rgba(230, 230, 230, 0.08) !important;
@@ -1053,7 +1053,7 @@ div[role="listbox"] [role="option"]:focus,
   outline: none !important;
 }
 
-div[role="listbox"] [role="option"][aria-selected="true"],
+div[role="listbox"]:not([data-mention-menu]) [role="option"][aria-selected="true"],
 [data-testid="schedule-frequency-option"][aria-selected="true"] {
   background-color: rgba(168, 199, 250, 0.12) !important;
   color: #a8c7fa !important;

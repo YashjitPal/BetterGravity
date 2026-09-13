@@ -1,6 +1,6 @@
 {
   "name": "Fork Chat",
-  "description": "Fork any conversation from any message turn or sidebar thread into a new branch or workspace, matching Codex and Claude Code.",
+  "description": "Fork any conversation from any assistant response or sidebar thread into a new branch or workspace, matching Codex and Claude Code.",
   "version": "1.0.0",
   "author": "Yashjit Pal",
   "main": "index.js",

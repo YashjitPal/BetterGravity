@@ -1122,10 +1122,14 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][aria-selected="true"],
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-active="true"],
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-selected="true"],
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-bettergravity-active="true"],
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button].bg-sidebar-secondary,
 [role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-pressed="true"],
 [role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-selected="true"],
 [role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-active="true"],
-[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-selected="true"] {
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-selected="true"],
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-bettergravity-active="true"],
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *.bg-sidebar-secondary {
   background-color: #171717 !important;
   color: #ffffff !important;
 }
@@ -1286,10 +1290,14 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][aria-selected="true"] > span:last-child,
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-active="true"] > span:last-child,
 [role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-selected="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button][data-bettergravity-active="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] [data-bettergravity-button].bg-sidebar-secondary > span:last-child,
 [role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-pressed="true"] > span:last-child,
 [role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[aria-selected="true"] > span:last-child,
 [role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-active="true"] > span:last-child,
-[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-selected="true"] > span:last-child {
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-selected="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *[data-bettergravity-active="true"] > span:last-child,
+[role="navigation"][aria-label="Sidebar"] #gemini-scroll-nav > *.bg-sidebar-secondary > span:last-child {
   font-weight: 500 !important;
   font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 540 !important;
   color: #ffffff !important;
@@ -1303,15 +1311,43 @@ html[data-sidebar-collapsed="true"] [role="navigation"][aria-label="Sidebar"] .g
   font-variation-settings: var(--gemini-icon-axes-menu-fill, "FILL" 1, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320);
 }
 
-/* While Skills view is open, don't show active background on conversation rows */
-body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] {
+/* Universal suppression: while any custom view is open (Skills, Pets, or any future plugin),
+   suppress active pill backgrounds, active font weights, and filled icon ligatures on native items */
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary,
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary,
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary,
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary,
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"],
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary,
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary,
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary,
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary,
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"],
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] [data-testid="new-conversation-button"].bg-sidebar-secondary,
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] [data-testid="history-button"].bg-sidebar-secondary,
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary,
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary,
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] {
   background-color: transparent !important;
+  color: var(--gemini-text, #e6e6e6) !important;
 }
 
-body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate {
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate,
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate,
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] div[data-testid="conversation-row-sidebar"][data-selected="true"] span.truncate {
   font-weight: 400 !important;
   font-variation-settings: "ROND" 0, "slnt" 0, "wdth" 92, "wght" 400 !important;
   color: var(--gemini-text, #e6e6e6) !important;
+}
+
+/* Also reset the icon fill ligature on suppressed stock rows */
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary > span:first-child::before,
+body.gemini-skills-open [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary > span:first-child::before,
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary > span:first-child::before,
+body.bettergravity-pets-open [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary > span:first-child::before,
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] [data-testid="automations-button"].bg-sidebar-secondary > span:first-child::before,
+body.gemini-custom-view-open [role="navigation"][aria-label="Sidebar"] #gemini-scheduled-tasks-button.bg-sidebar-secondary > span:first-child::before {
+  font-variation-settings: var(--gemini-icon-axes-menu, "FILL" 0, "GRAD" 0, "ROND" 100, "opsz" 20, "wght" 320) !important;
 }
 
 /* Trailing keyboard shortcut hint for New conversation */

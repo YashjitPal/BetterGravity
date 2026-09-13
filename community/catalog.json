@@ -1,17 +1,20 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-12T10:50:23.984Z",
+  "generatedAt": "2026-09-13T08:03:11.411Z",
   "entries": [
     {
       "id": "computer-use",
       "kind": "plugin",
       "name": "Computer Use",
       "description": "Control desktop apps on Windows through Computer Use, with the 7-spring cursor physics engine, Bezier trajectory planner, tool activity indicators, and computer-use tools from OpenAI Codex.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "OpenAI & BetterGravity Community",
       "source": "https://github.com/YashjitPal/BetterGravity",
+      "platforms": [
+        "windows"
+      ],
       "path": "community/plugins/computer-use",
-      "bytes": 945107,
+      "bytes": 945186,
       "files": [
         {
           "name": "assets/agent-cursor.png",
@@ -155,8 +158,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 36103,
-          "sha256": "f1cabc000445d6714560ed88bdbec2210fdf80dc47c1ffa7404d14fb52fee248"
+          "bytes": 36146,
+          "sha256": "f5441cb8239858b45927b63b5d6d0d403d1d1730fcf27a5b9d31ea2f53a546e7"
         },
         {
           "name": "mcp-server.cjs",
@@ -170,8 +173,8 @@
         },
         {
           "name": "plugin.json",
-          "bytes": 429,
-          "sha256": "c21c3b545d826507ab8c1609bd722aea9f6b616272952ae5eecfba8e309e69f3"
+          "bytes": 465,
+          "sha256": "02a00be3ff638ca7f5a033f33b7506cd7b35a339d1539f870a3608e1768385ae"
         },
         {
           "name": "skills/computer-use/scripts/run_action.js",
@@ -247,32 +250,32 @@
       "id": "fork-chat",
       "kind": "plugin",
       "name": "Fork Chat",
-      "description": "Fork any conversation from any message turn or sidebar thread into a new branch or workspace, matching Codex and Claude Code.",
+      "description": "Fork any conversation from any assistant response or sidebar thread into a new branch or workspace, matching Codex and Claude Code.",
       "version": "1.0.0",
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/fork-chat",
-      "bytes": 59539,
+      "bytes": 67162,
       "files": [
         {
           "name": "index.js",
-          "bytes": 43647,
-          "sha256": "813c5e5a89f344f386cefc870992fad24e54e392e72dda759b7e03d54427bc82"
+          "bytes": 51322,
+          "sha256": "491a4a0019a9d0771c9d6a6ad96c8825e4e57de90131a3c73ba8240c09571aad"
         },
         {
           "name": "plugin.json",
-          "bytes": 335,
-          "sha256": "8972e1f6a531171e46790693938460479e7d93a4bca52fb12df3bf42b2e754fb"
+          "bytes": 341,
+          "sha256": "9e896f08e61702f26e2d9c45313aca5a7400fff40beddf3a9c6707114725de53"
         },
         {
           "name": "README.md",
-          "bytes": 1366,
-          "sha256": "8641f34bc299e15504ef7d4bafec50437e8a25f18c4bcc6a4a8216176d45103a"
+          "bytes": 1757,
+          "sha256": "4b5b5045c22959a9f17eedef16f91f132767d365a7265cdbe2148c3fc1c051be"
         },
         {
           "name": "styles/fork.css",
-          "bytes": 14191,
-          "sha256": "2777430fd249857345d00dc60f979ff20bb88ece6365e7166a02552fac5801ef"
+          "bytes": 13742,
+          "sha256": "a6e7c65041468dd426ee931c854eceb651dd05267e8a30be9545581db1e88193"
         }
       ]
     },
@@ -308,7 +311,7 @@
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/gemini-app",
-      "bytes": 875044,
+      "bytes": 923653,
       "files": [
         {
           "name": "assets/antigravity-mark.png",
@@ -327,8 +330,8 @@
         },
         {
           "name": "index.js",
-          "bytes": 358550,
-          "sha256": "04af0232120c23a210020e30b7d65648e66f9d4332f1d78174a4c93a2eaf15ed"
+          "bytes": 371994,
+          "sha256": "bebee2161a952d90e23ce596bc6f02af0aac0a7f1dd32f4ace52e272c9f2a81f"
         },
         {
           "name": "plugin.json",
@@ -337,8 +340,8 @@
         },
         {
           "name": "styles/conversation.css",
-          "bytes": 74065,
-          "sha256": "0c1001fedbf07dce8b40ebaacaa1c07584ece733ece25adfecfa716b876f53bb"
+          "bytes": 73903,
+          "sha256": "42f956d6bc28412c63a840e82cc018a91166d6a38c217daf50e53e8c3e84512b"
         },
         {
           "name": "styles/dialog.css",
@@ -347,8 +350,8 @@
         },
         {
           "name": "styles/gemini-app.css",
-          "bytes": 2549,
-          "sha256": "d61bf57731fafc40162ff42cd714f15415af81c577f690e37ff5cba45940e729"
+          "bytes": 2603,
+          "sha256": "111b0458af445d3967ec4650f850ccfd2f2202478ccc25ca0a04408b258907cd"
         },
         {
           "name": "styles/history.css",
@@ -377,23 +380,33 @@
         },
         {
           "name": "styles/prompt-box.css",
-          "bytes": 35846,
-          "sha256": "442efe2acb57a19c15851feae0b0d671f1d95b65718e1432fd1d39201e596168"
+          "bytes": 36196,
+          "sha256": "1e462cc5a2a296665c03a86f43b069cfcd4b94b6a2e976eb4d0318ae74065348"
+        },
+        {
+          "name": "styles/question-box.css",
+          "bytes": 22063,
+          "sha256": "a6f1728676501a5e7d9424790285c761d3206f2ba521b19e5be38b913c37f92b"
         },
         {
           "name": "styles/schedules.css",
-          "bytes": 43615,
-          "sha256": "24c6f87157aae172914243d93cbbf4375bbe540702064766e859e143749cd407"
+          "bytes": 43765,
+          "sha256": "33284bc8ed98e597743119c7edc09fa91f2647631920908e574d7273f3e37284"
         },
         {
           "name": "styles/sidebar.css",
-          "bytes": 124426,
-          "sha256": "e2d3887be5dbc076d908439c201c9449cb1294c65b0588cda61b41ae11f4b9cd"
+          "bytes": 128616,
+          "sha256": "75b938c377fdef937fdfd2e4780270a5889f6e92b2f760359bffba37f534d4d7"
         },
         {
           "name": "styles/skills-tab.css",
-          "bytes": 19926,
-          "sha256": "aaa6a9dc0ba400d0ce0cbceac9ffba16d7451f264facc15a2967b81faae8e16e"
+          "bytes": 20204,
+          "sha256": "88cec72363d5771659324eb9e92fdbfe29ceb27586e849a3d139632a31ebafce"
+        },
+        {
+          "name": "styles/slash-menu.css",
+          "bytes": 8242,
+          "sha256": "5d1f11b93cf8fb8d01eed3e2eaddce2770d68778c062e8c4029cb92e335d69aa"
         },
         {
           "name": "styles/tokens.css",
@@ -412,31 +425,31 @@
       "kind": "plugin",
       "name": "In Built Browser",
       "description": "A tabbed browser in the right sidebar, shared with your model. Open websites and localhost, inspect pages, use browser computer controls, and leave visual feedback. Browser tools exist only while this plugin is enabled.",
-      "version": "1.0.0",
+      "version": "1.0.18",
       "author": "BetterGravity Community",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/in-built-browser",
-      "bytes": 494540,
+      "bytes": 802176,
       "files": [
         {
           "name": "index.js",
-          "bytes": 31093,
-          "sha256": "e8a7828e135bbfb91c8c1e423381ad70cd1c02c39b8a39ff63a7c7bb5d80b231"
+          "bytes": 107637,
+          "sha256": "adefd00215b780cc05fadc44738077a4a38686ee5e1fe8e1d1a60b37f6021f4a"
         },
         {
           "name": "mcp-server.cjs",
-          "bytes": 4822,
-          "sha256": "8bce0d1676f409050cbfdb355649b8650cc66fe34c6812f8218f9377dfa59032"
+          "bytes": 4830,
+          "sha256": "d6d59ec38d2149fc87c7b9e6b8d000ca6a0274c41e34bfc9552858e903c85770"
         },
         {
           "name": "plugin.json",
-          "bytes": 449,
-          "sha256": "5163284613a1253129776032ce14a28fb5dab9e470d122a46b15fa20d58b68f4"
+          "bytes": 450,
+          "sha256": "023f45940f53583a055cc1446a51c93d750bddbfe2766527baa199f7c417b460"
         },
         {
           "name": "README.md",
-          "bytes": 6059,
-          "sha256": "7567f363ecf487dbc0b1bbe85fb1f46e14ed5ff5d45f4a4d9ceeb02fd323b094"
+          "bytes": 14417,
+          "sha256": "1fc9efdf338ca34098f1f97c3e1aa928e61fba0be2507a1b7f6ced45504015fa"
         },
         {
           "name": "scripts/browser-client.mjs",
@@ -449,19 +462,24 @@
           "sha256": "6b48dd636a2a3d046342aec65e830a3fb79243b2fa5592bd7a5ca608b2d0b8b6"
         },
         {
+          "name": "skills/in-built-browser/COMPATIBILITY.md",
+          "bytes": 5355,
+          "sha256": "bd5ea1c56e4a17f664f1ffaa05479833759629ed981fe15ce4621e33361129f7"
+        },
+        {
           "name": "skills/in-built-browser/SKILL.md",
-          "bytes": 2938,
-          "sha256": "d0eafbf022b325ddbb1d466dbc644d4abddf0a2a1550dc45060295a4bca625f2"
+          "bytes": 18235,
+          "sha256": "cc1e04df85c85e9830a9e6052851ca2bccc962e9e3ebcc673cb5f83aea9fc1e6"
         },
         {
           "name": "styles/browser.css",
-          "bytes": 9941,
-          "sha256": "e38d9f2c57243cb13c5effbc27f1e0375b8bc6c2b370f48556abd5d39c41fa2b"
+          "bytes": 15813,
+          "sha256": "5e3261c31ebf207468d3b2bfaa947bc3c8eee1dafb4c672ffcdcdd6e5226fbce"
         },
         {
           "name": "THIRD_PARTY_NOTICES.md",
-          "bytes": 1480,
-          "sha256": "a980064a8d89c0df0973c74c239978776e63406e1cc23b9f487b2fdaba426c97"
+          "bytes": 3141,
+          "sha256": "04d36b1c6c74f61170b880a1959f6a953cebc10d5766a1a4a1ab457962731a63"
         },
         {
           "name": "vendor/api.json",
@@ -474,9 +492,179 @@
           "sha256": "41d89112e4c173cdc8dc3c7401aea2c5f7fd503bc8fd80e5cfe097c9402f50ad"
         },
         {
+          "name": "vendor/codex-browser-cursor.js",
+          "bytes": 25078,
+          "sha256": "a3ca6bf46d487e191e380b50dbae650b89a9a74f86c6aa7269ea60320f332004"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/accessibility.md",
+          "bytes": 4755,
+          "sha256": "294f2d77e6136348ef51b9d7e44a93d061c2c608c4f21a5a9bb6e8c07c4a523e"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/api-use-behavior.md",
+          "bytes": 3372,
+          "sha256": "e29aab4cfe47985c74bcfb82fbcb11935038c0a5069582e067fc20a4486cadab"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/api.json",
+          "bytes": 59294,
+          "sha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/bootstrap-troubleshooting.md",
+          "bytes": 686,
+          "sha256": "a97391db76e47d43d8117dfb3d288ff1e757033210a4c9f8b0f598adc723f9d0"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/browser-control-interruption.md",
+          "bytes": 348,
+          "sha256": "9866bb6b076f3fbe3effd2b6f4742ac93dd5006a01505008f7879995f1fa72e4"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/browser-safety.md",
+          "bytes": 3332,
+          "sha256": "794445fc4f159c6c0871dfc45025e88132f9f7af9d10eab2e1d3b104c0173215"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/browser-troubleshooting.md",
+          "bytes": 934,
+          "sha256": "ed5ee56bf74895a7cc3cd2bf7f7fce58bfa023945057148c1382aecfe46b855a"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/capabilities/browser/management.md",
+          "bytes": 5945,
+          "sha256": "90be2b984c6ae6840f2ed548d8501e91b239ab0e8c5b380bbe2c72865d6e63ac"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/capabilities/browser/viewport.md",
+          "bytes": 1014,
+          "sha256": "c9857bf5aae8bfc73630751363ce27204792b88b1cd95d4da19c03833501921a"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/capabilities/browser/visibility.md",
+          "bytes": 888,
+          "sha256": "8cb1588084cd3372ffc78b8c500dfa2f359d8a63a3c250f014fd55fad7336b08"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/capabilities/tab/botDetection.md",
+          "bytes": 2717,
+          "sha256": "d41d0b7f86b7797e8d672e2dc8785b3fc224ef9d067513625e70b80c3d8db746"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/capabilities/tab/browserAuth.md",
+          "bytes": 18940,
+          "sha256": "8542e5fe3ff52219b90082887810e946a84ec47d6f15850807753087785bca21"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/capabilities/tab/cdp.md",
+          "bytes": 2232,
+          "sha256": "8e4d8cc937b7213d9c946f082762e31ece226b05ff42e49e535841c7209ac9a6"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/capabilities/tab/pageAssets.md",
+          "bytes": 1870,
+          "sha256": "aab1c766aa79202adcb79bb5539820b13f2f5ef5487a304fcf11ad74bbed06bc"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/chrome-file-upload-troubleshooting.md",
+          "bytes": 703,
+          "sha256": "8f36870b1311e1057de45129dd2490cae10b1fac664ca1ac3489dd8938c425d9"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/chrome-troubleshooting.md",
+          "bytes": 5130,
+          "sha256": "0928c0e57931ffcd77035104c5024f152461fa440fe16d8a2a0d4a3816f2e054"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/confirmations.md",
+          "bytes": 5903,
+          "sha256": "d1a2b39f6b5a572e579321f1ddc714378bba88ad23b6fef36ca2c896b84d55f5"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/documents.json",
+          "bytes": 3689,
+          "sha256": "92a95c6bcc8836ab3c2f15b9e7d0a36247682dda6807fd9fe0945f1be2e7a91b"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/file-uploads.md",
+          "bytes": 978,
+          "sha256": "1294d32fca1e441d815fe97c3ecef589f1ff64b4069ae1baa1c4aeba918e5b39"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/local-web-development.md",
+          "bytes": 349,
+          "sha256": "ad44b4b7616254d81842226a6c810687bda6e72199100f610ce35da319dd58a3"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/screenshots.md",
+          "bytes": 521,
+          "sha256": "183e3d7a51f7140d576f3f4e288137f8455cdbb80f0d16dac8f1b4f1ded1b70b"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/session-naming.md",
+          "bytes": 277,
+          "sha256": "5e531f2aa217b86c0ae8cdcee42c1420b05d56815cf616deea53eb220a6e1f06"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/tab-claiming-chrome.md",
+          "bytes": 2081,
+          "sha256": "d20cd423a643c7d549799f96e27fe603f2b8ba48c432a158ff380d4b679fdd3c"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/tab-cleanup-chrome.md",
+          "bytes": 1054,
+          "sha256": "2263892426ede75c68bd9bcd4926a00dfeb7ea39be3b0b77f3cda5aafe470d76"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/tab-cleanup-iab.md",
+          "bytes": 511,
+          "sha256": "ed44ebb724fb96d1170947e12cca679202d6f271cca325834641e649cb06b3a4"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/tab-mentions-iab.md",
+          "bytes": 1327,
+          "sha256": "8edb09007fc3310c488bee3af2996c417c05b7b4ad1d15286de8a3733152c1d7"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/visibility.md",
+          "bytes": 607,
+          "sha256": "a5668beb2001b85fb3f9847342dcf9b2d022bff17bb6dd70110f0cd3393d72f6"
+        },
+        {
+          "name": "vendor/codex-instructions/docs/webmcp.md",
+          "bytes": 542,
+          "sha256": "1ad87c2bb3f49e973ffd7e1c112aae8481b5976c00e62ec4d906502939c9186f"
+        },
+        {
+          "name": "vendor/codex-instructions/provenance.json",
+          "bytes": 4975,
+          "sha256": "bf29fd0dc3b8cb776464f4329de2f106bdd746c6504c9b8413481cb74c8623e5"
+        },
+        {
+          "name": "vendor/codex-instructions/skills/control-in-app-browser/agents/openai.yaml",
+          "bytes": 383,
+          "sha256": "9f7e6a788c0da250c3b09a67c026eedfcdb679afdbda99d993da50aa71d2e139"
+        },
+        {
+          "name": "vendor/codex-instructions/skills/control-in-app-browser/SKILL.md",
+          "bytes": 12906,
+          "sha256": "b115ac6d7eb3e74d3a8650105851a2c4c8dba72f268e34f71300da7eb28c448e"
+        },
+        {
+          "name": "vendor/codex-instructions/tool-descriptions.json",
+          "bytes": 18732,
+          "sha256": "2beaffa9fb1f95d58264ba19f270407efbec6785f7fe4195d423e44e97fbc272"
+        },
+        {
           "name": "vendor/command-contracts.json",
           "bytes": 57693,
           "sha256": "eeae1da36074b0fbdcc4f95c16a639ea4663b3a181d3229a8e5e2b03b5640592"
+        },
+        {
+          "name": "vendor/cursor-provenance.json",
+          "bytes": 693,
+          "sha256": "4f94708335c837d946b0b536e25e745e2b5c54425d544839a04d36df629f6d93"
         },
         {
           "name": "vendor/playwright-injected.js",
@@ -494,6 +682,16 @@
           "sha256": "4a6185526dd13a9e5a83ead702cbe22f8fdec9bbc4aec1e8e19827b680ca5e00"
         },
         {
+          "name": "vendor/WILLOW-LICENSE",
+          "bytes": 1068,
+          "sha256": "ac58caf713a4713f27573ca5fe9ef9826a94121ee519d4648852422624c3aa0e"
+        },
+        {
+          "name": "vendor/willow-testing-provenance.json",
+          "bytes": 706,
+          "sha256": "fb06f418a7ea5081e0d3ed1687a02d112caf75bc580dc1900b8eff69e86f14ec"
+        },
+        {
           "name": "vendor/ZOD-LICENSE",
           "bytes": 1211,
           "sha256": "178e32aa29ac8823a1dca33f85b048b3a549b46726547dd899b55b4f7945272f"
@@ -505,11 +703,11 @@
       "kind": "plugin",
       "name": "Pets",
       "description": "An animated desktop companion with Codex-style activity cards, replies, and working animations. Explore every animation, edit your pets' names and descriptions, and choose or create a companion in the Pets sidebar tab. AI creation uses the bundled Hatch Pet skill. The toolbar paw shows or hides your companion, and your created pets stay saved when the plugin is disabled.",
-      "version": "2.11.1",
+      "version": "2.12.7",
       "author": "Yashjit Pal",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/pets",
-      "bytes": 1485950,
+      "bytes": 1503980,
       "files": [
         {
           "name": "assets/rocky.webp",
@@ -518,13 +716,13 @@
         },
         {
           "name": "index.js",
-          "bytes": 234291,
-          "sha256": "d3ccc93016b58007b81a1b5f6ca0491fbfd6f84c8a0a0122d95950ba323b215b"
+          "bytes": 256388,
+          "sha256": "863a1fbd98e86754c3a77d13a64c58a025f1d21cf9fcc847d8adfcc074987fd6"
         },
         {
           "name": "plugin.json",
           "bytes": 634,
-          "sha256": "3109cf3d11f4a7cc1776282c08e2980a41aaaa45d7edae1c5cb2b23a9499c53b"
+          "sha256": "15d417bfd52394fecbcda71252e0b38f794c3ea582560d343ce7b4e5a3ef8bdc"
         },
         {
           "name": "skills/hatch-pet/LICENSE.txt",
@@ -653,8 +851,8 @@
         },
         {
           "name": "styles/hud.css",
-          "bytes": 44837,
-          "sha256": "906bb1d4a62cda0575309a3600b3be7bb0c9361e387746ab75b7887ea6893553"
+          "bytes": 42099,
+          "sha256": "610f7b7405a2a8284de38e5583f3f7a3ee43e7e4fbd20f0205ad242a1cb4f670"
         },
         {
           "name": "styles/library.css",
@@ -663,8 +861,36 @@
         },
         {
           "name": "styles/pet.css",
-          "bytes": 5353,
-          "sha256": "1ed0d879ab53e60d33766335cf803bf0a9bf3893839603687233eee32b62e163"
+          "bytes": 4024,
+          "sha256": "5623f9391aa7467dd293563e942e59e59e8887ddfd572eeccdfddd1ac066c68d"
+        }
+      ]
+    },
+    {
+      "id": "yolo",
+      "kind": "plugin",
+      "name": "YOLO",
+      "description": "Sets Antigravity's native allow-all execution policy before a turn starts, including websites, MCP tools, commands, file permissions, and plan review.",
+      "version": "2.0.0",
+      "author": "Yashjit Pal",
+      "source": "https://github.com/YashjitPal/BetterGravity",
+      "path": "community/plugins/yolo",
+      "bytes": 14350,
+      "files": [
+        {
+          "name": "index.js",
+          "bytes": 11243,
+          "sha256": "55b7c028e4e63c8de6542c0ae37843145d27dc021c0cfa24a53b4d092dce6248"
+        },
+        {
+          "name": "plugin.json",
+          "bytes": 322,
+          "sha256": "e7b4470a207dd1e7d2a53879b8495f69c0dc0f9b03ac8957cb149dab5a76347b"
+        },
+        {
+          "name": "README.md",
+          "bytes": 2785,
+          "sha256": "bbe13e45ca1e03b6b6fcd9e5b5d39e74239441b1c0a35e944d01420506b65520"
         }
       ]
     },

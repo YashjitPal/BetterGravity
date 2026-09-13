@@ -973,9 +973,9 @@ body.gemini-skills-open [data-gemini-skills-hidden] {
 
 /* Inner message scroller: reset scrollbar-width/color so Chromium does not
  * fall back to native Windows scrollbars with arrow buttons. */
-[data-testid="conversation-view"] .overflow-y-auto,
-[data-testid="conversation-view"] [class*="overflow-y-auto"],
-.gemini-chat-scrollbar {
+[data-testid="conversation-view"] .overflow-y-auto:not([data-mention-menu] *),
+[data-testid="conversation-view"] [class*="overflow-y-auto"]:not([data-mention-menu] *),
+.gemini-chat-scrollbar:not([data-mention-menu] *) {
   scrollbar-width: auto !important;
   scrollbar-color: auto !important;
   scrollbar-gutter: stable !important;
@@ -1613,11 +1613,9 @@ div:has(> .flex.items-center.whitespace-nowrap.overflow-hidden.min-w-0):not(:has
   order: 4 !important;
 }
 
-/* Hide native Antigravity fork button so only one fork button ever exists under messages */
-[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
-[data-testid="conversation-view"] div.flex.w-full.items-start button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
-[data-testid="conversation-view"] button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
-button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]) {
+/* Hide native conversation fork actions without matching Fork Chat's settings controls. */
+[data-testid="conversation-view"] div.flex.w-full.items-start[data-gemini-turn-actions="true"] button:is([aria-label="Fork" i], [aria-label="Fork Conversation" i], [aria-label^="Fork from " i]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]),
+[data-testid="conversation-view"] button:is([aria-label="Fork" i], [aria-label="Fork Conversation" i], [aria-label^="Fork from " i]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn]) {
   display: none !important;
   visibility: hidden !important;
   width: 0 !important;

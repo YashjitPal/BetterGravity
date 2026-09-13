@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 const execution = new AsyncLocalStorage<AbortSignal>();
 
+export function isBrowserOperation(): boolean { return execution.getStore() !== undefined; }
+
 export function browserOperation<T>(signal: AbortSignal, operation: () => Promise<T>): Promise<T> {
   return execution.run(signal, operation);
 }

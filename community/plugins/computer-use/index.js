@@ -648,7 +648,7 @@ class AppApprovalManager {
   }
 
   isAppAllowed(appId) {
-    if (!appId) return true;
+    if (!appId || BetterGravity.plugins.isRunning("yolo")) return true;
     const normalized = appId.toLowerCase();
     return this.alwaysAllowed.has(normalized) || this.sessionAllowed.has(normalized);
   }

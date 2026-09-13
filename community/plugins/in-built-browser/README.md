@@ -1,8 +1,91 @@
 # In Built Browser
 
 A native Chromium browser in Antigravity's right sidebar, shared by the user and
-the model. The globe button appears immediately after Terminal. Open it with
-the button or **Ctrl+Shift+B** (**Cmd+Shift+B** on macOS).
+the model. Open it from an existing page tab, the sidebar's **+ → Browser tab**
+menu, or **Ctrl+Shift+B** (**Cmd+Shift+B** on macOS).
+
+Browser pages share the sidebar's top tab bar with file tabs. Use its native
+**+ → Browser tab** menu to add a page. The navigation bar sits directly below
+it, with no duplicate tab row or pane-close control. Page tabs remain available
+while viewing a file, Overview, Review, or Terminal. Their close buttons close
+individual pages; the native auxiliary-pane toggle closes the whole sidebar.
+
+**Same browser tabs across all conversations** in the plugin settings is on by
+default. Switching conversations keeps the same live pages, including entered
+text and playback. Opening or closing a tab updates the tab list everywhere.
+Turn the setting off to keep separate tabs per conversation. Existing tabs
+return to the conversation where they were opened; changing the setting does
+not close or reload them.
+
+The sidebar remembers its own open or closed state for each conversation,
+independently of tab sharing. New conversations start with it closed. Full-page
+views such as Pets and Skills hide it; returning to the conversation restores
+its previous state. A new browser tool call opens it in the active conversation.
+
+On first browser use in a conversation, the model is instructed to inspect
+open tabs and create a new one unless an existing tab is relevant or you ask
+it to reuse one. It continues with its chosen tab for the task.
+
+Drag the divider at the browser's left edge to widen it. This uses Antigravity's
+saved pane width and makes use of the space freed by collapsing the left sidebar.
+The drag strip stays just outside the page and lights up on hover, focus, or drag.
+It remains available in Overview, Review, and Terminal while this plugin is
+enabled, and reconnects if Antigravity replaces the divider.
+Double-click the divider to reset its width, or focus it and use the arrow keys
+(Shift moves farther). Use Antigravity's **Maximize Pane** button for full width.
+Maximizing, restoring, and dragging also resize the live page while **You're in
+control** is visible; pressing Resume is unnecessary to refresh its dimensions.
+
+Clicking or dragging a pet keeps the page visible and interactive, including
+when the pet crosses the browser's edge while a preview is still loading.
+Hovering the desktop pet also keeps the page attached when Windows reports
+the host document as covered by the pet's transparent window.
+
+Browser tool calls automatically open Antigravity's right pane, including when
+it was collapsed or had not been opened yet. Page input waits for the pane's
+opening animation to finish. The first action shows the model's working tab.
+After you select or open a different browser tab, the model continues in its own
+tab without changing your selection. You can browse and type in your tab normally.
+An explicit tool request to hide the browser still closes it.
+
+Model input uses Codex's extracted cursor image and spring animation: curved
+travel, short-distance scoots, rotation, stretch, glow, idle wobble and fading.
+The cursor reaches the target before the page receives input. It appears above
+the page while screenshots and DOM snapshots remain free of the overlay. The
+loading bar uses Codex's two-second pulse. Reduced-motion preferences skip
+cursor travel and the loading pulse.
+
+The first browser tool call starts a session for the current response. The cursor,
+glow and Take over control appear only on the tab or tabs used in that response;
+metadata and documentation calls do not claim unrelated pages. Each working tab
+retains its own cursor position through tool gaps and tab switches. The session
+ends when response generation finishes or is cancelled, even if a browser
+operation is still returning. BetterGravity subscribes to the same effective
+response state as the host composer, including optimistic completion; a stale
+raw provider or conversation-list summary cannot keep the effects running.
+Taking over, closing the sidebar, switching away, or disabling the plugin clears
+the visible cursor. A later response starts with no tabs claimed by the model.
+
+While the model controls a tab, page clicks, scrolling, typing, and navigation
+are blocked. Choose **Take over task** to pause its actions and use that page;
+**Resume** returns control during the current response. Other browser tabs remain
+usable. Reopening the pane restores the current response's controls, and ending
+or cancelling the response immediately releases its input lock.
+
+The border, cursor, and control bar animate into view once per session. Take over
+and response completion use the same smooth exit, while switching to another
+tab clears the old tab's effects immediately. Fading effects do not delay the
+return of user input, and reduced motion skips the transitions.
+
+The page uses Willow Code's blue **Test feature** glow: the original inset shadow
+values, three-second breathing animation, and one-second fade. Willow's floating
+status bar sits near the bottom of the page with its original 26px blue square
+button and filled stop icon. Its tooltip and accessible label identify **Take
+over task**; it becomes **Resume** after pausing. Taking over cancels pending browser actions
+and keeps model control paused until you resume. The glow and control bar never
+shift the page or appear in model screenshots. Reduced motion uses a steady glow
+and immediate transitions. These visuals come from Willow; the cursor renderer
+and artwork remain the imported Codex versions.
 
 ## Installation
 
@@ -18,8 +101,9 @@ native browser service. The plugin displays an update message in that case.
 ## Browser
 
 - Tabs, back/forward/reload, address or search input, localhost and local files.
-- Persistent sign-ins in a separate Chromium profile, history, and saved tabs
-  for the last 20 conversation contexts. Up to 24 tabs per conversation.
+- Persistent sign-ins in a separate Chromium profile, history, and saved tabs.
+  Up to 24 shared tabs, or 24 per conversation with sharing off. Switching
+  sharing on preserves existing tabs even if their combined count exceeds 24.
 - Downloads, file uploads, find in page, zoom, responsive viewport, external
   browser, developer tools, and site permissions.
 - Shared model control with Stop/Resume and manual handoff.
@@ -29,6 +113,30 @@ native browser service. The plugin displays an update message in that case.
 Websites use sandboxed `WebContentsView` renderers with no Node.js or host bridge.
 They use a different session from the Antigravity conversation. The browser pane
 preserves the host conversation's flex layout.
+
+Tooltips (including Gemini's custom Willow tooltips), menus and pets can appear
+above the page. While an overlay overlaps,
+the same native tab supplies live frames to the host, with mouse, keyboard,
+scrolling and text input forwarded to that tab. Normal native rendering resumes
+when no overlay or model-control indicator needs it. Visible tabs and playing media stay unthrottled,
+including after a model action or screenshot finishes.
+
+## Website compatibility
+
+The browser reports its actual Chromium version without Antigravity/Electron
+product tokens, and its tabs do not inherit the app shell's automation marker.
+This fixes the reproduced YouTube playback failure near 40 seconds; playback
+was checked beyond 57 seconds on YouTube with app automation still enabled.
+These changes do not make it a Google-supported sign-in browser. Google may
+reject browsers that are embedded in another application or controlled by
+automation; see
+[Google's supported-browser policy](https://support.google.com/accounts/answer/7675428).
+If a sign-in is rejected, use **Open in default browser**. That sign-in remains
+in the external browser; it does not transfer its session into this plugin.
+
+Website authentication, anti-bot checks, DRM and streaming-service restrictions
+remain controlled by the website. Local video is regression-tested past 40
+seconds while switching between native and overlaid rendering.
 
 ## Model tools and enable/disable behavior
 
@@ -42,6 +150,18 @@ engine were extracted from the installed Codex browser plugin. BetterGravity
 implements the native host and transport needed to run the portable parts in
 Antigravity. See [vendor/provenance.json](vendor/provenance.json) for version and
 source hashes, and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
+
+The Browser skill, its agent default prompt, all **26 browser-use guides**, and
+the API descriptions are imported from Codex Browser **26.903.71938**. Exact
+original files and SHA-256 hashes are retained under
+[vendor/codex-instructions](vendor/codex-instructions/provenance.json).
+The active skill preserves the original wording and prepends the separately
+labeled [compatibility notes](skills/in-built-browser/COMPATIBILITY.md) for this
+host's MCP transport, available capabilities, persistent tabs, and requested
+automatic pane opening. This is the bundled browser guidance, not the complete
+Codex/ChatGPT system prompt. Named documentation requests return the requested
+original guide; browser documentation includes the applicable guides and core
+API declarations. Initialization omits browser instructions while disabled.
 
 | API area | Availability |
 | --- | --- |
@@ -78,8 +198,8 @@ The authenticated endpoint is discovered through
 import { setupBrowserRuntime } from "./scripts/browser-client.mjs";
 
 const agent = await setupBrowserRuntime();
-const choices = await agent.browsers.list();
-const browser = await agent.browsers.get(choices[0].id);
+const browser = await agent.browsers.get("iab");
+const guidance = await browser.documentation(); // Read the complete result before interacting.
 const tab = await browser.tabs.new();
 await tab.goto("http://localhost:3000");
 await tab.playwright.getByRole("button", { name: "Save" }).click();
@@ -92,8 +212,9 @@ site permissions and can stop control at any time. `playwright_evaluate` takes
 an async function body, such as `return document.title;`; the JavaScript client
 serializes ordinary function arguments automatically.
 
-Screenshots are bounded to 16,384 CSS pixels per dimension and 40 million
-output pixels. Downloads use the user's Downloads directory without overwriting
+Full-page and cropped requests are capped at 16,384 CSS pixels per dimension,
+and large captures are downscaled. The output follows the page's device pixel
+ratio. Downloads use the user's Downloads directory without overwriting
 existing files. Automatic uploads require absolute file paths; `.env` files are
 excluded.
 
@@ -106,8 +227,20 @@ node scripts/extract-codex-browser.mjs '<Codex resources>/plugins/openai-bundled
 ```
 
 The extractor only reads reference files and writes this plugin's `vendor`
-directory. It replaces Codex bootstrap with the BetterGravity transport and
-removes console calls, preserving the client command interfaces.
+assets and active browser skill. It replaces Codex bootstrap with the
+BetterGravity transport and removes console calls from generated code,
+preserving the client command interfaces. Instruction originals retain their
+exact bytes. To update only the instruction assets, run
+`scripts/extract-codex-browser-instructions.mjs` with the same reference path.
+
+Re-extract the cursor renderer and PNG from the installed app archive with:
+
+```powershell
+node scripts/extract-codex-browser-cursor.mjs '<Codex resources>/app.asar'
+```
+
+This records source hashes in `vendor/cursor-provenance.json`, writes the
+portable cursor bundle, and updates its generated block in `index.js`.
 
 From the repository root:
 

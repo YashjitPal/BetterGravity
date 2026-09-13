@@ -106,9 +106,17 @@ export class PetLibrary {
     const pets: PetRecord[] = [];
     const issues: string[] = this.problem ? [this.problem] : [];
     if (this.enabled) {
-      for (const id of directories(this.directory).slice(0, 100)) {
-        if (!this.enabled) break;
-        try { const { spritesheetDataUrl: _sheet, ...record } = await this.load(id); pets.push(record); }
+      let packageCount = 0;
+      for (const id of directories(this.directory)) {
+        if (!this.enabled || packageCount >= 100) break;
+        try {
+          // Generation output and unfinished folders are not pet packages yet.
+          // Count only manifests; load still validates their contents and paths.
+          if (!fs.lstatSync(path.join(this.directory, id, "pet.json"), { throwIfNoEntry: false })) continue;
+          packageCount++;
+          const { spritesheetDataUrl: _sheet, ...record } = await this.load(id);
+          pets.push(record);
+        }
         catch (error) { issues.push(`${id}: ${error instanceof Error ? error.message : String(error)}`); }
       }
     }

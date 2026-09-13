@@ -201,6 +201,22 @@ describe("validatePlugin", () => {
     });
   });
 
+  it("accepts valid platforms and records them on the entry", () => {
+    const files = pluginFiles({
+      manifest: JSON.stringify({ name: "Win Only", description: "Test", version: "1.0.0", author: "someone", platforms: ["windows"] })
+    });
+    const result = validatePlugin("win-only", files);
+    expect(errors(result)).toEqual([]);
+    expect(result.entry?.platforms).toEqual(["windows"]);
+  });
+
+  it("rejects an invalid platforms field", () => {
+    const files = pluginFiles({
+      manifest: JSON.stringify({ name: "Bad", description: "Test", version: "1.0.0", author: "someone", platforms: [42] })
+    });
+    expect(errors(validatePlugin("bad", files))).toEqual(["platforms must be a string or a list of strings."]);
+  });
+
   it("reports a missing manifest and stops there", () => {
     const result = validatePlugin("x", pluginFiles({ manifest: undefined }));
     expect(errors(result)).toEqual(["plugin.json is missing."]);

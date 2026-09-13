@@ -400,6 +400,21 @@ body.gemini-skills-open [data-gemini-skills-hidden] {
   color: #a8c7fa;
 }
 
+.spark-skill-badge--workspace {
+  background: rgba(194, 231, 255, 0.18);
+  color: #c2e7ff;
+}
+
+.spark-skill-badge--plugin {
+  background: rgba(199, 238, 209, 0.16);
+  color: #c7eed1;
+}
+
+.spark-skill-badge--built-in {
+  background: rgba(255, 255, 255, 0.08);
+  color: #c4c7c5;
+}
+
 .spark-skill-card__description {
   color: #c4c7c5;
   font-size: 13px;

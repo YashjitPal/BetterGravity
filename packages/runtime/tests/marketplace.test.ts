@@ -155,6 +155,20 @@ describe("fetching the catalog", () => {
   it("reports a catalog that is missing", async () => {
     expect((await fetchCatalog()).ok).toBe(false);
   });
+
+  it("filters out platform-restricted plugins on incompatible platforms", async () => {
+    const winPlugin = entry({ id: "win-tool", kind: "plugin", name: "Win Tool", platforms: ["windows"] });
+    const universalPlugin = entry({ id: "any-tool", kind: "plugin", name: "Any Tool" });
+    served.set("community/catalog.json", catalog([winPlugin, universalPlugin]));
+
+    const macResult = await fetchCatalog(true, "darwin");
+    expect(macResult.ok).toBe(true);
+    expect(macResult.entries?.map((e) => e.id)).toEqual(["any-tool"]);
+
+    const winResult = await fetchCatalog(false, "win32");
+    expect(winResult.ok).toBe(true);
+    expect(winResult.entries?.map((e) => e.id)).toEqual(["win-tool", "any-tool"]);
+  });
 });
 
 describe("installing a theme", () => {
@@ -335,5 +349,13 @@ describe("refusing what it should not install", () => {
   it("refuses a kind it does not know", async () => {
     const result = await installEntry(paths, entry({ kind: "firmware" as "theme" }));
     expect(result.ok).toBe(false);
+  });
+
+  it("refuses a listing on an incompatible platform", async () => {
+    const winOnly = entry({ id: "win-tool", kind: "plugin", name: "Win Tool", platforms: ["windows"] });
+    const result = await installEntry(paths, winOnly, "darwin");
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/only available on windows/i);
+    expect(requested).toEqual([]);
   });
 });

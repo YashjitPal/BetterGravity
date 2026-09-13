@@ -1,0 +1,133 @@
+{
+  "product": "OpenAI Codex",
+  "version": "26.903.71938",
+  "sources": [
+    {
+      "file": "skills/control-in-app-browser/SKILL.md",
+      "sha256": "b115ac6d7eb3e74d3a8650105851a2c4c8dba72f268e34f71300da7eb28c448e"
+    },
+    {
+      "file": "skills/control-in-app-browser/agents/openai.yaml",
+      "sha256": "9f7e6a788c0da250c3b09a67c026eedfcdb679afdbda99d993da50aa71d2e139"
+    },
+    {
+      "file": "docs/documents.json",
+      "sha256": "92a95c6bcc8836ab3c2f15b9e7d0a36247682dda6807fd9fe0945f1be2e7a91b"
+    },
+    {
+      "file": "docs/api.json",
+      "sha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f"
+    },
+    {
+      "file": "docs/bootstrap-troubleshooting.md",
+      "sha256": "a97391db76e47d43d8117dfb3d288ff1e757033210a4c9f8b0f598adc723f9d0"
+    },
+    {
+      "file": "docs/chrome-troubleshooting.md",
+      "sha256": "0928c0e57931ffcd77035104c5024f152461fa440fe16d8a2a0d4a3816f2e054"
+    },
+    {
+      "file": "docs/browser-safety.md",
+      "sha256": "794445fc4f159c6c0871dfc45025e88132f9f7af9d10eab2e1d3b104c0173215"
+    },
+    {
+      "file": "docs/confirmations.md",
+      "sha256": "d1a2b39f6b5a572e579321f1ddc714378bba88ad23b6fef36ca2c896b84d55f5"
+    },
+    {
+      "file": "docs/visibility.md",
+      "sha256": "a5668beb2001b85fb3f9847342dcf9b2d022bff17bb6dd70110f0cd3393d72f6"
+    },
+    {
+      "file": "docs/session-naming.md",
+      "sha256": "5e531f2aa217b86c0ae8cdcee42c1420b05d56815cf616deea53eb220a6e1f06"
+    },
+    {
+      "file": "docs/tab-claiming-chrome.md",
+      "sha256": "d20cd423a643c7d549799f96e27fe603f2b8ba48c432a158ff380d4b679fdd3c"
+    },
+    {
+      "file": "docs/tab-mentions-iab.md",
+      "sha256": "8edb09007fc3310c488bee3af2996c417c05b7b4ad1d15286de8a3733152c1d7"
+    },
+    {
+      "file": "docs/tab-cleanup-chrome.md",
+      "sha256": "2263892426ede75c68bd9bcd4926a00dfeb7ea39be3b0b77f3cda5aafe470d76"
+    },
+    {
+      "file": "docs/tab-cleanup-iab.md",
+      "sha256": "ed44ebb724fb96d1170947e12cca679202d6f271cca325834641e649cb06b3a4"
+    },
+    {
+      "file": "docs/browser-control-interruption.md",
+      "sha256": "9866bb6b076f3fbe3effd2b6f4742ac93dd5006a01505008f7879995f1fa72e4"
+    },
+    {
+      "file": "docs/api-use-behavior.md",
+      "sha256": "e29aab4cfe47985c74bcfb82fbcb11935038c0a5069582e067fc20a4486cadab"
+    },
+    {
+      "file": "docs/accessibility.md",
+      "sha256": "294f2d77e6136348ef51b9d7e44a93d061c2c608c4f21a5a9bb6e8c07c4a523e"
+    },
+    {
+      "file": "docs/webmcp.md",
+      "sha256": "1ad87c2bb3f49e973ffd7e1c112aae8481b5976c00e62ec4d906502939c9186f"
+    },
+    {
+      "file": "docs/browser-troubleshooting.md",
+      "sha256": "ed5ee56bf74895a7cc3cd2bf7f7fce58bfa023945057148c1382aecfe46b855a"
+    },
+    {
+      "file": "docs/local-web-development.md",
+      "sha256": "ad44b4b7616254d81842226a6c810687bda6e72199100f610ce35da319dd58a3"
+    },
+    {
+      "file": "docs/file-uploads.md",
+      "sha256": "1294d32fca1e441d815fe97c3ecef589f1ff64b4069ae1baa1c4aeba918e5b39"
+    },
+    {
+      "file": "docs/chrome-file-upload-troubleshooting.md",
+      "sha256": "8f36870b1311e1057de45129dd2490cae10b1fac664ca1ac3489dd8938c425d9"
+    },
+    {
+      "file": "docs/screenshots.md",
+      "sha256": "183e3d7a51f7140d576f3f4e288137f8455cdbb80f0d16dac8f1b4f1ded1b70b"
+    },
+    {
+      "file": "docs/capabilities/browser/management.md",
+      "sha256": "90be2b984c6ae6840f2ed548d8501e91b239ab0e8c5b380bbe2c72865d6e63ac"
+    },
+    {
+      "file": "docs/capabilities/browser/visibility.md",
+      "sha256": "8cb1588084cd3372ffc78b8c500dfa2f359d8a63a3c250f014fd55fad7336b08"
+    },
+    {
+      "file": "docs/capabilities/browser/viewport.md",
+      "sha256": "c9857bf5aae8bfc73630751363ce27204792b88b1cd95d4da19c03833501921a"
+    },
+    {
+      "file": "docs/capabilities/tab/cdp.md",
+      "sha256": "8e4d8cc937b7213d9c946f082762e31ece226b05ff42e49e535841c7209ac9a6"
+    },
+    {
+      "file": "docs/capabilities/tab/botDetection.md",
+      "sha256": "d41d0b7f86b7797e8d672e2dc8785b3fc224ef9d067513625e70b80c3d8db746"
+    },
+    {
+      "file": "docs/capabilities/tab/browserAuth.md",
+      "sha256": "8542e5fe3ff52219b90082887810e946a84ec47d6f15850807753087785bca21"
+    },
+    {
+      "file": "docs/capabilities/tab/pageAssets.md",
+      "sha256": "aab1c766aa79202adcb79bb5539820b13f2f5ef5487a304fcf11ad74bbed06bc"
+    }
+  ],
+  "extraction": "Original Browser skill, agent default prompt, API manifest, document catalog, and all named Markdown guides copied byte-for-byte. API/tool descriptions are original comments or declarations. Active skill changes the registration name, uses LF line endings, and prepends separately labeled BetterGravity transport/capability notes; its Codex wording is unchanged. These are bundled browser instructions, not the full Codex or ChatGPT system prompt.",
+  "generated": [
+    {
+      "file": "tool-descriptions.json",
+      "sha256": "2beaffa9fb1f95d58264ba19f270407efbec6785f7fe4195d423e44e97fbc272"
+    }
+  ]
+}

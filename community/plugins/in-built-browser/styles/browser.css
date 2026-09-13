@@ -1,6 +1,6 @@
 [data-bg-browser-container] { position: relative; min-height: 0; }
 .bg-browser {
-  --browser-bg: var(--gemini-bg-main, #181818);
+  --browser-bg: var(--background, var(--gemini-page-bg, #0f0f0f));
   --browser-fg: var(--gemini-text-primary, #e4e4e4);
   --browser-muted: var(--gemini-text-secondary, #969696);
   --browser-border: rgba(180, 180, 180, .16);
@@ -9,7 +9,19 @@
   isolation: isolate; overflow: hidden;
 }
 .bg-browser[hidden], .bg-browser [hidden] { display: none !important; }
-.bg-browser-expanded { position: fixed; inset: 44px 0 0; z-index: 9990; }
+/* Gemini hides native hairline dividers. Restore the right pane's splitter
+   across all tabs, retaining Antigravity's sizing limits and saved pane width. */
+[data-bg-browser-split][data-bg-browser-resizable] > div.bg-border[data-bg-browser-resize-divider] {
+  display: flex !important; width: 0 !important; min-width: 0 !important; flex-basis: 0 !important;
+  overflow: visible !important; background: transparent !important;
+}
+/* Keep the entire hit area just outside the native page. It remains usable
+   without reserving a permanent gutter inside the website. */
+[data-bg-browser-resize-handle] { width: 16px !important; left: -16px !important; cursor: col-resize !important; touch-action: none; user-select: none; transition: none !important; }
+[data-bg-browser-resize-handle]::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 2px; background: transparent; transition: background-color .12s; }
+[data-bg-browser-resize-handle]:hover::after, [data-bg-browser-resize-handle]:focus-visible::after,
+[data-bg-browser-resizing] [data-bg-browser-resize-handle]::after { background: #a8c7fa; }
+[data-bg-browser-resize-handle]:focus-visible { outline: none; }
 .bg-browser button, .bg-browser input, .bg-browser textarea { font: inherit; color: inherit; }
 .bg-browser button { cursor: pointer; border: none; background: transparent; padding: 0; }
 .bg-browser button:disabled { opacity: .35; cursor: default; }
@@ -19,24 +31,41 @@
   --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000; box-shadow: none; outline: none;
 }
 .bg-browser button:focus-visible { outline: 1px solid #a8c7fa; outline-offset: -2px; }
-.bg-browser-trigger { height: 30px; width: 30px; display: inline-flex !important; align-items: center; justify-content: center; }
-.bg-browser-trigger svg { width: 17px; height: 17px; }
-.bg-browser-trigger[aria-pressed="true"] { color: #e8e8e8 !important; background: rgba(230,230,230,.12) !important; }
-[data-bg-browser-selected] [data-tab-id]:not([data-tab-id="in-built-browser"]) { background-color: transparent !important; }
-.bg-browser-strip { display: flex; align-items: center; gap: 4px; height: 42px; padding: 4px 8px; flex: 0 0 auto; }
-.bg-browser-tabs { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
-.bg-browser-tabs::-webkit-scrollbar { display: none; }
-.bg-browser-tab { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; max-width: 205px; min-width: 90px; height: 34px; padding: 0 9px 0 11px; border-radius: 12px; cursor: pointer; color: var(--browser-muted); }
-.bg-browser-tab[aria-selected="true"] { color: var(--browser-fg); background: rgba(230,230,230,.055); }
-.bg-browser-tab:hover { background: rgba(230,230,230,.08); }
+[data-bg-browser-selected] [data-tab-id]:not([data-bg-browser-page-tab]) { background-color: transparent !important; }
+[data-bg-browser-tab-host] { min-width: 0; }
+.bg-browser-tab-host { display: flex; align-items: center; gap: 1px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.bg-browser-tabs { display: contents; }
+.bg-browser-tab { box-sizing: border-box; display: flex; align-items: center; gap: 6px; flex: 0 0 172px; width: 172px; min-width: 0; height: 24px; padding: 0 5px 0 8px; border-radius: 8px; cursor: pointer; color: var(--gemini-text-secondary, #969696); font: 13px "Google Sans", system-ui, sans-serif; user-select: none; }
+.bg-browser-tab[aria-selected="true"] { color: var(--gemini-text-primary, #e4e4e4); background: var(--gemini-row-pressed, rgba(230,230,230,.12)); }
+.bg-browser-tab:hover { background: var(--gemini-row-hover, rgba(230,230,230,.08)); }
+.bg-browser-tab:focus-visible { outline: 1px solid #a8c7fa; outline-offset: -1px; }
 .bg-browser-tab-icon { display: flex; flex: 0 0 auto; }
 .bg-browser-tab-icon svg { width: 16px; height: 16px; }
-.bg-browser-tab-title { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; flex: 1; }
-.bg-browser-tab-close { display: flex; align-items: center; justify-content: center; width: 21px; height: 21px; border-radius: 5px; color: var(--browser-muted) !important; }
+.bg-browser-tab-title { text-overflow: ellipsis; overflow: hidden; white-space: nowrap; flex: 1; min-width: 0; }
+.bg-browser-tab .bg-browser-tab-close { display: flex; align-items: center; justify-content: center; flex: 0 0 16px; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; opacity: 0; }
+.bg-browser-tab:hover .bg-browser-tab-close, .bg-browser-tab:focus-within .bg-browser-tab-close, .bg-browser-tab[aria-selected="true"] .bg-browser-tab-close { opacity: 1; }
+.bg-browser-tab .bg-browser-tab-close:hover { background: var(--gemini-row-hover, rgba(230,230,230,.08)); }
 .bg-browser-tab-close svg { width: 13px; height: 13px; }
-.bg-browser-strip-end { margin-left: auto; display: flex; gap: 3px; padding-left: 4px; }
+.bg-browser-new-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
+.bg-browser-new-tab:hover, .bg-browser-new-tab:focus { background: var(--gemini-row-hover, rgba(230,230,230,.08)); outline: none; }
 .bg-browser-icon { width: 29px; height: 29px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; border-radius: 7px; color: var(--browser-muted) !important; }
-.bg-browser-navigation { display: flex; align-items: center; gap: 3px; flex: 0 0 auto; height: 44px; padding: 5px 9px; border-bottom: 1px solid var(--browser-border); }
+.bg-browser-navigation { position: relative; display: flex; align-items: center; gap: 3px; flex: 0 0 auto; height: 44px; padding: 5px 9px; border-bottom: 1px solid var(--browser-border); }
+.bg-browser-loading { position: absolute; inset: auto 0 0; height: 2px; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .15s cubic-bezier(.4, 0, .2, 1); }
+.bg-browser[data-bg-browser-loading] .bg-browser-loading { opacity: 1; }
+.bg-browser-loading > div { height: 100%; width: 100%; background: var(--vscode-editor-selectionBackground, #339cff66); animation: bg-browser-loading-pulse 2s cubic-bezier(.4, 0, .6, 1) infinite; }
+@keyframes bg-browser-loading-pulse { 50% { opacity: .5; } }
+.bg-browser-cursor-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 25; opacity: 0; transition: opacity .3s ease-in-out; }
+.bg-browser-cursor-layer[data-visible="true"] { opacity: 1; }
+.bg-browser-viewport[data-agent-control] { cursor: default !important; touch-action: none; }
+/* Willow Code's TestModeGlow: the same inset shadows, 3s breathing curve,
+   opacity range and 1s fade. The host overlay stays out of page screenshots. */
+.bg-browser-agent-border { position: absolute; inset: 0; z-index: 24; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity 1s ease-in-out; }
+.bg-browser-agent-border[data-visible="true"] { opacity: 1; }
+.bg-browser-agent-glow { position: absolute; inset: 0; box-shadow: inset 0 0 120px 30px rgba(59,130,246,.3), inset 0 0 60px rgba(59,130,246,.5); animation: bg-browser-agent-breathe 3s ease-in-out infinite; will-change: opacity; }
+@keyframes bg-browser-agent-breathe { 0%, 100% { opacity: .8; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bg-browser-loading { transition: none; } .bg-browser-loading > div { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bg-browser-agent-border, .bg-browser-cursor-layer { transition: none; } .bg-browser-agent-glow { animation: none; opacity: .8; } }
+@media (forced-colors: active) { .bg-browser-agent-glow { box-shadow: none; border: 2px solid Highlight; } }
 .bg-browser-location { display: flex; align-items: center; min-width: 0; height: 32px; flex: 1; margin: 0 3px; border: 1px solid var(--browser-border); border-radius: 12px; }
 .bg-browser-location:focus-within { border-color: rgba(168,199,250,.5); }
 .bg-browser-scheme { display: flex; padding-left: 9px; color: var(--browser-muted); }
@@ -50,14 +79,32 @@
 .bg-browser-blank h2 { margin: 0 0 12px; font-size: 18px; font-weight: 550; line-height: 24px; }
 .bg-browser-blank p { margin: 0; color: var(--browser-muted); font-size: 14px; }
 .bg-browser-frozen { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.bg-browser-surface { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: fill; user-select: none; -webkit-user-drag: none; }
+.bg-browser-viewport:focus { outline: none; }
 .bg-browser-error { padding: 10px 14px; color: #f4b4ab; background: #a03b2717; border-bottom: 1px solid #a03b2733; font-size: 12px; overflow-wrap: anywhere; }
 .bg-browser-status { display: flex; align-items: center; gap: 6px; flex: 0 1 auto; max-width: 190px; min-width: 0; color: var(--browser-muted); }
-.bg-browser-status-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+/* Willow's floating TestStatusIndicator, with BetterGravity's handoff actions. */
+.bg-browser-agent-dock { position: absolute; bottom: 32px; left: 0; right: 0; z-index: 35; display: flex; justify-content: center; padding: 0 12px; pointer-events: none; opacity: 0; transform: translateY(20px); transition: opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1); }
+.bg-browser-agent-dock[data-visible="true"] { opacity: 1; transform: translateY(0); }
+.bg-browser-agent-panel { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; padding: 8px 10px; border: 1px solid rgba(255,255,255,.05); border-radius: 12px; background: rgba(24,24,27,.8); backdrop-filter: blur(12px); box-shadow: 0 20px 25px -5px #0003, 0 8px 10px -6px #0003; color: #e5e7eb; pointer-events: auto; cursor: default; user-select: none; }
+.bg-browser-agent-dock[inert] .bg-browser-agent-panel { pointer-events: none; }
+.bg-browser-agent-mark { display: flex; flex-shrink: 0; width: 40px; height: 40px; margin: -15px 0 -11px -12px; }
+.bg-browser-agent-mark svg { width: 40px; height: 40px; }
+.bg-browser-agent-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; letter-spacing: .025em; }
+.bg-browser-agent-divider { width: 1px; height: 14px; flex-shrink: 0; background: #ffffff1a; }
+.bg-browser .bg-browser-control { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 26px; width: 26px; height: 26px; margin: -4px 0; padding: 0; border: 0; border-radius: 8px; background: #3b82f633; color: #3b82f6; transition: background-color .15s; }
+.bg-browser .bg-browser-control:hover { background: #3b82f64d; }
+.bg-browser .bg-browser-control:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+.bg-browser-control-icon { display: inline-flex; }
+.bg-browser-control-icon svg { width: 13px; height: 13px; }
+.bg-browser-control-stop { display: block; width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+@media (prefers-reduced-motion: reduce) { .bg-browser-agent-dock { transition: none; transform: none; } }
+@media (forced-colors: active) { .bg-browser-agent-panel { background: Canvas; color: CanvasText; border-color: CanvasText; } .bg-browser .bg-browser-control { color: ButtonText; border: 1px solid ButtonText; } }
 .bg-browser-find { display: flex; align-items: center; gap: 5px; padding: 7px 12px; border-bottom: 1px solid var(--browser-border); }
 .bg-browser-find input { flex: 1; min-width: 0; background: transparent; border: none; }
-.bg-browser-popover { position: absolute; top: 83px; right: 8px; z-index: 50; width: min(340px, calc(100% - 16px)); max-height: calc(100% - 100px); overflow-y: auto; padding: 7px; box-sizing: border-box; border: 1px solid var(--browser-border); border-radius: 13px; background: #242424; box-shadow: 0 12px 35px #0007; }
+.bg-browser-popover { position: absolute; top: 43px; right: 8px; z-index: 50; width: min(340px, calc(100% - 16px)); max-height: calc(100% - 60px); overflow-y: auto; padding: 7px; box-sizing: border-box; border: 1px solid var(--browser-border); border-radius: 13px; background: #242424; box-shadow: 0 12px 35px #0007; }
 .bg-browser-popover[data-kind="suggestions"] { left: 105px; right: 43px; width: auto; }
-.bg-browser-popover[data-kind="permission"], .bg-browser-popover[data-kind="dialog"] { top: 110px; right: 50%; transform: translateX(50%); padding: 16px; }
+.bg-browser-popover[data-kind="permission"], .bg-browser-popover[data-kind="dialog"] { top: 70px; right: 50%; transform: translateX(50%); padding: 16px; }
 .bg-browser-popover p { line-height: 1.55; }
 .bg-browser-popover-heading { display: flex; align-items: center; justify-content: space-between; padding: 3px 5px 8px; }
 .bg-browser-menu-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px !important; width: 100%; text-align: left; border-radius: 7px; }

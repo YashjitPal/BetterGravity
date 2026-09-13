@@ -641,6 +641,8 @@ export interface OverlayApi {
   setInteractive(interactive: boolean): void;
   /** Focus the window for text entry; pass false when the editor loses focus. */
   setFocusable(focusable: boolean): void;
+  /** Restore and bring the owning app window forward after an explicit user activation. */
+  focusOwner(): void;
   /** To the page that opened the overlay. */
   send(message: unknown): void;
   onMessage(listener: (message: unknown) => void): () => void;
@@ -795,20 +797,34 @@ export interface BrowserPanelState {
   readonly tabs: readonly BrowserTabState[];
   readonly activeTabId: string | null;
   readonly activity: string | null;
+  /** Each tool activity identifies its own targets, independently of the user's selected tab. */
+  readonly agentActivity?: { readonly sequence: number; readonly tabIds: readonly string[] };
   readonly paused: boolean;
   readonly developerMode: boolean;
+  /** The same live tabs are available in every conversation by default. */
+  readonly sharedTabsAcrossConversations?: boolean;
   readonly viewport: { readonly width: number; readonly height: number } | null;
   readonly permission: { readonly id: string; readonly origin: string; readonly description: string } | null;
   readonly dialog: { readonly id: string; readonly type: string; readonly message: string; readonly defaultPrompt: string } | null;
   readonly selection: Record<string, unknown> | null;
   readonly annotations: readonly Record<string, unknown>[];
   readonly downloads: readonly { readonly id: string; readonly filename: string; readonly state: string; readonly received: number; readonly total: number }[];
+  /** Native pages can be composited with host tooltips and plugin overlays. */
+  readonly supportsCompositing?: boolean;
+  /** Tool calls reveal the pane and wait for its settled layout before input. */
+  readonly revealSequence?: number;
+  readonly supportsAgentCursor?: boolean;
+  readonly agentCursor?: { readonly tabId: string; readonly x: number; readonly y: number; readonly viewportWidth: number; readonly viewportHeight: number; readonly sequence: number; readonly animateMovement: boolean } | null;
+  readonly frame?: { readonly tabId: string; readonly data: string; readonly sequence: number; readonly generation?: number; readonly needsAck: boolean;
+    /** Native view bounds in host CSS pixels, including Electron's rounding. */
+    readonly bounds?: { readonly x: number; readonly y: number; readonly width: number; readonly height: number } };
+  readonly cursor?: string;
 }
 
 /** Only the enabled In Built Browser plugin may operate this native surface. */
 export interface PluginBrowser {
   readonly available: boolean;
   request(action: string, args?: Record<string, unknown>): Promise<unknown>;
-  setBounds(bounds: { context: string; x: number; y: number; width: number; height: number; visible: boolean }): void;
+  setBounds(bounds: { context: string; x: number; y: number; width: number; height: number; visible: boolean; composited?: boolean; hostDragging?: boolean; frameGeneration?: number; revealSequence?: number }): void;
   onStateChanged(listener: (state: BrowserPanelState) => void): Unpatch;
 }

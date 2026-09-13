@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BrowserRegistration, readObject, writeObject } from "../src/main/browser/registration.js";
+import { BROWSER_REQUIRED_FILES, BrowserRegistration, readObject, writeObject } from "../src/main/browser/registration.js";
 import { BrowserHttpBridge } from "../src/main/browser/bridge.js";
 import { browserUrl } from "../src/main/browser/url.js";
 import { validateSchema } from "../src/main/browser/commands.js";
@@ -15,7 +15,7 @@ const bridges: BrowserHttpBridge[] = [];
 beforeEach(() => {
   directory = fs.mkdtempSync(path.join(os.tmpdir(), "bg-browser-registration-"));
   registration = new BrowserRegistration(path.join(directory, "plugins"), path.join(directory, "home"), path.join(directory, "data"));
-  for (const file of ["plugin.json", "index.js", "styles/browser.css", "mcp-server.cjs", "scripts/browser-client.mjs", "vendor/api.json", "vendor/codex-browser-client.mjs", "vendor/command-contracts.json", "vendor/playwright-injected.js", "skills/in-built-browser/SKILL.md"]) {
+  for (const file of BROWSER_REQUIRED_FILES) {
     const target = path.join(registration.pluginDirectory, file); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, "{}");
   }
 });

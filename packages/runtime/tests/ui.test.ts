@@ -31,10 +31,15 @@ afterEach(() => {
   resetMenuContributors();
   resetToolbarButtons();
   resetSections();
+  // Toast disposal schedules its exit transition. Finish it while the document
+  // still exists instead of leaking that callback into jsdom teardown.
+  if (vi.isFakeTimers()) vi.runOnlyPendingTimers();
   vi.useRealTimers();
 });
 
 describe("toasts", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+
   it("renders into Antigravity's own toast viewport when it exists", () => {
     const host = document.createElement("div");
     host.className = CHROME.toastViewport;
@@ -447,6 +452,24 @@ describe("toolbar buttons", () => {
 
     expect(handle.element?.textContent).toBe("Plugins (3)");
     expect(handle.element?.getAttribute("aria-pressed")).toBe("true");
+    expect(handle.element?.getAttribute("data-bettergravity-active")).toBe("true");
+  });
+
+  it("enforces mutual exclusivity among sidebar buttons", () => {
+    sidebar();
+    const first = addToolbarButton({ area: "sidebar", label: "Tab A", onClick: () => undefined });
+    const second = addToolbarButton({ area: "sidebar", label: "Tab B", onClick: () => undefined });
+
+    first.setActive(true);
+    expect(first.element?.getAttribute("aria-pressed")).toBe("true");
+    expect(first.element?.getAttribute("data-bettergravity-active")).toBe("true");
+    expect(second.element?.getAttribute("aria-pressed")).toBe("false");
+
+    second.setActive(true);
+    expect(first.element?.getAttribute("aria-pressed")).toBe("false");
+    expect(first.element?.hasAttribute("data-bettergravity-active")).toBe(false);
+    expect(second.element?.getAttribute("aria-pressed")).toBe("true");
+    expect(second.element?.getAttribute("data-bettergravity-active")).toBe("true");
   });
 
   it("goes away when removed and stays away", async () => {

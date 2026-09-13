@@ -1,0 +1,232 @@
+/*
+ * Gemini App — / slash command menu.
+ *
+ * Restyles Antigravity's slash command typeahead menu ([data-mention-menu])
+ * to float smoothly above the composer card without displacing it, matching
+ * Willow's Gemini App surface elevation, typography, and hover states.
+ */
+
+[data-mention-menu],
+[data-testid="agent-input-box"] [data-mention-menu] {
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: calc(100% + 8px) !important;
+  top: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: 320px !important;
+  margin: 0 !important;
+  padding: 6px 0 !important;
+  border-radius: 20px !important;
+  border: none !important;
+  background: rgba(30, 31, 33, 0.96) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6), 0 2px 8px 0 rgba(0, 0, 0, 0.32) !important;
+  z-index: 50 !important;
+  overflow: hidden !important;
+  animation: slash-menu-pop 160ms cubic-bezier(0, 0, 0.2, 1) !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  color: #e6e6e6 !important;
+  box-sizing: border-box !important;
+}
+
+@keyframes slash-menu-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Inner scroll container */
+[data-mention-menu] > div {
+  max-height: 274px !important;
+  overflow-y: auto !important;
+  width: 100% !important;
+  padding: 2px 0 !important;
+  border-radius: 16px !important;
+  mask-image: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent !important;
+  scroll-behavior: smooth !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Suppress all scrollbar arrow buttons across Chromium */
+[data-mention-menu] *::-webkit-scrollbar {
+  width: 5px !important;
+  height: 5px !important;
+  background: transparent !important;
+}
+[data-mention-menu] *::-webkit-scrollbar-track,
+[data-mention-menu] *::-webkit-scrollbar-track-piece {
+  background: transparent !important;
+  border: none !important;
+}
+[data-mention-menu] *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-radius: 999px !important;
+  border: none !important;
+}
+[data-mention-menu] *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+[data-mention-menu] *::-webkit-scrollbar-button,
+[data-mention-menu] *::-webkit-scrollbar-button:single-button,
+[data-mention-menu] *::-webkit-scrollbar-button:vertical:decrement,
+[data-mention-menu] *::-webkit-scrollbar-button:vertical:increment,
+[data-mention-menu] *::-webkit-scrollbar-button:horizontal:decrement,
+[data-mention-menu] *::-webkit-scrollbar-button:horizontal:increment {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  border: none !important;
+}
+[data-mention-menu] *::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+}
+
+/* Option item row: an inset pill with 12px border radius */
+[data-mention-menu] [role="option"] {
+  display: flex !important;
+  align-items: center !important;
+  width: calc(100% - 12px) !important;
+  margin: 0 6px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  background-color: transparent !important;
+  cursor: pointer !important;
+  transition: background-color 0.12s linear !important;
+  user-select: none !important;
+  box-sizing: border-box !important;
+  outline: none !important;
+  overflow: hidden !important;
+}
+
+/* Inner row container */
+[data-mention-menu] [role="option"] > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 10px !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  border-radius: 12px !important;
+  background-color: transparent !important;
+  transition: background-color 0.12s linear !important;
+}
+
+/* Icon container - only target the icon span */
+[data-mention-menu] [role="option"] span.text-secondary-foreground,
+[data-mention-menu] [role="option"] span.shrink-0:has(svg) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  flex-shrink: 0 !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  transition: color 0.12s linear !important;
+}
+
+[data-mention-menu] [role="option"] svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+
+/* Command label: e.g. goal, schedule, browser */
+[data-mention-menu] [data-testid="menu-option-label"],
+[data-mention-menu] [data-testid="menu-option-label"] * {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: auto !important;
+  min-width: fit-content !important;
+  max-width: none !important;
+  flex-shrink: 0 !important;
+  font-family: var(--gemini-code-font, "Google Sans Code", monospace) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #a8c7fa !important;
+  letter-spacing: -0.01em !important;
+  white-space: nowrap !important;
+}
+
+/* Option description */
+[data-mention-menu] [data-testid="menu-option-description"] {
+  display: inline-block !important;
+  font-family: var(--gemini-font, "Google Sans Flex", "Google Sans", sans-serif) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+[data-mention-menu] [data-testid="menu-option-description"] * {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  color: inherit !important;
+}
+
+/* Hover & Selected / Highlighted states - perfectly rounded 12px pill */
+[data-mention-menu] [role="option"]:hover,
+[data-mention-menu] [role="option"][aria-selected="true"],
+[data-mention-menu] [role="option"][data-highlighted] {
+  background-color: rgba(230, 230, 230, 0.08) !important;
+  border-radius: 12px !important;
+}
+
+[data-mention-menu] [role="option"]:hover > div,
+[data-mention-menu] [role="option"][aria-selected="true"] > div,
+[data-mention-menu] [role="option"][data-highlighted] > div,
+[data-mention-menu] [role="option"] > div.bg-secondary {
+  border-radius: 12px !important;
+  background-color: transparent !important;
+}
+
+[data-mention-menu] [role="option"]:hover span.text-secondary-foreground,
+[data-mention-menu] [role="option"][aria-selected="true"] span.text-secondary-foreground,
+[data-mention-menu] [role="option"][data-highlighted] span.text-secondary-foreground,
+[data-mention-menu] [role="option"]:hover span.shrink-0:has(svg),
+[data-mention-menu] [role="option"][aria-selected="true"] span.shrink-0:has(svg),
+[data-mention-menu] [role="option"][data-highlighted] span.shrink-0:has(svg) {
+  color: #ffffff !important;
+}
+
+[data-mention-menu] [role="option"]:hover [data-testid="menu-option-label"],
+[data-mention-menu] [role="option"]:hover [data-testid="menu-option-label"] *,
+[data-mention-menu] [role="option"][aria-selected="true"] [data-testid="menu-option-label"],
+[data-mention-menu] [role="option"][aria-selected="true"] [data-testid="menu-option-label"] *,
+[data-mention-menu] [role="option"][data-highlighted] [data-testid="menu-option-label"],
+[data-mention-menu] [role="option"][data-highlighted] [data-testid="menu-option-label"] * {
+  color: #c2e7ff !important;
+}
+
+[data-mention-menu] [role="option"]:hover [data-testid="menu-option-description"],
+[data-mention-menu] [role="option"][aria-selected="true"] [data-testid="menu-option-description"],
+[data-mention-menu] [role="option"][data-highlighted] [data-testid="menu-option-description"] {
+  color: rgba(255, 255, 255, 0.75) !important;
+}

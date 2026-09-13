@@ -1,6 +1,6 @@
 // Fork Chat — Add first-class chat forking to Antigravity
 //
-// Allows users to fork conversations from any message turn or any sidebar thread
+// Allows users to fork conversations from any assistant response or any sidebar thread
 // into a new branch or workspace, matching Codex and Claude Code.
 
 const FORK_ICON_PATH = "M200-440q-17 0-28.5-11.5T160-480q0-17 11.5-28.5T200-520h264l200-200h-64q-17 0-28.5-11.5T560-760q0-17 11.5-28.5T600-800h160q17 0 28.5 11.5T800-760v160q0 17-11.5 28.5T760-560q-17 0-28.5-11.5T720-600v-64L519-463q-11 11-25.5 17t-30.5 6H200Zm400 280q-17 0-28.5-11.5T560-200q0-17 11.5-28.5T600-240h64l-99-98q-12-12-12-28.5t12-28.5q12-12 29-12t29 12l97 99v-64q0-17 11.5-28.5T760-400q17 0 28.5 11.5T800-360v160q0 17-11.5 28.5T760-160H600Z";
@@ -27,8 +27,8 @@ const settings = plugin.settings.define({
   },
   allTurns: {
     type: "boolean",
-    label: "Show fork button on every message",
-    description: "Adds a fork button to every message turn in the conversation, not just the latest reply.",
+    label: "Show fork button on every response",
+    description: "Adds a fork button to every assistant response in the conversation, not just the latest reply.",
     default: true
   },
   quickFork: {
@@ -72,8 +72,14 @@ ensureNativeFlags();
 /* ── React and Store Inspection ──────────────────────────────────────────── */
 function getFiber(node) {
   if (!node) return null;
-  const key = Object.keys(node).find((k) => k.startsWith("__reactFiber"));
-  return key ? node[key] : null;
+  const keys = Object.keys(node);
+  const key = keys.find((k) => k.startsWith("__reactFiber"));
+  const fiber = key ? node[key] : null;
+  const propsKey = keys.find((k) => k.startsWith("__reactProps"));
+  // React keeps the original fiber on a reused DOM node. Its committed props
+  // identify the current alternate after a response or conversation changes.
+  if (propsKey && fiber?.alternate?.memoizedProps === node[propsKey]) return fiber.alternate;
+  return fiber;
 }
 
 function findAgentService() {
@@ -120,11 +126,15 @@ function findRouter() {
       if (typeof fiber.memoizedProps?.router?.navigate === "function") {
         return fiber.memoizedProps.router;
       }
+      const value = fiber.memoizedProps?.value;
+      if (typeof value?.router?.navigate === "function") return value.router;
+      if (typeof value?.navigate === "function" && typeof value.parseLocation === "function") return value;
       let dep = fiber.dependencies?.firstContext;
       for (let i = 0; dep && i < 30; i += 1, dep = dep.next) {
         if (typeof dep.memoizedValue?.navigate === "function" && dep.memoizedValue.parseLocation) {
           return dep.memoizedValue;
         }
+        if (typeof dep.memoizedValue?.router?.navigate === "function") return dep.memoizedValue.router;
       }
     }
   }
@@ -161,35 +171,27 @@ function currentConversationId() {
   return match ? match[1] : "";
 }
 
-function isConversationBusy(conversationId) {
-  const store = findStore();
-  if (!store) return false;
-  try {
-    const state = store.getState();
-    const summary = state?.trajectorySummaries?.summaries?.[conversationId];
-    if (summary) {
-      return (
-        summary.notFullyIdle === true ||
-        summary.hasActiveChildren === true ||
-        summary.status === 2 ||
-        summary.status === 3 ||
-        summary.status === 4
-      );
-    }
-  } catch {}
-  return false;
-}
-
-function navigateToConversation(cascadeId) {
+async function navigateToConversation(cascadeId, projectId) {
   const router = findRouter();
   if (router && typeof router.navigate === "function") {
     try {
-      router.navigate({ to: `/c/${cascadeId}` });
+      await router.navigate({
+        to: "/c/$cascadeId",
+        params: { cascadeId },
+        search: (previous) => {
+          const search = { ...previous };
+          delete search.q;
+          delete search.focused;
+          delete search.tab;
+          if (projectId) search.section = projectId;
+          return search;
+        }
+      });
       return true;
     } catch {}
   }
 
-  // Fallback to finding the sidebar row anchor or history push
+  // A real sidebar link can navigate even if the router context is unavailable.
   const rowLink = document.querySelector(
     `[data-testid="conversation-row-sidebar"][data-cascade-id="${CSS.escape(cascadeId)}"] a[aria-label]`
   );
@@ -197,12 +199,6 @@ function navigateToConversation(cascadeId) {
     rowLink.click();
     return true;
   }
-
-  try {
-    history.pushState(null, "", `/c/${cascadeId}`);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-    return true;
-  } catch {}
 
   return false;
 }
@@ -227,6 +223,136 @@ function getConversationTitle(cascadeId) {
 /* ── Core Fork Execution ─────────────────────────────────────────────────── */
 let activeForkPromise = null;
 
+// CortexStepStatus: PENDING, RUNNING, GENERATING, WAITING, QUEUED.
+const ACTIVE_STEP_STATUSES = new Set([1, 2, 8, 9, 11]);
+
+function snapshotThroughResponse(trajectory, sourceCascadeId, forkAtStepIndex) {
+  const allSteps = trajectory?.steps;
+  const end = forkAtStepIndex === -1 ? allSteps?.length - 1 : forkAtStepIndex;
+  if (!Array.isArray(allSteps) || !Number.isSafeInteger(end) || end < 0 || end >= allSteps.length) {
+    throw new Error("The selected response could not be loaded. Reopen the conversation and try again.");
+  }
+  if (trajectory.cascadeId && trajectory.cascadeId !== sourceCascadeId) {
+    throw new Error("The loaded history belongs to a different conversation. Please try again.");
+  }
+  if (forkAtStepIndex !== -1 && ACTIVE_STEP_STATUSES.has(allSteps[end].status)) {
+    throw new Error("This response is still being written. Choose an earlier completed response to fork.");
+  }
+
+  // These are detached RPC results. Seal unfinished work only in the copy;
+  // a fork must never resume, cancel, or join work in the source conversation.
+  const steps = allSteps.slice(0, end + 1).map(step => ACTIVE_STEP_STATUSES.has(step.status)
+    ? { ...step, status: 6, interaction: undefined }
+    : step);
+  const generatorMetadata = [];
+  for (const metadata of trajectory.generatorMetadata || []) {
+    const stepIndices = (metadata.stepIndices || []).filter(index => Number.isSafeInteger(index) && index >= 0 && index <= end);
+    if (stepIndices.length) generatorMetadata.push({ ...metadata, stepIndices });
+  }
+  const executorMetadatas = (trajectory.executorMetadatas || []).filter(metadata =>
+    Number.isSafeInteger(metadata.lastStepIdx) && metadata.lastStepIdx >= 0 && metadata.lastStepIdx <= end);
+
+  return {
+    ...trajectory,
+    steps,
+    generatorMetadata,
+    executorMetadatas,
+    // StartCascade adds the parent link using this trajectory's IDs and end.
+    // Inherited links can extend beyond the selected response on existing forks.
+    parentReferences: [],
+    battleModeInfos: []
+  };
+}
+
+async function forkFromSnapshot(agentService, request) {
+  if (typeof agentService.getCascadeTrajectory !== "function" || typeof agentService.startCascade !== "function") {
+    throw new Error("This version of Antigravity does not expose the history snapshot service needed to fork during active work.");
+  }
+  const sharedWorktree = request.targetForkWorkspace === 2;
+  if (sharedWorktree && typeof agentService.updateConversationAnnotations !== "function") {
+    throw new Error("The conversation service is not ready to create a worktree fork. Please try again.");
+  }
+
+  // FULL verbosity preserves tool results and model context, not just the
+  // display projection. Trim execution records as well as visible messages.
+  const history = await agentService.getCascadeTrajectory({ cascadeId: request.sourceCascadeId, verbosity: 3 });
+  const snapshot = snapshotThroughResponse(history?.trajectory, request.sourceCascadeId, request.forkAtStepIndex);
+  const metadata = snapshot.metadata || {};
+  const projectId = metadata.projectId;
+  const workspaceUris = metadata.workspaceUris?.length ? metadata.workspaceUris
+    : (metadata.workspaces || []).map(workspace => workspace.workspaceFolderAbsoluteUri).filter(Boolean);
+  const projectEnvConfig = projectId && projectId !== "outside-of-project" ? {
+    projectId,
+    target: metadata.environmentId
+      ? { case: "environmentId", value: metadata.environmentId }
+      : { case: "defaultProjectEnvironment", value: {} }
+  } : undefined;
+  const lastModelStep = snapshot.steps.findLast(step => step.metadata?.generatorModel > 0);
+  const snapshotId = crypto.randomUUID();
+  let started;
+  try {
+    started = await agentService.startCascade({
+      cascadeId: snapshotId,
+      source: 1,
+      trajectoryType: 4,
+      baseTrajectoryIdentifier: {
+        identifier: { case: "trajectory", value: snapshot }
+      },
+      workspaceUris,
+      projectEnvConfig,
+      agentScriptItem: metadata.agentScript,
+      customAgentSpec: metadata.staticConfig,
+      requestedModel: lastModelStep?.metadata.generatorModel
+    });
+    if (!started?.cascadeId || started.cascadeId !== snapshotId) {
+      throw new Error("The snapshot service did not return the new conversation ID.");
+    }
+  } catch (error) {
+    // A transport failure can happen after creation. Only this freshly
+    // allocated ID is ours to clean up, never an unexpected response ID.
+    try { await agentService.updateConversationAnnotations?.(snapshotId, { archived: true }, true); } catch {}
+    throw error;
+  }
+
+  if (!sharedWorktree) return {
+    newCascadeId: snapshotId,
+    newProjectId: started.projectEnvInfo?.projectId || projectId || "outside-of-project",
+    forkedAtStepIndex: snapshot.steps.length - 1
+  };
+
+  // Let the native service create the worktree from the now-idle prefix.
+  // Keep its backing conversation archived because the fork can reference it.
+  try {
+    return await agentService.forkConversation({
+      sourceCascadeId: snapshotId,
+      forkAtStepIndex: snapshot.steps.length - 1,
+      targetForkWorkspace: 2
+    });
+  } finally {
+    try {
+      await agentService.updateConversationAnnotations(snapshotId, { archived: true }, true);
+    } catch {
+      plugin.ui.toast({
+        title: "Extra fork copy in history",
+        body: "The temporary copy could not be hidden. You can archive it from the sidebar.",
+        kind: "warning"
+      });
+    }
+  }
+}
+
+async function forkConversation(agentService, request) {
+  try {
+    return await agentService.forkConversation(request);
+  } catch (error) {
+    // Some host versions require the entire source to be idle even when the
+    // requested prefix finished long ago. Other failures must remain visible.
+    const message = error?.message || String(error);
+    if (!/must be fully idle|conversation.{0,100}(?:in progress|is busy)/i.test(message)) throw error;
+    return forkFromSnapshot(agentService, request);
+  }
+}
+
 async function runFork(sourceCascadeId, forkAtStepIndex, targetForkWorkspace, title) {
   if (activeForkPromise) return;
 
@@ -239,12 +365,11 @@ async function runFork(sourceCascadeId, forkAtStepIndex, targetForkWorkspace, ti
     return;
   }
 
-  if (isConversationBusy(sourceCascadeId)) {
+  if (!Number.isSafeInteger(forkAtStepIndex) || forkAtStepIndex < -1) {
     plugin.ui.toast({
-      title: "Conversation is busy",
-      body: "Cannot fork while this conversation is generating or running tasks. Please wait or stop it first.",
-      kind: "warning",
-      duration: 5000
+      title: "Fork point unavailable",
+      body: "Could not identify the end of this response. Please reopen the conversation and try again.",
+      kind: "warning"
     });
     return;
   }
@@ -275,12 +400,11 @@ async function runFork(sourceCascadeId, forkAtStepIndex, targetForkWorkspace, ti
 
   const run = async () => {
     try {
-      const response = await agentService.forkConversation({
+      const response = await forkConversation(agentService, {
         sourceCascadeId,
-        forkAtStepIndex: Number(forkAtStepIndex) >= 0 ? Number(forkAtStepIndex) : -1,
+        forkAtStepIndex,
         targetForkWorkspace: target
       });
-
       if (!response?.newCascadeId) {
         throw new Error("No conversation ID returned by the server.");
       }
@@ -304,14 +428,14 @@ async function runFork(sourceCascadeId, forkAtStepIndex, targetForkWorkspace, ti
         }
       } catch {}
 
+      const navigated = await navigateToConversation(response.newCascadeId, response.newProjectId);
       plugin.ui.toast({
         title: "Conversation forked!",
-        body: "Switched to your new branch.",
+        body: navigated ? "Switched to your new branch." : "Your new branch is ready to open from the sidebar.",
         kind: "success",
         duration: 3000
       });
 
-      navigateToConversation(response.newCascadeId);
     } catch (error) {
       plugin.ui.toast({
         title: "Failed to fork conversation",
@@ -420,64 +544,77 @@ function openTurnForkPopover(button, cascadeId, stepIndex) {
   }, 0);
 }
 
-/* ── Step Index Extraction Helpers ───────────────────────────────────────── */
-function stepIndexFromFiber(bar) {
+/* ── Response Fork Point ─────────────────────────────────────────────────── */
+function forkPointFromBar(bar) {
+  const view = bar.closest('[data-testid="conversation-view"]');
+  const viewId = view?.getAttribute("data-cascade-id");
+  const sourceCascadeId = viewId && viewId !== "conversation" ? viewId : undefined;
   let fiber = getFiber(bar);
-  while (fiber) {
-    if (Array.isArray(fiber.memoizedProps?.steps)) {
-      const steps = fiber.memoizedProps.steps;
-      for (let i = steps.length - 1; i >= 0; i -= 1) {
-        const index = steps[i]?.metadata?.sourceTrajectoryStepInfo?.stepIndex;
-        if (typeof index === "number" && index >= 0) return index;
-      }
-    }
-    fiber = fiber.return;
-  }
-  return -1;
-}
+  let responseSteps = null;
+  let fullTrajectory = null;
+  let contextId = sourceCascadeId;
 
-function getStepIndexForUserStep(stepEl) {
-  if (!stepEl) return -1;
-  let fiber = getFiber(stepEl);
+  for (let depth = 0; fiber && depth < 50; depth += 1, fiber = fiber.return) {
+    const props = fiber.memoizedProps || {};
+    if (!responseSteps && Array.isArray(props.steps)) responseSteps = props.steps;
+    if (!responseSteps && Array.isArray(props.container?.steps)) responseSteps = props.container.steps;
+    if (!responseSteps?.length) continue;
 
-  let userStep = null;
-  let userStepIndex = -1;
-  let trajectorySteps = null;
+    const lastStep = responseSteps[responseSteps.length - 1];
+    const slice = props.trajectorySlice;
+    if (slice && Array.isArray(slice.stepsInSlice)) {
+      const id = slice.conversationId || props.cascadeId || contextId;
+      if (!id || (sourceCascadeId && id !== sourceCascadeId)) return undefined;
+      const position = slice.stepsInSlice.indexOf(lastStep);
+      const start = slice.stepsSlice?.startIndex;
+      if (position < 0 || !Number.isSafeInteger(start) || start < 0) return undefined;
+      const index = start + position;
+      if (!Number.isSafeInteger(index) || (Number.isSafeInteger(slice.totalStepsLength) && index >= slice.totalStepsLength)) return undefined;
+      // The API includes this step. Slice offsets remain correct on paged
+      // history and on branches whose steps retain another trajectory's metadata.
+      return { sourceCascadeId: id, forkAtStepIndex: index };
+    }
 
-  while (fiber) {
-    if (fiber.memoizedProps?.userStep && !userStep) {
-      userStep = fiber.memoizedProps.userStep;
-      if (typeof fiber.memoizedProps.userStepIndex === "number") {
-        userStepIndex = fiber.memoizedProps.userStepIndex;
-      }
+    if (props.cascadeId) contextId = props.cascadeId;
+    if (Array.isArray(props.trajectorySteps) && props.trajectorySteps.length === props.trajectoryLength) {
+      fullTrajectory = props.trajectorySteps;
     }
-    if (Array.isArray(fiber.memoizedProps?.trajectorySteps) && !trajectorySteps) {
-      trajectorySteps = fiber.memoizedProps.trajectorySteps;
-    }
-    fiber = fiber.return;
+    if (fiber.stateNode === view) break;
   }
 
-  if (userStep && trajectorySteps) {
-    for (let i = 0; i < trajectorySteps.length; i += 1) {
-      const s = trajectorySteps[i];
-      if (s === userStep || s.step === userStep.step) {
-        const idx = s.metadata?.sourceTrajectoryStepInfo?.stepIndex;
-        return typeof idx === "number" ? idx : i;
-      }
+  if (!responseSteps?.length || !contextId || (sourceCascadeId && contextId !== sourceCascadeId)) return undefined;
+  const lastStep = responseSteps[responseSteps.length - 1];
+  if (fullTrajectory) {
+    const index = fullTrajectory.indexOf(lastStep);
+    if (index >= 0) return { sourceCascadeId: contextId, forkAtStepIndex: index };
+    return undefined;
+  }
+
+  // Older host versions expose only a response's step metadata. Use the final
+  // step, never an earlier step or the -1 sentinel for copying the entire chat.
+  const source = lastStep.metadata?.sourceTrajectoryStepInfo;
+  if (source && (!source.cascadeId || source.cascadeId === contextId)) {
+    if (Number.isSafeInteger(source.stepIndex) && source.stepIndex >= 0) {
+      return { sourceCascadeId: contextId, forkAtStepIndex: source.stepIndex };
     }
   }
-
-  if (userStepIndex >= 0) {
-    return userStepIndex;
-  }
-
-  return -1;
+  return undefined;
 }
 
 /* ── UI Element Decorators ───────────────────────────────────────────────── */
+const USER_MESSAGE = '[data-testid="user-input-step"], [role="article"][aria-label="User message"], .user-input-buttons-container';
+// Match conversation actions, so plugin controls such as "Delete Fork Chat" stay visible.
+const NATIVE_FORK_BUTTON = '[data-testid="conversation-view"] button:is([aria-label="Fork" i], [aria-label="Fork Conversation" i], [aria-label^="Fork from " i]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn])';
+
+function hideNativeForkButton(button) {
+  if (button.style.display !== "none") button.style.display = "none";
+  if (button.getAttribute("data-fork-hidden") !== "true") button.setAttribute("data-fork-hidden", "true");
+}
+
 function decorateMenus(root = document.body) {
   if (!root || !root.querySelectorAll) return;
-  const menuItems = root.querySelectorAll('[role="menuitem"]');
+  const children = root.querySelectorAll('[role="menuitem"]');
+  const menuItems = root.matches?.('[role="menuitem"]') ? [root, ...children] : children;
   for (let i = 0; i < menuItems.length; i += 1) {
     const item = menuItems[i];
     const text = (item.textContent || "").trim();
@@ -538,48 +675,8 @@ function decorateMenus(root = document.body) {
   }
 }
 
-function scanUserSteps(view) {
-  if (!view) return;
-  const userSteps = view.querySelectorAll('[data-testid="user-input-step"]');
-  for (let i = 0; i < userSteps.length; i += 1) {
-    const stepEl = userSteps[i];
-    const container = stepEl.querySelector(".user-input-buttons-container");
-    if (!container) continue;
-
-    const existing = container.querySelectorAll("button[data-fork-chat-btn]");
-    if (existing.length > 0) {
-      for (let j = 1; j < existing.length; j += 1) existing[j].remove();
-      continue;
-    }
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.setAttribute("data-fork-chat-btn", "true");
-    button.setAttribute("aria-label", "Fork from this message");
-    button.title = "Fork conversation from this message";
-    button.className = "text-muted-foreground hover:text-secondary-foreground transition-opacity pointer-events-auto p-1 cursor-pointer bettergravity-fork-turn-btn";
-    button.innerHTML = FORK_ICON_SVG;
-
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const cascadeId = currentConversationId();
-      if (!cascadeId) return;
-
-      const stepIndex = getStepIndexForUserStep(stepEl);
-      openTurnForkPopover(button, cascadeId, stepIndex);
-    });
-
-    const revertBtn = container.querySelector('[data-testid="revert-button"]');
-    if (revertBtn) {
-      container.insertBefore(button, revertBtn);
-    } else {
-      container.append(button);
-    }
-  }
-}
-
 function decorateTurnBar(bar) {
-  if (!bar || bar.nodeType !== Node.ELEMENT_NODE) return;
+  if (!bar || bar.nodeType !== Node.ELEMENT_NODE || bar.closest(USER_MESSAGE)) return;
 
   // Ensure turn action attribute is set so flexbox ordering (Like:1, Dislike:2, Copy:3, Fork:4) is active
   if (bar.getAttribute("data-gemini-turn-actions") !== "true") {
@@ -587,12 +684,9 @@ function decorateTurnBar(bar) {
   }
 
   // Hide any native Antigravity fork button so only ONE fork button is visible under messages
-  const nativeForks = bar.querySelectorAll(
-    'button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn])'
-  );
+  const nativeForks = bar.querySelectorAll(NATIVE_FORK_BUTTON);
   for (let i = 0; i < nativeForks.length; i += 1) {
-    nativeForks[i].style.display = "none";
-    nativeForks[i].setAttribute("data-fork-hidden", "true");
+    hideNativeForkButton(nativeForks[i]);
   }
 
   // Ensure only at most ONE of our fork buttons exists
@@ -617,17 +711,19 @@ function decorateTurnBar(bar) {
   button.type = "button";
   button.className = "bettergravity-fork-turn-btn";
   button.setAttribute("data-fork-chat-btn", "true");
-  button.setAttribute("aria-label", "Fork from this message");
-  button.title = "Fork conversation from this message";
+  button.setAttribute("aria-label", "Fork from this response");
+  button.title = "Fork conversation from this response";
   button.innerHTML = FORK_ICON_SVG;
 
   button.addEventListener("click", (event) => {
     event.stopPropagation();
-    const cascadeId = currentConversationId();
-    if (!cascadeId) return;
-
-    const stepIndex = stepIndexFromFiber(bar);
-    openTurnForkPopover(button, cascadeId, stepIndex);
+    const point = forkPointFromBar(bar);
+    if (!point) {
+      const cascadeId = bar.closest('[data-testid="conversation-view"]')?.getAttribute("data-cascade-id");
+      void runFork(cascadeId, undefined, settings.defaultTarget);
+      return;
+    }
+    openTurnForkPopover(button, point.sourceCascadeId, point.forkAtStepIndex);
   });
 
   // Always append at the end so it renders after Copy and Like/Dislike
@@ -642,7 +738,7 @@ function removeTopBarIndicator(view) {
   for (let i = 0; i < banners.length; i += 1) {
     const b = banners[i];
     if (b.getAttribute("title") === "Open side-by-side view" || b.querySelector("span.select-none, [name='fork_left']")) {
-      b.style.display = "none";
+      if (b.style.display !== "none") b.style.display = "none";
     }
   }
 }
@@ -651,13 +747,14 @@ function scanAssistantTurns(view) {
   if (!view) return;
 
   // Hide any native fork buttons anywhere in view
-  const nativeForks = view.querySelectorAll(
-    'button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn])'
-  );
+  const nativeForks = view.querySelectorAll(NATIVE_FORK_BUTTON);
   for (let i = 0; i < nativeForks.length; i += 1) {
-    nativeForks[i].style.display = "none";
-    nativeForks[i].setAttribute("data-fork-hidden", "true");
+    hideNativeForkButton(nativeForks[i]);
   }
+
+  // These paths can find the same bar through every feedback button, its
+  // container and its article. Decorate each result once per pass.
+  const turnBars = new Set();
 
   // 1. Direct scan across all feedback and copy buttons to reliably find every turn,
   // including in previous/past conversations regardless of utility class variations
@@ -666,12 +763,12 @@ function scanAssistantTurns(view) {
   );
   for (let i = 0; i < actionBtns.length; i += 1) {
     const btn = actionBtns[i];
-    if (btn.closest('[data-testid="user-input-step"]') || btn.closest('.code-block') || btn.closest('pre')) {
+    if (btn.closest(USER_MESSAGE) || btn.closest('.code-block') || btn.closest('pre')) {
       continue;
     }
     const bar = btn.closest('.flex.w-full.items-start') || btn.closest('.flex.min-w-0')?.parentElement;
     if (bar) {
-      decorateTurnBar(bar);
+      turnBars.add(bar);
     }
   }
 
@@ -680,20 +777,21 @@ function scanAssistantTurns(view) {
   const bars = view.querySelectorAll(selector);
   for (let i = 0; i < bars.length; i += 1) {
     const bar = bars[i];
-    if (bar.closest('[data-testid="user-input-step"]')) continue;
-    decorateTurnBar(bar);
+    if (bar.closest(USER_MESSAGE)) continue;
+    turnBars.add(bar);
   }
 
   // 3. Scan across all agent response articles
   const articles = view.querySelectorAll('[role="article"][aria-label="Agent response"], [role="article"]:not([aria-label="User message"])');
   for (let i = 0; i < articles.length; i += 1) {
     const art = articles[i];
-    if (art.closest('[data-testid="user-input-step"]')) continue;
+    if (art.closest(USER_MESSAGE)) continue;
     const bar = art.querySelector('.flex.w-full.items-start') || art.parentElement?.querySelector('.flex.w-full.items-start');
     if (bar) {
-      decorateTurnBar(bar);
+      turnBars.add(bar);
     }
   }
+  for (const bar of turnBars) decorateTurnBar(bar);
 }
 
 function scanAll() {
@@ -701,7 +799,6 @@ function scanAll() {
   const view = document.querySelector('[data-testid="conversation-view"]');
   if (view) {
     removeTopBarIndicator(view);
-    scanUserSteps(view);
     scanAssistantTurns(view);
   }
 }
@@ -711,14 +808,26 @@ let bodyObserver = null;
 let lastObservedUrl = typeof window !== "undefined" ? window.location?.href || "" : "";
 
 function setupObservers() {
+  let disposed = false;
   let scheduled = false;
+  let scanFrame = 0;
+  let boundScroller = null;
+  const retryTimers = new Set();
+  const later = (callback, delay) => {
+    const timer = setTimeout(() => {
+      retryTimers.delete(timer);
+      if (!disposed) callback();
+    }, delay);
+    retryTimers.add(timer);
+  };
   const scheduleScan = () => {
-    if (scheduled) return;
+    if (disposed || scheduled) return;
     scheduled = true;
     if (typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(() => {
+      scanFrame = requestAnimationFrame(() => {
+        scanFrame = 0;
         scheduled = false;
-        scanAll();
+        if (!disposed) scanAll();
       });
     } else {
       scheduled = false;
@@ -729,7 +838,13 @@ function setupObservers() {
   const bindScroller = () => {
     const view = document.querySelector('[data-testid="conversation-view"]');
     const scroller = view?.querySelector('.overflow-y-auto') || view;
-    if (scroller && !scroller.dataset?.hasForkScroll) {
+    if (boundScroller === scroller) return;
+    if (boundScroller) {
+      boundScroller.removeEventListener("scroll", scheduleScan);
+      delete boundScroller.dataset.hasForkScroll;
+    }
+    boundScroller = scroller;
+    if (scroller) {
       scroller.dataset.hasForkScroll = "true";
       scroller.addEventListener("scroll", scheduleScan, { passive: true });
     }
@@ -739,12 +854,9 @@ function setupObservers() {
     scheduleScan();
     bindScroller();
     // Past conversations load turns asynchronously over 100-3000ms
-    setTimeout(() => { scheduleScan(); bindScroller(); }, 100);
-    setTimeout(() => { scheduleScan(); bindScroller(); }, 300);
-    setTimeout(() => { scheduleScan(); bindScroller(); }, 600);
-    setTimeout(() => { scheduleScan(); bindScroller(); }, 1000);
-    setTimeout(() => { scheduleScan(); bindScroller(); }, 1600);
-    setTimeout(() => { scheduleScan(); bindScroller(); }, 2500);
+    for (const delay of [100, 300, 600, 1000, 1600, 2500]) {
+      later(() => { scheduleScan(); bindScroller(); }, delay);
+    }
   };
 
   const onNavChange = () => {
@@ -778,27 +890,30 @@ function setupObservers() {
   }
 
   bodyObserver = new MutationObserver((records) => {
+    if (disposed) return;
+    const menuRoots = new Set();
     // Immediately hide native Antigravity fork buttons synchronously before next paint
     for (let i = 0; i < records.length; i += 1) {
+      const menu = records[i].target.closest?.('[role="menuitem"]');
+      if (menu) menuRoots.add(menu);
       const added = records[i].addedNodes;
       for (let j = 0; j < added.length; j += 1) {
         const node = added[j];
         if (node.nodeType === Node.ELEMENT_NODE) {
-          if (node.matches && node.matches('button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn])')) {
-            node.style.display = "none";
-            node.setAttribute("data-fork-hidden", "true");
+          if (node.matches(NATIVE_FORK_BUTTON)) {
+            hideNativeForkButton(node);
           } else if (node.querySelectorAll) {
-            const natives = node.querySelectorAll('button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn])');
+            const natives = node.querySelectorAll(NATIVE_FORK_BUTTON);
             for (let k = 0; k < natives.length; k += 1) {
-              natives[k].style.display = "none";
-              natives[k].setAttribute("data-fork-hidden", "true");
+              hideNativeForkButton(natives[k]);
             }
           }
+          if (node.matches('[role="menuitem"]') || node.querySelector('[role="menuitem"]')) menuRoots.add(node);
         }
       }
     }
 
-    decorateMenus(document.body);
+    for (const root of menuRoots) if (root.isConnected) decorateMenus(root);
 
     const currentUrl = typeof window !== "undefined" ? window.location?.href || "" : "";
     if (currentUrl && currentUrl !== lastObservedUrl) {
@@ -829,9 +944,9 @@ function setupObservers() {
 
   const onTitlebarMoreClick = (e) => {
     if (e.target?.closest?.('[data-testid="titlebar-more-actions"]')) {
-      setTimeout(() => decorateMenus(document.body), 30);
-      setTimeout(() => decorateMenus(document.body), 120);
-      setTimeout(() => decorateMenus(document.body), 300);
+      later(() => decorateMenus(document.body), 30);
+      later(() => decorateMenus(document.body), 120);
+      later(() => decorateMenus(document.body), 300);
     }
   };
   if (typeof document !== "undefined") {
@@ -846,15 +961,15 @@ function setupObservers() {
 
   // Periodic safety check to guarantee asynchronous past turns and scroller are decorated
   const periodicCheck = setInterval(() => {
+    bindScroller();
     const view = document.querySelector('[data-testid="conversation-view"]');
     if (!view) return;
-    bindScroller();
-    const hasNative = view.querySelector('button:is([aria-label="Fork Conversation"], [aria-label*="Fork"]):not([data-fork-chat-btn]):not([data-fork-titlebar-btn])');
-    let needsScan = hasNative !== null;
+    const nativeForks = view.querySelectorAll(NATIVE_FORK_BUTTON);
+    let needsScan = Array.from(nativeForks).some(button => button.style.display !== "none" || button.getAttribute("data-fork-hidden") !== "true");
     if (!needsScan) {
       const actionBars = view.querySelectorAll('.flex.w-full.items-start');
       for (let i = 0; i < actionBars.length; i += 1) {
-        if (!actionBars[i].closest('[data-testid="user-input-step"]') && !actionBars[i].querySelector('button[data-fork-chat-btn]')) {
+        if (!actionBars[i].closest(USER_MESSAGE) && !actionBars[i].querySelector('button[data-fork-chat-btn]')) {
           needsScan = true;
           break;
         }
@@ -871,9 +986,19 @@ function setupObservers() {
   scheduleRetries();
 
   plugin.onDispose(() => {
+    disposed = true;
+    if (scanFrame && typeof cancelAnimationFrame === "function") cancelAnimationFrame(scanFrame);
+    for (const timer of retryTimers) clearTimeout(timer);
+    retryTimers.clear();
+    if (boundScroller) {
+      boundScroller.removeEventListener("scroll", scheduleScan);
+      delete boundScroller.dataset.hasForkScroll;
+      boundScroller = null;
+    }
     bodyObserver?.disconnect();
     clearInterval(periodicCheck);
     if (typeof document !== "undefined") {
+      document.removeEventListener("DOMContentLoaded", attachObserver);
       document.removeEventListener("click", onTitlebarMoreClick, true);
       document.querySelectorAll("button[data-fork-chat-btn], button[data-fork-titlebar-btn]").forEach((b) => b.remove());
     }

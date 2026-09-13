@@ -40,7 +40,7 @@ describe("Fork Chat plugin functionality", () => {
 
   const mockRouter = {
     navigate: vi.fn((opts: any) => {
-      navigatedTo.push(opts.to);
+      navigatedTo.push(opts.to.replace("$cascadeId", opts.params?.cascadeId ?? ""));
     })
   };
 
@@ -232,16 +232,17 @@ describe("Fork Chat plugin functionality", () => {
     expect(items[2]?.querySelector("svg")).toBeTruthy();
   });
 
-  it("decorates user messages with a Fork button between Copy and Undo", () => {
-    const userForkBtn = document.querySelector(".user-input-buttons-container button[data-fork-chat-btn]");
-    expect(userForkBtn).toBeTruthy();
-    expect(userForkBtn?.getAttribute("aria-label")).toBe("Fork from this message");
+  it("leaves sent messages with their Copy and Undo controls", () => {
+    const controls = document.querySelector(".user-input-buttons-container")!;
+    expect(controls.querySelector("button[data-fork-chat-btn]")).toBeNull();
+    expect([...controls.querySelectorAll("button")].map(button => button.getAttribute("aria-label")))
+      .toEqual(["Copy", "Undo changes up to this point"]);
   });
 
-  it("decorates assistant message turns with a Fork from this message button", () => {
+  it("decorates assistant responses with a Fork from this response button", () => {
     const forkBtn = document.querySelector(".flex.w-full.items-start button[data-fork-chat-btn]");
     expect(forkBtn).toBeTruthy();
-    expect(forkBtn?.getAttribute("aria-label")).toBe("Fork from this message");
+    expect(forkBtn?.getAttribute("aria-label")).toBe("Fork from this response");
   });
 
   it("ensures strictly one fork button exists under messages even if native fork button is rendered", () => {
@@ -351,7 +352,7 @@ describe("Fork Chat plugin functionality", () => {
     expect(toasts.some((t) => t.title === "Conversation forked!")).toBe(true);
   });
 
-  it("guards against forking when a conversation is actively running", async () => {
+  it("lets the server fork older chats even if their cached summary still says busy", async () => {
     const mockMenu = {
       has: (testid: string) => testid === "conversation-rename-menu-item",
       trigger: {
@@ -367,7 +368,10 @@ describe("Fork Chat plugin functionality", () => {
 
     await new Promise((r) => setTimeout(r, 20));
 
-    expect(mockAgentService.forkConversation).not.toHaveBeenCalled();
-    expect(toasts.some((t) => t.title === "Conversation is busy")).toBe(true);
+    expect(mockAgentService.forkConversation).toHaveBeenCalledWith({
+      sourceCascadeId: "convo-2", forkAtStepIndex: -1, targetForkWorkspace: 1
+    });
+    expect(toasts.some((t) => t.title === "Conversation is busy")).toBe(false);
+    expect(navigatedTo).toContain("/c/forked-child-uuid-1234");
   });
 });

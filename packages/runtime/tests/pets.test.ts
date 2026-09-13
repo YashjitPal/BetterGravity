@@ -6,18 +6,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const source = readFileSync("community/plugins/pets/index.js", "utf8");
 
 interface PetActions {
-  askThread(key: string | null, text: string): Promise<void>;
+  askThread(key: string | null, text: string): Promise<boolean>;
+  fromSurface(message: { t: string; [key: string]: unknown }): void;
   stopThread(key: string): Promise<void>;
   readEntries(): unknown[];
   dismiss(key: string): void;
   settings: Record<string, unknown>;
+  setShown(shown: boolean): void;
+  start(): Promise<void>;
   connectSurface(send: (message: ActivityMessage) => void): void;
+  disconnectSurface(): void;
 }
 
 interface ActivityMessage {
   t: string;
   working: boolean;
-  entries: { key: string; status: string }[];
+  entries: { key: string; status: string; title: string; subtitle: string }[];
 }
 
 const cleanups: (() => void)[] = [];
@@ -27,6 +31,15 @@ let pet: PetActions;
 let enableSend = true;
 let hostState: unknown;
 let agentStatesManager: unknown;
+const storeListeners = new Set<() => void>();
+const hostStore = {
+  getState: () => hostState,
+  subscribe: (listener: () => void) => { storeListeners.add(listener); return () => storeListeners.delete(listener); }
+};
+let stored: Map<string, unknown>;
+let bootPet: () => PetActions;
+let desktopData: Record<string, unknown>[];
+let desktopSend: ((message: { t: string; [key: string]: unknown }) => void) | undefined;
 
 function showConversation(key: string | null): HTMLTextAreaElement {
   history.replaceState(null, "", key === null ? "/" : `/c/${key}`);
@@ -74,24 +87,48 @@ beforeEach(() => {
   stopped.length = 0;
   enableSend = true;
   hostState = undefined;
+  storeListeners.clear();
   agentStatesManager = undefined;
+  stored = new Map([["shown", false]]);
+  desktopData = [];
+  desktopSend = undefined;
   showConversation("previous");
 
   // Run the actual community plugin with its pet hidden. The fixture supplies
   // the host DOM and plugin services, while the real navigation and send code runs.
+  let savedSettings: Record<string, unknown> | undefined;
   const plugin = {
+    manifest: { id: "pets" },
     settings: {
-      define: (schema: Record<string, { default?: unknown }>) => Object.fromEntries(
+      define: (schema: Record<string, { default?: unknown }>) => savedSettings ??= Object.fromEntries(
         Object.entries(schema).map(([key, value]) => [key, value.default])
       ),
       onChange: () => () => undefined
     },
-    storage: { get: (key: string, fallback: unknown) => key === "shown" ? false : fallback },
+    storage: {
+      get: (key: string, fallback: unknown) => stored.has(key) ? stored.get(key) : fallback,
+      set: (key: string, value: unknown) => { stored.set(key, value); }
+    },
+    overlay: {
+      open: async (options: { data: Record<string, unknown> }) => {
+        desktopData.push(options.data);
+        return {
+          ok: true,
+          send: vi.fn(),
+          close: vi.fn(),
+          onMessage: (listener: typeof desktopSend) => {
+            desktopSend = listener;
+            listener!({ t: "hello", width: 800, height: 600 });
+            return () => { desktopSend = undefined; };
+          }
+        };
+      }
+    },
     react: {
       getFiber: () => (hostState === undefined && agentStatesManager === undefined) ? undefined : ({
         dependencies: {
           firstContext: {
-            memoizedValue: hostState !== undefined ? { store: { getState: () => hostState } } : agentStatesManager,
+            memoizedValue: hostState !== undefined ? { store: hostStore } : agentStatesManager,
             next: hostState !== undefined && agentStatesManager !== undefined ? { memoizedValue: agentStatesManager } : undefined
           }
         }
@@ -101,10 +138,12 @@ beforeEach(() => {
     ui: { button: () => ({ element: document.createElement("button"), setActive: vi.fn(), remove: vi.fn() }) },
     onDispose: (cleanup: () => void) => cleanups.push(cleanup)
   };
-  pet = new Function("plugin", "window", `${source}\nreturn {
-    askThread, stopThread, readEntries, dismiss, settings,
-    connectSurface: (send) => { surface = { send, close() {} }; poll(); }
+  bootPet = () => new Function("plugin", "window", `${source}\nreturn {
+    askThread, stopThread, readEntries, dismiss, settings, fromSurface, setShown, start,
+    connectSurface: (send) => { surface = { send, close() {} }; poll(); },
+    disconnectSurface: stop
   };`)(plugin, document.defaultView) as PetActions;
+  pet = bootPet();
 });
 
 describe("Pets activity updates", () => {
@@ -114,6 +153,100 @@ describe("Pets activity updates", () => {
     pet.connectSurface((message) => updates.push(message));
     return updates;
   }
+
+  it("updates from store events within 50ms and sorts changed chats ahead of older statuses", async () => {
+    const summaries = {
+      working: { summary: "Working task", status: 2, lastModifiedTime: Date.now() - 2000 },
+      waiting: { summary: "Waiting task", status: 1, waitingSteps: [{ toolName: "approval" }], lastModifiedTime: Date.now() - 1000 }
+    };
+    hostState = { trajectorySummaries: { summaries } };
+    const updates = observe();
+    expect(updates.at(-1)!.entries.map(entry => entry.key)).toEqual(["waiting", "working"]);
+    expect(storeListeners.size).toBe(1);
+    hostState = { trajectorySummaries: { summaries: { ...summaries,
+      working: { ...summaries.working, summary: "Updated working task", lastModifiedTime: Date.now() }
+    } } };
+    storeListeners.forEach(listener => listener());
+    await vi.advanceTimersByTimeAsync(50);
+    expect(updates.at(-1)!.entries.map(entry => entry.key)).toEqual(["working", "waiting"]);
+    expect(updates.at(-1)!.entries[0]!.title).toBe("Updated working task");
+    const count = updates.length;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(updates).toHaveLength(count);
+  });
+
+  it("listens to provider step changes without reopening dismissed notifications", async () => {
+    hostState = { trajectorySummaries: { summaries: {
+      worker: { summary: "Background work", status: 2, lastModifiedTime: Date.now() - 2000 },
+      newest: { summary: "Newer task", status: 2, lastModifiedTime: Date.now() - 1000 }
+    } } };
+    const listeners = new Set<() => void>();
+    let state: Record<string, unknown> = { trajectorySlice: { totalStepsLength: 1, stepsInSlice: [
+      { status: 2, step: { value: { thinking: "Planning" } } }
+    ] } };
+    const provider = {
+      getState: () => state,
+      onDidChange: (listener: () => void) => { listeners.add(listener); return { dispose: () => listeners.delete(listener) }; }
+    };
+    const acquire = vi.fn();
+    agentStatesManager = { getAgentStates: () => new Map([["worker", { provider }]]), subscribe: acquire };
+    const updates = observe();
+    expect(listeners.size).toBe(1);
+    expect(acquire).not.toHaveBeenCalled();
+    expect(updates.at(-1)!.entries[0]!.key).toBe("newest");
+    state = { trajectorySlice: { totalStepsLength: 2, stepsInSlice: [
+      { status: 2, metadata: { executionId: "command-1", toolCall: { name: "run_command" } }, step: { value: {} } }
+    ] } };
+    listeners.forEach(listener => listener());
+    await vi.advanceTimersByTimeAsync(50);
+    expect(updates.at(-1)!.entries[0]).toMatchObject({ key: "worker", status: "running", subtitle: "Running command" });
+    pet.dismiss("worker");
+    state = { trajectorySlice: { totalStepsLength: 3, stepsInSlice: [
+      { status: 2, metadata: { executionId: "command-2", toolCall: { name: "run_command" } }, step: { value: {} } }
+    ] } };
+    listeners.forEach(listener => listener());
+    await vi.advanceTimersByTimeAsync(50);
+    expect(updates.at(-1)!.entries.some(entry => entry.key === "worker")).toBe(false);
+    pet.disconnectSurface();
+    expect(listeners.size).toBe(0);
+    expect(storeListeners.size).toBe(0);
+  });
+
+  it("coalesces live DOM progress and ignores pet animation mutations", async () => {
+    const updates: ActivityMessage[] = [];
+    pet.connectSurface(message => updates.push(message));
+    const summary = document.createElement("div");
+    summary.dataset.testid = "planner-response-text";
+    document.querySelector('[data-testid="conversation-view"]')!.append(summary);
+    for (const text of ["Checking", "Checking the", "Checking the implementation"]) summary.textContent = text;
+    const count = updates.length;
+    await vi.advanceTimersByTimeAsync(50);
+    expect(updates).toHaveLength(count + 1);
+    expect(updates.at(-1)!.entries.find(entry => entry.key === "previous")?.subtitle).toBe("Checking the implementation");
+    const decoration = document.createElement("div");
+    decoration.className = "bettergravity-pet";
+    document.body.append(decoration);
+    decoration.style.backgroundPosition = "10% 20%";
+    decoration.textContent = "A frame";
+    await vi.advanceTimersByTimeAsync(50);
+    expect(updates).toHaveLength(count + 1);
+  });
+
+  it("keeps background progress text when its provider is released", async () => {
+    const progress = "Reviewing all task cards and their shared width";
+    hostState = { trajectorySummaries: { summaries: {
+      worker: { summary: "Background task", status: 2, lastModifiedTime: Date.now() }
+    } } };
+    const providers = new Map([["worker", { provider: { getState: () => ({ status: 2, trajectorySlice: {
+      stepsInSlice: [{ status: 3, step: { value: { response: progress } } }]
+    } }) } }]]);
+    agentStatesManager = { getAgentStates: () => providers };
+    const updates = observe();
+    expect(updates.at(-1)!.entries[0]!.subtitle).toBe(progress);
+    providers.clear();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(updates.at(-1)!.entries[0]!.subtitle).toBe(progress);
+  });
 
   it("reports ongoing work independently of dismissing its card, and reports when it ends", () => {
     const updates = observe();
@@ -246,6 +379,42 @@ describe("Pets activity updates", () => {
     expect(current?.subtitle).toBe("Thinking");
   });
 
+  it("previews the reply instead of embedded Markdown styles and hidden content", () => {
+    const summary = document.createElement("div");
+    summary.dataset.testid = "planner-response-text";
+    summary.innerHTML = `<style>/* Copied from remark-github-blockquote-alert/alert.css */
+      .markdown-alert { color: red; }</style>
+      <script>const preview = "internal renderer code";</script>
+      <template>Unused template</template><noscript>Fallback markup</noscript>
+      <span hidden>Hidden metadata</span><span aria-hidden="true">Decorative label</span>
+      <p>Waiting for <strong>sprite generation</strong> to finish.</p>`;
+    document.querySelector('[data-testid="conversation-view"]')!.appendChild(summary);
+
+    const entries = pet.readEntries() as { key: string; subtitle: string }[];
+    expect(entries.find(entry => entry.key === "previous")?.subtitle).toBe("Waiting for sprite generation to finish.");
+    expect(summary.querySelector("style")?.textContent).toContain("Copied from remark-github-blockquote-alert");
+  });
+
+  it("uses the normal activity fallback while a reply contains only its stylesheet", () => {
+    const summary = document.createElement("div");
+    summary.dataset.testid = "planner-response-text";
+    summary.innerHTML = '<style>/* Markdown alert styles */ .markdown-alert { color: red; }</style>';
+    document.querySelector('[data-testid="conversation-view"]')!.appendChild(summary);
+
+    const entries = pet.readEntries() as { key: string; subtitle: string }[];
+    expect(entries.find(entry => entry.key === "previous")?.subtitle).toBe("Thinking");
+  });
+
+  it("keeps comment syntax when it is part of the actual reply", () => {
+    const summary = document.createElement("div");
+    summary.dataset.testid = "planner-response-text";
+    summary.innerHTML = '<pre><code>/* This comment is visible code */</code></pre>';
+    document.querySelector('[data-testid="conversation-view"]')!.appendChild(summary);
+
+    const entries = pet.readEntries() as { key: string; subtitle: string }[];
+    expect(entries.find(entry => entry.key === "previous")?.subtitle).toBe("/* This comment is visible code */");
+  });
+
   it("does not report active tool statuses once the turn has completed into review", () => {
     addThread("previous", null);
     const view = document.querySelector('[data-testid="conversation-view"]')!;
@@ -363,7 +532,148 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
+describe("Pets activity visibility persistence", () => {
+  const badge = () => document.querySelector<HTMLElement>(".bettergravity-pet__badge")!;
+  const tray = () => document.querySelector<HTMLElement>(".bettergravity-pet-tray")!;
+  const reload = async () => {
+    for (const cleanup of cleanups.splice(0).reverse()) cleanup();
+    pet = bootPet();
+    await vi.advanceTimersByTimeAsync(0);
+  };
+
+  beforeEach(async () => {
+    vi.stubGlobal("matchMedia", () => Object.assign(new EventTarget(), { matches: false }));
+    vi.stubGlobal("CSS", { escape: (value: string) => value });
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => null });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      measureText: (text: string) => ({ width: text.length * 7 })
+    } as unknown as CanvasRenderingContext2D);
+    pet.settings.home = "window";
+    pet.setShown(true);
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  it("remembers both hiding and showing across pet toggles and complete plugin reloads", async () => {
+    expect(tray().dataset.petTray).toBe("open");
+    badge().click();
+    expect(stored.get("activityPillsVisible")).toBe(false);
+    pet.setShown(false);
+    expect(document.querySelector(".bettergravity-pet")).toBeNull();
+    pet.setShown(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(tray().dataset.petTray).toBe("closed");
+    expect(badge().getAttribute("aria-label")).toMatch(/^Show activity,/);
+    await reload();
+    expect(tray().dataset.petTray).toBe("closed");
+    expect(badge().getAttribute("aria-label")).toMatch(/^Show activity,/);
+    badge().click();
+    expect(stored.get("activityPillsVisible")).toBe(true);
+    await reload();
+    expect(tray().dataset.petTray).toBe("open");
+    expect(tray().dataset.petStack).toBe("collapsed");
+    expect(badge().getAttribute("aria-label")).toBe("Hide activity");
+    expect(sent).toEqual([]);
+  });
+
+  it("carries the same preference between window and desktop surfaces", async () => {
+    badge().click();
+    pet.fromSurface({ t: "badge-corner", corner: "bottom-end" });
+    pet.settings.home = "desktop";
+    await pet.start();
+    expect(desktopData.at(-1)).toMatchObject({ desktop: true, activityPillsVisible: false, badgeCorner: "bottom-end" });
+    expect(document.querySelector(".bettergravity-pet")).toBeNull();
+    desktopSend!({ t: "activity-visibility", visible: "true" });
+    expect(stored.get("activityPillsVisible")).toBe(false);
+    desktopSend!({ t: "activity-visibility", visible: true });
+    desktopSend!({ t: "badge-corner", corner: "top-start" });
+    desktopSend!({ t: "badge-corner", corner: "invalid" });
+    expect(stored.get("activityPillsVisible")).toBe(true);
+    expect(stored.get("badgeCorner")).toBe("top-start");
+    pet.settings.home = "window";
+    await pet.start();
+    expect(tray().dataset.petTray).toBe("open");
+    expect(tray().dataset.petStack).toBe("collapsed");
+    expect(document.querySelector<HTMLElement>(".bettergravity-pet")!.dataset.petBadgeCorner).toBe("top-start");
+    await reload();
+    expect(document.querySelector<HTMLElement>(".bettergravity-pet")!.dataset.petBadgeCorner).toBe("top-start");
+    expect(sent).toEqual([]);
+  });
+});
+
 describe("Pets conversation controls", () => {
+  it("focuses the current composer without navigating or changing its draft when the pet is clicked", () => {
+    const field = document.querySelector<HTMLTextAreaElement>("main textarea")!;
+    field.value = "Keep this draft";
+    pet.fromSurface({ t: "poke" });
+    expect(window.focus).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(field);
+    expect(location.pathname).toBe("/c/previous");
+    expect(field.value).toBe("Keep this draft");
+    expect(sent).toEqual([]);
+  });
+
+  it("opens the particular chat selected from a task card", async () => {
+    addThread("selected", 120);
+    addThread("unrelated", 120);
+    pet.fromSurface({ t: "open", key: "selected" });
+    await vi.advanceTimersByTimeAsync(150);
+    expect(location.pathname).toBe("/c/selected");
+    expect(window.focus).toHaveBeenCalled();
+    expect(sent).toEqual([]);
+  });
+
+  it("opens the root chat when a task card belongs to a child agent", async () => {
+    addThread("parent", 120);
+    hostState = { trajectorySummaries: { summaries: {
+      child: { trajectoryMetadata: { rootConversationId: "parent" } }
+    } } };
+    pet.fromSurface({ t: "open", key: "child" });
+    await vi.advanceTimersByTimeAsync(150);
+    expect(location.pathname).toBe("/c/parent");
+    expect(sent).toEqual([]);
+  });
+
+  it("opens an existing chat with its project when its sidebar row is unmounted", () => {
+    hostState = { trajectorySummaries: { summaries: {
+      hidden: { trajectoryMetadata: { projectId: "project-one" } }
+    } } };
+    pet.fromSurface({ t: "open", key: "hidden" });
+    expect(location.pathname).toBe("/c/hidden");
+    expect(location.search).toBe("?section=project-one");
+    expect(window.focus).toHaveBeenCalled();
+    expect(sent).toEqual([]);
+  });
+
+  it.each([true, false])("acknowledges inline replies after the host send succeeds or fails (send enabled=%s)", async (ready) => {
+    enableSend = ready;
+    const updates: ActivityMessage[] = [];
+    pet.connectSurface(message => updates.push(message));
+    pet.fromSurface({ t: "ask", key: "previous", text: "Reply from the card", requestId: "reply-1" });
+    expect(updates.filter(message => message.t === "reply-result")).toEqual([]);
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(updates.filter(message => message.t === "reply-result")).toEqual([
+      { t: "reply-result", key: "previous", requestId: "reply-1", ok: ready }
+    ]);
+    expect(sent).toHaveLength(ready ? 1 : 0);
+  });
+
+  it("does not deliver an old reply result to a replacement pet surface", async () => {
+    const before: ActivityMessage[] = [];
+    const after: ActivityMessage[] = [];
+    pet.connectSurface(message => before.push(message));
+    pet.fromSurface({ t: "ask", key: "previous", text: "Reply from the card", requestId: "reply-1" });
+    pet.connectSurface(message => after.push(message));
+    await vi.advanceTimersByTimeAsync(600);
+    expect(before.filter(message => message.t === "reply-result")).toEqual([]);
+    expect(after.filter(message => message.t === "reply-result")).toEqual([]);
+    expect(sent).toHaveLength(1);
+  });
+
   it("explicitly requests projectless navigation from other plugins", async () => {
     let projectless = false;
     document.querySelector("a")!.addEventListener("click", (event) => {

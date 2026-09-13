@@ -2,7 +2,7 @@
 //
 // Codex's pet is not a decoration inside its window. It stands on the desktop,
 // in a transparent always-on-top window of its own, and it reports: a coloured
-// indicator under its feet, and a stack of cards naming every thread that is
+// indicator at its top-right, and a stack of cards naming every thread that is
 // running, waiting, blocked, or has something unread. That is the whole feature,
 // and all four parts of it are here.
 //
@@ -213,8 +213,7 @@ function petSurface(host, data) {
    * A caret has no box of its own, so it is measured by proxy: a hidden div is
    * given the field's own metrics, filled with the text up to the caret, and a
    * zero-width span put on the end of that text. Wherever the span lands is where
-   * the caret is. `pre` rather than the field's white-space because an input keeps
-   * its text on one line however it wraps in the mirror, and the far edge of the
+   * the caret is. Inputs use `pre`; a textarea mirrors its line wrapping. The far edge of the
    * selection because that is the end the caret sits at — unless the selection was
    * made backwards, in which case it sits at the near one.
    *
@@ -237,7 +236,8 @@ function petSurface(host, data) {
     mirror.style.left = "0";
     mirror.style.top = "0";
     mirror.style.visibility = "hidden";
-    mirror.style.whiteSpace = "pre";
+    mirror.style.whiteSpace = field.tagName === "TEXTAREA" ? "pre-wrap" : "pre";
+    if (field.tagName === "TEXTAREA") mirror.style.overflowWrap = "break-word";
 
     const end =
       field.selectionDirection === "backward" ? field.selectionStart : field.selectionEnd;
@@ -451,76 +451,15 @@ function petSurface(host, data) {
     spinner: ""
   };
 
-  /* ── Geometry ───────────────────────────────────────────────────────────
-   *
-   * $t() in avatar-overlay-native-frame lays the mascot's controls out either in
-   * a row under it or along an arc around it. The indicator is slot 2 of 4.
-   *
-   * Collapsed, Codex passes a gap that is the negative of the control size, so
-   * every slot in the row lands on the mascot's centre line and the arithmetic
-   * comes out at zero — the pill just sits under the pet, and the stylesheet
-   * places it. Expanded is the interesting one, and it is below.
-   */
+  /* ── Geometry ───────────────────────────────────────────────────────────*/
 
-  /** app-initial 22117: petControlsAppearance, the fields used here. */
-  const HOVER_CONTROL_SIZE = 24;
-  const HOVER_CONTROL_GAP = 8;
-  const HOVER_OFFSET_Y = 10;
+  // The standard mascot uses a corner badge. The separate native voice-control
+  // presentation supplies an arc position, which does not apply to this pet.
+  const BADGE_CORNERS = ["top-start", "top-end", "bottom-start", "bottom-end"];
+  const BADGE_DRAG_THRESHOLD = 4;
   /** rn / an in $t(): the inset from the edge of the screen, and the gap below. */
   const VIEWPORT_INSET = 8;
   const GAP_BELOW = 8;
-  /**
-   * The indicator's slot, and how many are on the arc with it.
-   *
-   * `$t()` numbers four slots — voice-microphone 0, voice-controls 1,
-   * mascot-badge 2, voice-output 3 — and spaces them symmetrically about the
-   * mascot's centre line, so slot 2 sits half a step to the *right* of centre and
-   * slot 1 half a step to its left. Which of them are actually drawn is a
-   * separate question, and frame 1166/1201/1243 answer it: the microphone and the
-   * output meter are behind `a`, so they appear only during a voice session,
-   * while voice-controls has no such guard and is always there. A Codex pet doing
-   * ordinary work therefore shows two controls straddling the centre — and the
-   * pair reads as centred, because it is.
-   *
-   * Antigravity has no voice at all, so the indicator is the only member of the
-   * cluster. Laying one control out in a four-slot arc would leave it 16 px right
-   * of the pet's centre with nothing on the left to balance it, which is why the
-   * bar under the pet's feet appeared to jump sideways as it grew into a disc.
-   * A cluster of one is `$t()` with a count of one: the arithmetic below collapses
-   * to x = 0 and the disc rises straight out of the bar.
-   *
-   * The quick chat is not on this arc either way. qt() reads slot 1 to place the
-   * *error* pill; the composer is a sibling of the activity stack in one flex
-   * column. See layout().
-   */
-  const BADGE_SLOT = 0;
-  const BADGE_SLOT_COUNT = 1;
-
-  /**
-   * Where a control in the cluster sits when the cluster is open, as an offset
-   * from the pet's top centre.
-   *
-   * This is $t()'s arc branch. The controls are spaced evenly around a circle
-   * that starts at the mascot's edge, so the radius is half the pet plus half a
-   * control, and the angle between two neighbours is the one that puts their
-   * centres a control-plus-gap apart on that circle: f = 2·asin((t + e) / 2d).
-   *
-   * x is a centre offset and y a top edge — frame 161 applies the pair as
-   * `left: mascot.left + mascot.width / 2 + x` and `top: mascot.top + y`, and the
-   * `- t / 2` in y is what turns the point on the circle into an edge.
-   *
-   * With one control on the arc the angle is zero, so for Codex's default 112 px
-   * pet the indicator comes out at x = 0, y = 127.
-   */
-  function arcAt(slot, petWidth, petHeight) {
-    const radius = petWidth / 2 + HOVER_CONTROL_SIZE / 2;
-    const step = 2 * Math.asin(Math.min(1, (HOVER_CONTROL_SIZE + HOVER_CONTROL_GAP) / (2 * radius)));
-    const angle = (slot - (BADGE_SLOT_COUNT - 1) / 2) * step;
-    return {
-      x: Math.round(Math.sin(angle) * radius),
-      y: Math.round(petHeight / 2 + Math.cos(angle) * radius - HOVER_CONTROL_SIZE / 2 + HOVER_OFFSET_Y)
-    };
-  }
 
   /** avatar-overlay-native-frame: the activity card, and Kl's stack ladder. */
   const CARD_HEIGHT = 54;
@@ -713,19 +652,30 @@ function petSurface(host, data) {
    * 2049 — and the only things that write it are the two controls the badge turns
    * into. Default on, so the pills are out until someone puts them away.
    */
-  let stashed = false;
-  /** dbe()'s clamped scroll position within the expanded viewport. */
+  let stashed = data?.activityPillsVisible === false;
+  let badgeCorner = BADGE_CORNERS.includes(data?.badgeCorner) ? data.badgeCorner : "top-end";
+  let badgeDrag = null;
+  let suppressBadgeClick = false;
+  let badgeClickTimer;
+  let badgeAnimation;
+  let badgeVisible = false;
+  let artworkCenter = 0.5;
+  let artworkMeasurement = 0;
+  /** Requested scroll position; Codex clamps its presentation without overwriting it. */
   let scrollOffset = 0;
   /** Whether the quick-chat pill is showing. */
   let chatOpen = false;
-  /**
-    * `W`: which card the pill is aimed at, or null for a new projectless chat.
-   *
-   * Codex's composer belongs to a card — `G(_.turnKey)` on the reply control, and
-   * `submit-follow-up` carries that notification with it (frame 6477, 6656). One
-   * shared pill cannot belong to a card, so it remembers which one aimed it.
-   */
-  let chatTarget = null;
+  let menuOpen = false;
+  let menuFocus = null;
+  let menuRequest = null;
+  let menuSequence = 0;
+  /** Codex's inline follow-up belongs to its notification, independently of quick chat. */
+  let replyState = null;
+  let replySequence = 0;
+  let replyRevision = 0;
+  let replyLayoutTimer;
+  let replyFrame;
+  let revealReply = false;
   /**
    * Where layout() last put the tray and the chat pill.
    *
@@ -785,7 +735,8 @@ function petSurface(host, data) {
   };
 
   const pet = make("div", "bettergravity-pet");
-  pet.setAttribute("aria-hidden", "true");
+  pet.setAttribute("role", "group");
+  pet.setAttribute("aria-label", "Pet");
   pet.dataset.petHit = "pet";
   pet.dataset.petBadge = "hidden";
   pet.dataset.petBadgeKind = "chevron";
@@ -793,7 +744,9 @@ function petSurface(host, data) {
   pet.dataset.petTone = "idle";
 
   const sprite = make("div", "bettergravity-pet__body", pet);
-  const badge = make("div", "bettergravity-pet__badge", pet);
+  sprite.setAttribute("aria-hidden", "true");
+  const badge = make("button", "bettergravity-pet__badge", pet);
+  badge.type = "button";
   badge.dataset.petHit = "badge";
   const badgeCount = make("span", "bettergravity-pet__badge-count", badge);
   const badgeChevron = make("span", "bettergravity-pet__badge-chevron", badge);
@@ -834,18 +787,20 @@ function petSurface(host, data) {
     root.dataset.petInline = "false";
     root.hidden = true;
 
-    const content = make("div", "bettergravity-pet-card__content", root);
+    const header = make("div", "bettergravity-pet-card__header", root);
+    const content = make("div", "bettergravity-pet-card__content", header);
     const text = make("div", "bettergravity-pet-card__text", content);
     const body = make("div", "bettergravity-pet-card__body", content);
 
-    const status = make("div", "bettergravity-pet-card__status", root);
+    const status = make("div", "bettergravity-pet-card__status", header);
     status.setAttribute("role", "img");
     const statusDisc = make("span", "bettergravity-pet-card__status-disc", status);
     statusDisc.hidden = true;
 
-    const controls = make("div", "bettergravity-pet-card__controls", root);
+    const controls = make("div", "bettergravity-pet-card__controls", header);
     controls.dataset.petControls = "default";
-    const reply = make("div", "bettergravity-pet-card__control", controls);
+    const reply = make("button", "bettergravity-pet-card__control", controls);
+    reply.type = "button";
     reply.dataset.petControl = "reply";
     reply.dataset.petHit = "control";
     reply.innerHTML = ICON_REPLY;
@@ -870,8 +825,20 @@ function petSurface(host, data) {
     close.dataset.petHit = "control";
     close.innerHTML = ICON_CLOSE;
 
-    return {
+    const replyBox = make("div", "bettergravity-pet-card__reply", root);
+    replyBox.inert = true;
+    const replyForm = make("form", "bettergravity-pet-card__reply-form", replyBox);
+    const replyInput = make("textarea", "bettergravity-pet-card__reply-input", replyForm);
+    replyInput.rows = 1;
+    replyInput.placeholder = "Follow up";
+    const replyError = make("div", "bettergravity-pet-card__reply-error", replyForm);
+    replyError.setAttribute("role", "alert");
+    replyError.textContent = "Unable to send reply";
+    replyError.hidden = true;
+
+    const card = {
       root,
+      header,
       content,
       text,
       body,
@@ -881,8 +848,16 @@ function petSurface(host, data) {
       reply,
       stop,
       dismiss,
-      close
+      close,
+      replyBox,
+      replyForm,
+      replyInput,
+      replyError
     };
+    wireReply(card);
+    cardResizeObserver?.observe(root);
+    cardResizeObserver?.observe(replyForm);
+    return card;
   }
 
   /** Built on demand: a pile needs one, an open stack up to eight. */
@@ -890,13 +865,11 @@ function petSurface(host, data) {
   const cardAt = (index) => {
     while (cards.length <= index && cards.length < STACK_SLOTS) {
       const built = buildCard();
-      // The front card is the pile's own card, so it keeps Kl's top rung and is
-      // the one thing in a collapsed tray that a click can land on.
-      if (cards.length === 0) built.root.dataset.petSlot = "0";
       cards.push(built);
     }
     return cards[index];
   };
+  const cardFor = (key) => cards.find((card) => card.root.dataset.petKey === key);
 
   /*
    * Quick chat. frame 140: a 40 px pill with the reply glyph on the end of it,
@@ -922,10 +895,92 @@ function petSurface(host, data) {
   chatSend.dataset.petHit = "control";
   chatSend.innerHTML = ICON_REPLY;
 
+  // Codex's context menu contains a single plain Close pet action.
+  const petMenu = make("div", "bettergravity-pet-menu");
+  petMenu.setAttribute("role", "menu");
+  petMenu.setAttribute("aria-label", "Pet");
+  petMenu.dataset.petHit = "menu";
+  petMenu.hidden = true;
+  const closePetItem = make("button", "bettergravity-pet-menu__item", petMenu);
+  closePetItem.type = "button";
+  closePetItem.setAttribute("role", "menuitem");
+  closePetItem.textContent = "Close pet";
+  pet.setAttribute("aria-haspopup", "menu");
+
   /* ── Which sheet, and how big ───────────────────────────────────────────*/
 
   /** Set when a custom sheet was asked for and could not be used. */
   let sheetProblem = "";
+  let sheetObjectUrl = "";
+
+  function releaseSheetObjectUrl() {
+    if (!sheetObjectUrl) return;
+    URL.revokeObjectURL(sheetObjectUrl);
+    sheetObjectUrl = "";
+  }
+  track(releaseSheetObjectUrl);
+
+  function sheetImageUrl(custom) {
+    // A generated sheet can put megabytes in the sprite's style attribute.
+    // Updating its frame then makes the theme's style selectors scan that
+    // image again. A local URL keeps the exact bytes out of the moving style.
+    if (typeof URL.createObjectURL !== "function" || typeof URL.revokeObjectURL !== "function") return custom;
+    const match = /^data:(image\/[^;,]+);base64,([\s\S]+)$/i.exec(custom);
+    if (!match) return custom;
+    try {
+      const binary = atob(match[2]);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return URL.createObjectURL(new Blob([bytes], { type: match[1] }));
+    } catch {
+      // Keep the original image path when conversion is unavailable.
+      return custom;
+    }
+  }
+
+  // Use one stable center for the idle artwork. Transparent padding and a thin
+  // tail can leave the visible body off-center within an otherwise valid sheet.
+  // Measuring once per sheet keeps the card column still while frames animate.
+  async function measureArtwork() {
+    const measurement = ++artworkMeasurement;
+    artworkCenter = 0.5;
+    if (typeof Image !== "function" || typeof Image.prototype.decode !== "function") return;
+    try {
+      const background = getComputedStyle(sprite).backgroundImage;
+      if (!background.startsWith("url(")) return;
+      const image = new Image();
+      image.src = JSON.parse(background.slice(4, -1));
+      await image.decode();
+      if (disposed || measurement !== artworkMeasurement) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = SHEET.cellWidth;
+      canvas.height = SHEET.cellHeight;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return;
+      let mass = 0;
+      let weightedX = 0;
+      for (let frame = 0; frame < SHEET.columns; frame++) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, frame * image.naturalWidth / SHEET.columns, 0,
+          image.naturalWidth / SHEET.columns, image.naturalHeight / SHEET.rows,
+          0, 0, canvas.width, canvas.height);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        for (let index = 3; index < pixels.length; index += 4) {
+          const alpha = pixels[index];
+          mass += alpha;
+          weightedX += alpha * (((index - 3) / 4) % canvas.width + 0.5);
+        }
+      }
+      if (mass > 0) {
+        const measured = weightedX / mass / canvas.width;
+        artworkCenter = Math.abs(measured - 0.5) < 0.01 ? 0.5 : measured;
+        layout();
+      }
+      canvas.width = canvas.height = 0;
+    } catch {
+      // Cross-origin sheets without canvas access keep their geometric center.
+    }
+  }
 
   function applySheet() {
     const custom = typeof config.sheet === "string" ? config.sheet.trim() : "";
@@ -934,14 +989,19 @@ function petSurface(host, data) {
       sheetProblem = custom.length === 0 ? "" : "the sprite sheet needs an http, https, or data URL";
       sprite.style.removeProperty("background-image");
       pet.dataset.pet = "rocky";
+      releaseSheetObjectUrl();
+      void measureArtwork();
       return;
     }
 
     sheetProblem = "";
     pet.dataset.pet = "custom";
-    // Chromium drops oversized CSS custom properties, including generated sheets.
-    // Set the image directly; JSON.stringify escapes quotes and backslashes.
-    sprite.style.backgroundImage = `url(${JSON.stringify(custom)})`;
+    const image = sheetImageUrl(custom);
+    // Keep the previous image alive until its replacement is assigned.
+    sprite.style.backgroundImage = `url(${JSON.stringify(image)})`;
+    releaseSheetObjectUrl();
+    if (image !== custom) sheetObjectUrl = image;
+    void measureArtwork();
   }
 
   /* ── Where it stands, and where the tray goes ───────────────────────────
@@ -984,14 +1044,7 @@ function petSurface(host, data) {
   const clampAnchor = (value, low, high) =>
     low > high ? Math.round((low + high) / 2) : Math.min(Math.max(Math.round(value), low), high);
 
-  /**
-   * Whether the control cluster is out on its arc.
-   *
-   * One flag decides it, and it is proximity rather than hover: Codex opens the
-   * cluster from pet-pointer-proximity-changed, so the controls are already out by
-   * the time the cursor arrives on the mascot. Everything laid out off the arc asks
-   * this, because when it is false the arc collapses onto the mascot's centre line.
-   */
+  /** Proximity reveals the quick-chat controls; the corner badge stays visible. */
   const cluster = () => nearby;
 
   /**
@@ -1002,7 +1055,8 @@ function petSurface(host, data) {
    * gap-2` and picks the order from isTrayAboveMascot — composer first when the
    * column is above the mascot, last when it is below — so the activity stack is
    * always the member touching the pet and the composer is always on the far side
-   * of it. Both start centered on the pet, with their own horizontal bounds.
+   * of it. The column centers on the pet when there is room, and shifts inward
+   * at a screen edge without changing the pet's position.
    *
    * Where the column starts is Jt(): under the pet, or under the open cluster when
    * that is what is showing, flipping above when the whole column would run past
@@ -1014,10 +1068,6 @@ function petSurface(host, data) {
    * once it is open.
    */
   function layout() {
-    const arc = arcAt(BADGE_SLOT, width, height);
-    pet.style.setProperty("--pet-badge-arc-x", `${arc.x}px`);
-    pet.style.setProperty("--pet-badge-arc-y", `${arc.y}px`);
-
     /*
      * The activity width is measured — page 2191 hands the stack a
      * `viewportRect` of `{height: 208, left: 0, top: 0, width: Hr().width}` and
@@ -1041,25 +1091,19 @@ function petSurface(host, data) {
     if (chatOpen) column.push({ tray: false, size: CHAT_HEIGHT });
     const columnHeight = column.reduce((sum, member, index) => sum + member.size + (index > 0 ? COLUMN_GAP : 0), 0);
 
-    /*
-     * Clamp each surface using its own width. Sharing the widest member's clamp
-     * leaves a narrow task card needlessly far from the screen edge; using only
-     * visible members also makes it jump sideways when quick chat appears.
-     * Neither surface's horizontal position should depend on the other's
-     * visibility. The mascot retains its independent drag bounds as well.
-     */
-    const petCentre = x + width / 2;
-    const centerFor = (surfaceWidth) => {
-      const half = surfaceWidth / 2;
-      const nearest = half + VIEWPORT_INSET;
-      const furthest = window.innerWidth - half - VIEWPORT_INSET;
-      return furthest < nearest ? window.innerWidth / 2 : Math.min(Math.max(petCentre, nearest), furthest);
+    // Each surface fits its own width at the edge. Using the 344px composer's
+    // width for the tray leaves short cards stranded well inside the screen.
+    // Their resting centers agree wherever there is room around the artwork.
+    const artworkOffset = Math.round(width * (artworkCenter - 0.5));
+    const centerX = x + width / 2 + artworkOffset;
+    const fitCenter = (size, margin) => {
+      const inset = Math.min(margin, Math.max(0, (window.innerWidth - size) / 2));
+      return Math.min(Math.max(centerX, inset + size / 2), window.innerWidth - inset - size / 2);
     };
-    const trayCentreX = centerFor(trayWidth);
-    const chatCentreX = centerFor(chatWidth);
+    const trayCentreX = fitCenter(trayWidth, VIEWPORT_INSET);
+    const chatCentreX = fitCenter(chatWidth, CHAT_VIEWPORT_INSET / 2);
 
-    const anchor = cluster() ? arc.y + HOVER_CONTROL_SIZE : height;
-    const below = y + anchor + GAP_BELOW;
+    const below = y + height + GAP_BELOW;
     // Jt(): the test is against the bottom of the screen, and a flipped column
     // hangs off the pet's own top rather than the cluster's.
     const flipped = below + columnHeight > window.innerHeight;
@@ -1152,7 +1196,7 @@ function petSurface(host, data) {
    * here either.
    */
   function lookPoint() {
-    return chatTarget === null ? null : caretAt;
+    return replyState === null ? null : caretAt;
   }
 
   /**
@@ -1239,11 +1283,8 @@ function petSurface(host, data) {
 
   /* ── The indicator ──────────────────────────────────────────────────────
    *
-   * The mascot badge is slot 2 of the control cluster: a 24 px glass disc, coloured
-   * by the highest level in the tray. Closed, the cluster passes a gap that is the
-   * negative of the control size, so every slot lands on the mascot's centre line
-   * and the badge is a sliver under its feet; open, it rides out to its place on
-   * the arc.
+   * avatar-mascot-button's standard presentation: a 24px glass disc, defaulting
+   * to top-end. Its contents remain visible independently of pointer proximity.
    *
    * What is *on* the disc is the part that is easy to get wrong. Frame 3868-3952 is
    * one if/else over the same variable, and the number is only ever the second of
@@ -1260,9 +1301,28 @@ function petSurface(host, data) {
    * So the count is not a running tally that sits on the pet — it is what the way
    * back looks like once the pills have been put away. Both branches need at least
    * one notification, which is the third state: with nothing to say there is no
-   * badge, and avatar-mascot-button takes it out the way it brought it in, from
-   * {opacity: 0, scale: 0.7, y: 3}.
+   * badge. A new badge enters from {opacity: 0, scale: 0.7, y: 3}; the standard
+   * presentation removes it immediately when its last notification disappears.
    */
+  function enterBadge() {
+    if (reducedMotion.matches || typeof badge.animate !== "function") return;
+    // Codex's badge spring: damping 20, mass .7, stiffness 420, zero velocity.
+    const decay = 20 / (2 * 0.7);
+    const frequency = Math.sqrt(420 / 0.7 - decay * decay);
+    const frames = [];
+    let elapsed = 0;
+    for (; elapsed <= 1000; elapsed += 1000 / 120) {
+      const seconds = elapsed / 1000;
+      const envelope = Math.exp(-decay * seconds);
+      const displacement = envelope * (Math.cos(frequency * seconds) + decay / frequency * Math.sin(frequency * seconds));
+      const velocity = envelope * (420 / 0.7) / frequency * Math.sin(frequency * seconds);
+      frames.push({ opacity: 1 - displacement, transform: `translateY(${3 * displacement}px) scale(${1 - 0.3 * displacement})` });
+      if (Math.abs(3 * displacement) < 0.005 && Math.abs(3 * velocity) < 0.01) break;
+    }
+    frames[frames.length - 1] = { opacity: 1, transform: "translateY(0px) scale(1)" };
+    badgeAnimation = badge.animate(frames, { duration: elapsed, easing: "linear" });
+  }
+
   function renderBadge() {
     const level = LEVELS[entries[0]?.status] ?? LEVELS.idle;
     pet.dataset.petTone = level.tone;
@@ -1272,7 +1332,7 @@ function petSurface(host, data) {
     const kind = stashed ? "count" : "chevron";
     pet.dataset.petBadgeKind = kind;
     badgeCount.textContent = kind === "count" && count > 0 ? String(count) : "";
-    badge.title =
+    const label =
       count === 0
         ? ""
         : kind === "count"
@@ -1281,7 +1341,15 @@ function petSurface(host, data) {
             ? "Collapse activity stack"
             : "Hide activity";
 
-    pet.dataset.petBadge = count === 0 ? "hidden" : cluster() ? "expanded" : "compact";
+    badge.setAttribute("aria-label", label);
+    pet.dataset.petBadgeCorner = badgeCorner;
+    const visible = config.activity !== false && count > 0;
+    pet.dataset.petBadge = visible ? "visible" : "hidden";
+    badge.hidden = !visible;
+    badge.disabled = !visible;
+    if (visible && !badgeVisible) enterBadge();
+    else if (!visible) badgeAnimation?.cancel();
+    badgeVisible = visible;
   }
 
   /* ── The activity stack ─────────────────────────────────────────────────
@@ -1327,9 +1395,9 @@ function petSurface(host, data) {
    * margins take — or, if it does not fold, whichever of the two lines is wider. A
    * card that is neither running nor waiting adds 45 px for the controls it shows.
    *
-   * The family comes off the card's own text rather than `document.body`, which is
-   * where Codex reads it: this surface declares its own, and in the desktop window
-   * there is no body styling to read. With no canvas to measure in — Hr()'s `t ==
+   * The tray and its card text declare the same font family. Reading it from the
+   * tray also works before a card is visible; the blank desktop document's body
+   * would otherwise supply Times New Roman. With no canvas — Hr()'s `t ==
    * null` — the answer is the 315 ceiling, which is what it was before any of this.
    */
   let widthContext;
@@ -1341,21 +1409,21 @@ function petSurface(host, data) {
     JSON.stringify(entries.map((entry) => [entry.key, entry.status, entry.title, entry.subtitle]));
 
   function cardWidth() {
-    const key = widthSignature();
+    const family = window.getComputedStyle(tray).fontFamily || FALLBACK_FAMILY;
+    const key = `${family}|${widthSignature()}`;
     if (key !== widthKey) {
       widthKey = key;
-      widthValue = measureCards();
+      widthValue = measureCards(family);
     }
     return widthValue;
   }
 
-  function measureCards() {
+  function measureCards(family) {
     if (widthContext === undefined) {
       widthContext = document.createElement("canvas").getContext("2d") ?? null;
     }
     if (widthContext === null || entries.length === 0) return CARD_WIDTH;
 
-    const family = window.getComputedStyle(cards[0]?.text ?? tray).fontFamily || FALLBACK_FAMILY;
     let widest = 0;
     for (const entry of entries) {
       const { level, title, body } = copyOf(entry);
@@ -1417,8 +1485,8 @@ function petSurface(host, data) {
    * the lot without filtering anything; past eight it keeps whatever overlaps the
    * viewport grown by 56 px of overscan, tops that set back up to eight with the
    * excluded entries nearest the window, and hands entry i the pool card at
-   * `i % 8` — which keeps a card element with its entry while the list scrolls
-   * under it.
+   * a bounded pool of eight. This renderer keeps each drawn entry's element by
+   * key, so a notification reorder also preserves its reply selection and focus.
    *
    * The window can never be more than seven long: 208 px of viewport plus 56 px of
    * overscan either side is 320, and a card's pitch is at least 54 + 8. Codex
@@ -1427,7 +1495,7 @@ function petSurface(host, data) {
    * makes the assertion safe.
    */
   function windowed() {
-    let cursor = -scrollOffset;
+    let cursor = -clampScroll(scrollOffset);
     const placed = entries.map((entry, index) => {
       const height = heightOf(entry.key);
       const top = cursor;
@@ -1483,7 +1551,6 @@ function petSurface(host, data) {
     root.dataset.petHovered = hoveredKey === entry.key ? "true" : "false";
     // A single card is not a collapsed stack (native-frame 3822).
     root.dataset.petCollapsed = !stackExpanded && entries.length > 1 ? "true" : "false";
-    root.dataset.petReplying = chatTarget === entry.key ? "true" : "false";
     // Inert under aria-hidden, but this is where Codex keeps the level's name and
     // the only place it belongs.
     root.setAttribute("aria-label", `${level.label} · ${title}`);
@@ -1499,7 +1566,7 @@ function petSurface(host, data) {
     const controls = level.controls ?? (level.tone === "success" ? "success" : "default");
     root.dataset.petPill = level.loading ? "loading" : controls === "none" ? "none" : "default";
     root.dataset.petControlsVisible = controls !== "none" &&
-      (chatTarget === entry.key || ((stackExpanded || entries.length === 1) && hoveredKey === entry.key))
+      (replyState?.key === entry.key || ((stackExpanded || entries.length === 1) && hoveredKey === entry.key))
       ? "true" : "false";
 
     card.text.textContent = "";
@@ -1531,6 +1598,7 @@ function petSurface(host, data) {
     card.dismiss.hidden = controls !== "success";
     // Oe: stop is enabled only on a card that is actually running.
     card.stop.setAttribute("aria-hidden", level.loading ? "false" : "true");
+    syncReply(card, entry);
   }
 
   /**
@@ -1544,9 +1612,11 @@ function petSurface(host, data) {
   function placeCard(card, slot, total) {
     const root = card.root;
     if (stackExpanded) {
+      delete root.dataset.petSlot;
       root.style.setProperty("--pet-card-y", `${slot.top}px`);
       root.style.setProperty("--pet-card-z", String(total - slot.index));
     } else {
+      root.dataset.petSlot = "0";
       root.style.removeProperty("--pet-card-y");
       root.style.removeProperty("--pet-card-z");
     }
@@ -1574,7 +1644,7 @@ function petSurface(host, data) {
     let moved = false;
     let read = false;
     for (const slot of drawn) {
-      const measured = cardAt(slot.index % STACK_SLOTS).root.offsetHeight;
+      const measured = cardFor(slot.entry.key)?.root.offsetHeight ?? 0;
       if (measured <= 0) continue;
       read = true;
       const height = Math.max(CARD_HEIGHT, Math.ceil(measured));
@@ -1592,8 +1662,6 @@ function petSurface(host, data) {
    * @returns the slots it drew
    */
   function paintCards(total) {
-    scrollOffset = clampScroll(scrollOffset);
-
     // A pile draws the front entry and nothing else, because fbe()'s collapsed
     // branch gives everything behind it a zero-height content rect.
     const drawn =
@@ -1607,17 +1675,30 @@ function petSurface(host, data) {
     // and writeCard reads that, so it has to be settled first.
     if (hoveredKey !== null && !drawn.some((slot) => slot.entry.key === hoveredKey)) hoveredKey = null;
 
+    const wanted = new Set(drawn.map((slot) => slot.entry.key));
     const used = new Set();
     for (const slot of drawn) {
-      const pool = slot.index % STACK_SLOTS;
-      used.add(pool);
-      writeCard(cardAt(pool), slot.entry);
-      placeCard(cardAt(pool), slot, total);
+      const card = cardFor(slot.entry.key) ??
+        cards.find((candidate) => !wanted.has(candidate.root.dataset.petKey) && !used.has(candidate)) ??
+        cardAt(cards.length);
+      if (card.root.dataset.petKey !== slot.entry.key && document.activeElement === card.replyInput) {
+        card.replyInput.blur();
+      }
+      if (card.root.dataset.petKey !== slot.entry.key) {
+        card.replyMotion = null;
+        card.replyTargetHeight = 0;
+        card.replyBox.style.height = "0px";
+        card.replyBox.style.marginBottom = "0px";
+      }
+      used.add(card);
+      writeCard(card, slot.entry);
+      placeCard(card, slot, total);
     }
-    for (let pool = 0; pool < cards.length; pool += 1) {
-      if (used.has(pool)) continue;
-      cards[pool].root.hidden = true;
-      cards[pool].root.dataset.petHovered = "false";
+    for (const card of cards) {
+      if (used.has(card)) continue;
+      if (document.activeElement === card.replyInput) card.replyInput.blur();
+      card.root.hidden = true;
+      card.root.dataset.petHovered = "false";
     }
     return drawn;
   }
@@ -1637,12 +1718,7 @@ function petSurface(host, data) {
       if (!entries.some((entry) => entry.key === key)) heights.delete(key);
     }
 
-    // `Ce` only survives while the card does (frame 5941), so a thread that has
-    // gone takes the aim with it and the pill returns to a new projectless chat.
-    if (chatTarget !== null && !entries.some((entry) => entry.key === chatTarget)) {
-      chatTarget = null;
-      composerClosed();
-    }
+    if (replyState !== null && !entries.some((entry) => entry.key === replyState.key)) closeReply();
 
     /*
      * Draw, measure, and draw again if the measurement moved anything.
@@ -1661,7 +1737,7 @@ function petSurface(host, data) {
      * signature over the first of those for its own memo. A scroll changes none of
      * them, so a scroll pays nothing.
      */
-    const shape = `${stackExpanded}|${cardWidth()}|${widthKey}`;
+    const shape = `${stackExpanded}|${cardWidth()}|${widthKey}|${replyRevision}`;
     const first = paintCards(total);
     if (shape !== heightKey) {
       const settled = measureHeights(first);
@@ -1670,6 +1746,7 @@ function petSurface(host, data) {
       if (settled !== "blind") heightKey = shape;
       if (settled === "moved") paintCards(total);
     }
+    if (revealReply && scrollReplyIntoView()) paintCards(total);
 
     // The pile's own backings, which are empty for the same reason. lbe(): all
     // three rungs are built out of `{...viewport, height: items[0].height}`, the
@@ -1683,8 +1760,9 @@ function petSurface(host, data) {
     backings[1].hidden = stackExpanded || total < 2;
 
     // The masked edge is whichever side has something scrolled off it.
-    const above = scrollOffset > 0;
-    const belowEdge = scrollOffset < contentHeight() - STACK_VIEWPORT_HEIGHT;
+    const visibleScrollOffset = clampScroll(scrollOffset);
+    const above = visibleScrollOffset > 0;
+    const belowEdge = visibleScrollOffset < contentHeight() - STACK_VIEWPORT_HEIGHT;
     if (stackExpanded && (above || belowEdge)) {
       tray.dataset.petOverflow = above && belowEdge ? "both" : above ? "top" : "bottom";
     } else delete tray.dataset.petOverflow;
@@ -1700,15 +1778,12 @@ function petSurface(host, data) {
      * there is something to say. Proximity adds the cluster, the card controls and
      * the quick chat on top; it takes none of this away.
      */
+    // Codex only resets expansion on an explicit collapse or hide/show action.
+    // An empty notification snapshot must not collapse a list that was open.
     const open = config.activity && !stashed && total > 0;
     tray.dataset.petTray = open ? "open" : "closed";
-    if (!open && stackExpanded) {
-      // Dr(): whatever puts the pills away closes the stack and rewinds it, so the
-      // next time they come out it is a pile again.
-      stackExpanded = false;
-      scrollOffset = 0;
-      tray.dataset.petStack = "collapsed";
-    }
+    tray.setAttribute("aria-hidden", String(!open));
+    tray.inert = !open;
   }
 
   /** Everything that depends on the activity list, in the order it depends on it. */
@@ -1741,6 +1816,7 @@ function petSurface(host, data) {
     px >= rect.left && px <= rect.right && py >= rect.top && py <= rect.bottom;
 
   function near(px, py) {
+    if (menuOpen) return true;
     if (
       px >= x - PROXIMITY_EXIT_PX &&
       px <= x + width + PROXIMITY_EXIT_PX &&
@@ -1785,9 +1861,9 @@ function petSurface(host, data) {
    * @returns whether anything needs redrawing now
    */
   function setNearby(next) {
-    // A caret in the chat pill pins everything open. Codex's 300 ms is there to
+    // A caret in either editor pins everything open. Codex's 300 ms is there to
     // forgive a cursor crossing a gap, not to take a half-typed question away.
-    if (next || document.activeElement === chatInput) {
+    if (next || isPetEditor(document.activeElement)) {
       clearTimeout(dismissTimer);
       dismissTimer = undefined;
       if (nearby) return false;
@@ -1800,7 +1876,6 @@ function petSurface(host, data) {
       dismissTimer = undefined;
       nearby = false;
       chatOpen = false;
-      chatTarget = null;
       hoveredKey = null;
       renderCluster();
     }, DISMISS_DELAY_MS);
@@ -1821,15 +1896,15 @@ function petSurface(host, data) {
    * Everything that follows the cursor: the window's own solidity, how near the
    * pet the pointer is, which card it is over, and which way the pet is looking.
    *
-   * A held pet keeps the window solid whatever the hit test says. A hand can
+   * A held pet or badge keeps the window solid whatever the hit test says. A hand can
    * leave the sprite between two moves, and going click-through there would drop
    * the drag on the floor.
    */
   function updatePointer(px, py) {
     pointerAt = { x: px, y: py };
 
-    const hit = drag !== null ? pet : hitAt(px, py);
-    if (desktop) host.setInteractive(hit !== null);
+    const hit = drag !== null ? pet : badgeDrag !== null ? badge : hitAt(px, py);
+    if (desktop) host.setInteractive(menuOpen || hit !== null);
 
     // Over the pet's own surface counts as near it however far the cursor has
     // reached down the stack, which is Ui()'s isPointerSurfaceHovered.
@@ -1851,7 +1926,7 @@ function petSurface(host, data) {
      * every part of this is a hit region — so what actually closes the pill is
      * the cluster's own dismissal, which setNearby already does.
      */
-    const column = hit !== null && hit.dataset.petHit !== "pet" && hit.dataset.petHit !== "badge";
+    const column = hit !== null && !["pet", "badge", "menu"].includes(hit.dataset.petHit);
     if (column && !chatOpen) {
       chatOpen = true;
       changed = true;
@@ -1880,7 +1955,7 @@ function petSurface(host, data) {
     hovering = false;
     setNearby(false);
     renderCluster();
-    if (desktop && drag === null) host.setInteractive(false);
+    if (desktop && drag === null && badgeDrag === null) host.setInteractive(menuOpen);
     paint();
   }
 
@@ -1890,6 +1965,105 @@ function petSurface(host, data) {
     track(() => target.removeEventListener(type, handler, options));
   };
 
+  function closePetMenu(restoreFocus = false) {
+    if (!menuOpen) return;
+    menuOpen = false;
+    petMenu.hidden = true;
+    pet.setAttribute("aria-expanded", "false");
+    if (restoreFocus && menuFocus?.isConnected) menuFocus.focus({ preventScroll: true });
+    if (desktop) host.setFocusable?.(isPetEditor(document.activeElement));
+    if (pointerAt) updatePointer(pointerAt.x, pointerAt.y);
+    else if (desktop) host.setInteractive(false);
+    menuFocus = null;
+  }
+
+  function showPetMenu(point) {
+    if (disposed) return;
+    menuFocus = document.activeElement;
+    menuOpen = true;
+    petMenu.hidden = false;
+    pet.setAttribute("aria-expanded", "true");
+    const rect = petMenu.getBoundingClientRect();
+    petMenu.style.left = `${Math.max(6, Math.min(point.x, window.innerWidth - (rect.width || 200) - 6))}px`;
+    petMenu.style.top = `${Math.max(6, Math.min(point.y, window.innerHeight - (rect.height || 40) - 6))}px`;
+    if (desktop) {
+      host.setInteractive(true);
+      host.setFocusable?.(true);
+    }
+    closePetItem.focus({ preventScroll: true });
+  }
+
+  on(pet, "contextmenu", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (drag !== null) endDrag({ pointerId: drag.pointerId }, false);
+    stopMomentum();
+    closePetMenu();
+    const point = event.clientX || event.clientY ? { x: event.clientX, y: event.clientY } : { x: x + width, y: y + height / 2 };
+    if (desktop) {
+      menuRequest = { id: `pet-menu-${++menuSequence}`, point };
+      host.send({ type: "bettergravity:overlay-context-menu", requestId: menuRequest.id,
+        items: [{ id: "close-pet", label: "Close pet" }] });
+    } else showPetMenu(point);
+  });
+  on(closePetItem, "click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    closePetMenu();
+    host.send({ t: "hide" });
+  });
+  on(document, "pointerdown", event => {
+    if (!menuOpen || petMenu.contains(event.target)) return;
+    closePetMenu();
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+  on(petMenu, "keydown", event => {
+    event.stopPropagation();
+    if (["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      closePetItem.focus();
+    } else if (event.key === "Escape" || event.key === "Tab") {
+      event.preventDefault();
+      closePetMenu(true);
+    }
+  });
+
+  // A downloaded font can change the widest card without changing its text.
+  if (document.fonts?.addEventListener) on(document.fonts, "loadingdone", () => {
+    widthKey = null;
+    heightKey = null;
+    renderTray();
+    layout();
+  });
+
+  // Follow the reply's actual animated height. A second spring on the tray or
+  // its neighboring cards would lag behind it and briefly overlap their content.
+  const cardResizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver((changes) => {
+    if (disposed) return;
+    let moved = false;
+    for (const change of changes) {
+      const card = cards.find((candidate) => candidate.root === change.target || candidate.replyForm === change.target);
+      if (!card || card.root.hidden) continue;
+      if (change.target === card.replyForm) {
+        if (replyState?.key === card.root.dataset.petKey) sizeReply(card);
+        continue;
+      }
+      const measured = change.borderBoxSize?.[0]?.blockSize ?? card.root.offsetHeight;
+      if (measured <= 0) continue;
+      const next = Math.max(CARD_HEIGHT, Math.round(measured));
+      const key = card.root.dataset.petKey;
+      if (heights.get(key) === next) continue;
+      heights.set(key, next);
+      moved = true;
+    }
+    if (moved) {
+      renderTray();
+      layout();
+    }
+  }) : null;
+  track(() => cardResizeObserver?.disconnect());
+
   // `mousemove` rather than `pointermove`, because a forwarded mouse message is
   // what Electron promises to deliver to a click-through window; pointer events
   // are for the drag, which only happens once the window is solid.
@@ -1898,16 +2072,23 @@ function petSurface(host, data) {
   });
   on(document, "mouseleave", forgetPointer);
   on(window, "blur", () => {
+    closePetMenu();
     if (drag !== null) endDrag({ pointerId: drag.pointerId }, false);
-    if (desktop) chatInput.blur();
+    if (desktop && isPetEditor(document.activeElement)) document.activeElement.blur();
     else forgetPointer();
   });
 
   on(reducedMotion, "change", () => {
+    if (reducedMotion.matches) badgeAnimation?.cancel();
     rebuild();
+    if (reducedMotion.matches && replyFrame !== undefined) {
+      cancelAnimationFrame(replyFrame);
+      animateReplies(performance.now());
+    }
   });
 
   on(window, "resize", () => {
+    closePetMenu();
     // Same clamp as a drag: the pet stays inside whatever the work area now is.
     place(x, y);
     report();
@@ -2107,7 +2288,9 @@ function petSurface(host, data) {
 
     transient = null;
     pet.dataset.petDragging = "true";
-    // Held, the indicator goes back to its resting sliver.
+    tray.dataset.petDragging = "true";
+    chat.dataset.petDragging = "true";
+    // Keep the corner badge anchored while the mascot moves.
     renderBadge();
     // A held pet does not look around, so the pose has to come off now.
     paint();
@@ -2165,6 +2348,8 @@ function petSurface(host, data) {
       if (pet.hasPointerCapture(event.pointerId)) pet.releasePointerCapture(event.pointerId);
     } catch {}
     delete pet.dataset.petDragging;
+    delete tray.dataset.petDragging;
+    delete chat.dataset.petDragging;
     renderBadge();
     refresh();
 
@@ -2192,7 +2377,8 @@ function petSurface(host, data) {
 
     if (released && !moved) {
       // Codex's mascot brings the app forward when it is clicked rather than
-      // dragged. Only the page half can do that, so it is asked to.
+      // dragged. Native focus also restores a minimized owner on the desktop.
+      if (desktop) host.focusOwner?.();
       host.send({ t: "poke" });
       if (pointerAt !== null) updatePointer(pointerAt.x, pointerAt.y);
       return;
@@ -2224,8 +2410,51 @@ function petSurface(host, data) {
     target instanceof Element ? (target.closest("[data-pet-key]")?.dataset.petKey ?? null) : null;
 
   const tell = (t, key) => {
-    if (typeof key === "string" && key.length > 0) host.send({ t, key });
+    if (typeof key !== "string" || key.length === 0) return;
+    if (desktop && t === "open") host.focusOwner?.();
+    host.send({ t, key });
   };
+
+  // The standard Codex badge can be dragged to a corner independently of the
+  // mascot. Crossing its 4px threshold must suppress the following click.
+  on(badge, "pointerdown", (event) => {
+    if (event.button !== 0 || badge.disabled) return;
+    event.stopPropagation();
+    try { badge.setPointerCapture(event.pointerId); } catch {}
+    badgeDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+  });
+  on(badge, "pointermove", (event) => {
+    if (badgeDrag === null || event.pointerId !== badgeDrag.pointerId) return;
+    event.stopPropagation();
+    const dx = event.clientX - badgeDrag.x;
+    const dy = event.clientY - badgeDrag.y;
+    if (!badgeDrag.moved && Math.abs(dx) < BADGE_DRAG_THRESHOLD && Math.abs(dy) < BADGE_DRAG_THRESHOLD) return;
+    event.preventDefault();
+    badgeDrag.moved = true;
+    badge.style.translate = `${dx}px ${dy}px`;
+  });
+  const releaseBadge = (event, cancelled) => {
+    const held = badgeDrag;
+    if (held === null || event.pointerId !== held.pointerId) return;
+    event.stopPropagation();
+    badgeDrag = null;
+    badge.style.removeProperty("translate");
+    if (badge.hasPointerCapture?.(event.pointerId)) badge.releasePointerCapture(event.pointerId);
+    if (cancelled || !held.moved) return;
+    badgeCorner = `${event.clientY < y + height / 2 ? "top" : "bottom"}-${event.clientX < x + width / 2 ? "start" : "end"}`;
+    pet.dataset.petBadgeCorner = badgeCorner;
+    host.send({ t: "badge-corner", corner: badgeCorner });
+    event.preventDefault();
+    suppressBadgeClick = true;
+    clearTimeout(badgeClickTimer);
+    badgeClickTimer = setTimeout(() => { suppressBadgeClick = false; }, 0);
+  };
+  on(badge, "pointerup", (event) => releaseBadge(event, false));
+  on(badge, "pointercancel", (event) => releaseBadge(event, true));
+  on(badge, "lostpointercapture", () => {
+    badgeDrag = null;
+    badge.style.removeProperty("translate");
+  });
 
   on(document, "click", (event) => {
     if (!(event.target instanceof Element)) return;
@@ -2244,11 +2473,16 @@ function petSurface(host, data) {
      * `Dr()` is `ft(!1), Wt(0)`: closed, and rewound to the top.
      */
     if (event.target.closest('[data-pet-hit="badge"]') !== null) {
-      if (entries.length === 0) return;
-      if (document.activeElement === chatInput) chatInput.blur();
+      event.stopPropagation();
+      if (suppressBadgeClick) { suppressBadgeClick = false; event.preventDefault(); return; }
+      if (entries.length === 0 || badge.disabled) return;
+      if (isPetEditor(document.activeElement)) document.activeElement.blur();
       if (stashed) {
         // Vr(): the count is the way back.
         stashed = false;
+        stackExpanded = false;
+        scrollOffset = 0;
+        host.send({ t: "activity-visibility", visible: true });
       } else if (stackExpanded && entries.length > 1) {
         stackExpanded = false;
         scrollOffset = 0;
@@ -2256,6 +2490,7 @@ function petSurface(host, data) {
         stashed = true;
         stackExpanded = false;
         scrollOffset = 0;
+        host.send({ t: "activity-visibility", visible: false });
       }
       renderCluster();
       return;
@@ -2265,45 +2500,27 @@ function petSurface(host, data) {
     if (control !== null) {
       const key = keyOf(control);
       switch (control.dataset.petControl) {
-        case "reply":
-          /*
-           * The pill is already out — reaching this button meant crossing the
-           * card it is on — so pressing it does what Codex's reply control does
-           * to the composer it owns: `q("")` throws away whatever was half
-           * typed, `G(_.turnKey)` aims it at this thread, and the caret goes
-           * into it. Pressing it again while it is already aimed here is the
-           * `if (Te) { Qe(); return }` branch, which closes the composer; the
-           * pill cannot close while the cursor is on the card that opens it, so
-           * what it gives up is the caret — `Lr(!1)`, the same thing the badge
-           * does first.
-           *
-           * Nothing is told to the editor. `open-follow-up` sets the follow-up
-           * state and no more (page 2994): the thread is not brought on screen
-           * until something is actually sent to it, which is what submitChat's
-           * key is for. Pressing reply moves nothing but the caret.
-           */
-          if (chatTarget === key && document.activeElement === chatInput) {
-            chatInput.value = "";
-            chatTarget = null;
-            chatInput.blur();
+        case "reply": {
+          if (replyState?.key === key) {
+            closeReply();
             break;
           }
-          chatInput.value = "";
-          chatTarget = key;
-          composerClosed();
-          // A non-focusable native window can select a DOM input without
-          // emitting its focus event. Reply must request native focus itself.
-          focusChat();
-          chatInput.focus();
+          const card = cardFor(key);
+          if (!card) break;
+          closeReply();
+          replyState = { key, draft: "", requestId: null, error: false };
+          replyRevision++;
+          setNearby(true);
+          renderCluster();
+          // Request native focus explicitly: an Electron overlay can select a
+          // DOM field without emitting focus while its window is not focusable.
+          focusEditor();
+          card.replyInput.focus({ preventScroll: true });
           break;
+        }
         case "stop":
           if (control.getAttribute("aria-hidden") !== "true") {
-            // Stop clears the composer it shares a row with, too.
-            if (chatTarget === key) {
-              chatInput.value = "";
-              chatTarget = null;
-              composerClosed();
-            }
+            if (replyState?.key === key) closeReply();
             tell("stop", key);
           }
           break;
@@ -2347,6 +2564,7 @@ function petSurface(host, data) {
     "wheel",
     (event) => {
       if (!stackExpanded) return;
+      revealReply = false;
       const next = clampScroll(scrollOffset + event.deltaY);
       if (next === scrollOffset) return;
       event.preventDefault();
@@ -2361,52 +2579,231 @@ function petSurface(host, data) {
   function submitChat() {
     const text = chatInput.value.trim();
     if (text.length === 0) return;
-    /*
-     * `(q(``), G(void 0))` before the send: the composer is emptied and stops being
-     * aimed at anything.
-     *
-     * And the aim is passed on exactly as it stands, null included. Codex has two
-     * submits, not one: a card's reply control aims the pill and the question
-     * becomes a follow-up in that thread (`onSubmitFollowUp`, frame 6655, which
-     * carries the notification), while the pill on its own carries nothing at all
-     * and Fr() sends it to a create call with `target: { type: "projectless" }`
-     * (page 1859). Falling back to the front of the list would put a new question
-     * into whichever thread happened to be running, which is not a thing Codex
-     * can do.
-     */
-    const key = chatTarget;
     chatInput.value = "";
-    chatTarget = null;
-    composerClosed();
-    host.send({ t: "ask", text, key });
+    host.send({ t: "ask", text, key: null });
   }
 
-  /**
-   * hi(), frame 3428: everything about the composer that could move the caret.
-   * Joined with a NUL because none of the parts can contain one.
-   */
-  const composerReading = () =>
+  function closeReply() {
+    if (replyState === null) return;
+    const field = cardFor(replyState.key)?.replyInput;
+    replyState = null;
+    replyRevision++;
+    if (document.activeElement === field) field.blur();
+    composerClosed();
+  }
+
+  function submitReply(key) {
+    const state = replyState;
+    if (state === null || state.key !== key || state.requestId !== null) return;
+    const text = state.draft.trim();
+    if (!text) return;
+    state.requestId = String(++replySequence);
+    state.error = false;
+    replyRevision++;
+    renderCluster();
+    try {
+      host.send({ t: "ask", key, text, requestId: state.requestId });
+    } catch {
+      state.requestId = null;
+      state.error = true;
+      replyRevision++;
+      renderCluster();
+    }
+  }
+
+  function animateReplyLayout(reveal) {
+    tray.dataset.petReplyLayout = "true";
+    if (reveal) revealReply = true;
+    clearTimeout(replyLayoutTimer);
+    replyLayoutTimer = setTimeout(() => {
+      replyLayoutTimer = undefined;
+      if (disposed) return;
+      heightKey = null;
+      renderTray();
+      layout();
+      revealReply = false;
+      if (replyState === null) delete tray.dataset.petReplyLayout;
+    }, reducedMotion.matches ? 0 : 252);
+  }
+
+  // Codex's height curve is cubic-bezier(0.23, 1, 0.32, 1). Drive the height
+  // and its measured stack positions in one frame, as its onUpdate callback
+  // does; a CSS height transition can advance before ResizeObserver delivers.
+  function replyEase(progress) {
+    if (progress <= 0 || progress >= 1) return progress;
+    let low = 0;
+    let high = 1;
+    for (let index = 0; index < 16; index++) {
+      const t = (low + high) / 2;
+      const x = 3 * (1 - t) ** 2 * t * 0.23 + 3 * (1 - t) * t ** 2 * 0.32 + t ** 3;
+      if (x < progress) low = t;
+      else high = t;
+    }
+    return 1 - (1 - (low + high) / 2) ** 3;
+  }
+
+  function animateReplies(now) {
+    replyFrame = undefined;
+    if (disposed) return;
+    for (const card of cards) {
+      const motion = card.replyMotion;
+      if (!motion) continue;
+      const progress = reducedMotion.matches ? 1 : Math.min(1, Math.max(0, (now - motion.started) / 220));
+      const eased = replyEase(progress);
+      card.replyBox.style.height = `${motion.height + (motion.targetHeight - motion.height) * eased}px`;
+      card.replyBox.style.marginBottom = `${motion.margin + (motion.targetMargin - motion.margin) * eased}px`;
+      if (progress === 1) card.replyMotion = null;
+    }
+    heightKey = null;
+    renderTray();
+    layout();
+    if (cards.some(card => card.replyMotion)) replyFrame ??= requestAnimationFrame(animateReplies);
+    else revealReply = false;
+  }
+
+  function sizeReply(card) {
+    const open = replyState?.key === card.root.dataset.petKey;
+    const next = open ? Math.max(26, card.replyForm.offsetHeight) : 0;
+    if (card.replyTargetHeight === next) return;
+    card.replyTargetHeight = next;
+    const margin = open ? 14 : 0;
+    animateReplyLayout(open);
+    if (reducedMotion.matches) {
+      card.replyMotion = null;
+      card.replyBox.style.height = `${next}px`;
+      card.replyBox.style.marginBottom = `${margin}px`;
+    } else {
+      card.replyMotion = {
+        started: performance.now(),
+        height: Number.parseFloat(card.replyBox.style.height) || 0,
+        margin: Number.parseFloat(card.replyBox.style.marginBottom) || 0,
+        targetHeight: next,
+        targetMargin: margin
+      };
+      replyFrame ??= requestAnimationFrame(animateReplies);
+    }
+  }
+
+  function syncReply(card, entry) {
+    const state = replyState?.key === entry.key ? replyState : null;
+    const open = state !== null;
+    card.root.dataset.petReplying = String(open);
+    card.reply.setAttribute("aria-label", `Reply to ${entry.title}`);
+    card.reply.setAttribute("aria-pressed", String(open));
+    card.reply.tabIndex = card.root.dataset.petControlsVisible === "true" ? 0 : -1;
+    card.replyBox.inert = !open;
+    card.replyBox.setAttribute("aria-hidden", String(!open));
+    card.replyForm.setAttribute("aria-busy", String(state?.requestId != null));
+    card.replyInput.disabled = !open;
+    card.replyInput.setAttribute("aria-label", `Follow up on ${entry.title}`);
+    const draft = state?.draft ?? "";
+    if (card.replyInput.value !== draft) card.replyInput.value = draft;
+    card.replyError.hidden = !state?.error;
+    sizeReply(card);
+  }
+
+  function scrollReplyIntoView() {
+    if (!stackExpanded || replyState === null) return false;
+    let top = 0;
+    for (const entry of entries) {
+      const size = heightOf(entry.key);
+      if (entry.key === replyState.key) {
+        const next = clampScroll(Math.min(top, Math.max(scrollOffset, top + size - STACK_VIEWPORT_HEIGHT)));
+        if (next === scrollOffset) return false;
+        scrollOffset = next;
+        return true;
+      }
+      top += size + STACK_GAP;
+    }
+    return false;
+  }
+
+  const isPetEditor = (element) => element === chatInput ||
+    (element instanceof HTMLTextAreaElement && tray.contains(element) && element.classList.contains("bettergravity-pet-card__reply-input"));
+
+  function focusEditor() {
+    if (desktop) host.setFocusable?.(true);
+  }
+
+  function editorBlur(event) {
+    // Moving between the inline reply and quick chat must not give native focus
+    // back to the application behind the floating window.
+    if (desktop && !isPetEditor(event.relatedTarget)) host.setFocusable?.(false);
+    composerClosed();
+    if (pointerAt === null) forgetPointer();
+    else updatePointer(pointerAt.x, pointerAt.y);
+  }
+
+  function wireReply(card) {
+    const { replyForm: form, replyInput: field } = card;
+    on(form, "pointerdown", (event) => {
+      event.stopPropagation();
+      focusEditor();
+    });
+    on(form, "click", (event) => event.stopPropagation());
+    on(form, "keyup", (event) => event.stopPropagation());
+    on(form, "submit", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      submitReply(keyOf(form));
+    });
+    on(field, "input", () => {
+      if (replyState?.key !== keyOf(field)) return;
+      replyState.draft = field.value;
+      replyState.error = false;
+      replyRevision++;
+      renderTray();
+      layout();
+      composerChanged();
+    });
+    on(field, "focus", () => {
+      focusEditor();
+      if (setNearby(true)) renderCluster();
+    });
+    on(field, "blur", editorBlur);
+    for (const type of ["select", "keyup", "pointerup", "scroll"]) on(field, type, composerChanged);
+    on(field, "keydown", (event) => {
+      event.stopPropagation();
+      if (event.isComposing || event.keyCode === 229) return;
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        closeReply();
+        renderCluster();
+      }
+    });
+    on(field, "wheel", (event) => {
+      // Let a multiline draft scroll before handing the wheel to the task list.
+      const canScroll = event.deltaY < 0 ? field.scrollTop > 0 :
+        field.scrollTop + field.clientHeight < field.scrollHeight;
+      if (canScroll) event.stopPropagation();
+    }, { passive: true });
+  }
+
+  /** hi(): the editor state that can move a caret, including multiline scroll. */
+  const composerReading = (field) =>
     [
-      chatInput.value,
-      chatInput.selectionStart,
-      chatInput.selectionEnd,
-      chatInput.selectionDirection,
-      chatInput.scrollLeft,
-      chatInput.scrollTop
+      field.value,
+      field.selectionStart,
+      field.selectionEnd,
+      field.selectionDirection,
+      field.scrollLeft,
+      field.scrollTop
     ].join("\0");
 
   /** The `follow-up-editor-changed` half of frame 5666: measure, then report. */
   function composerChanged() {
-    // Codex's separate quick-chat input only updates its text (frame 5504).
-    // Only a targeted follow-up supplies a look point to the mascot.
-    if (chatTarget === null || document.activeElement !== chatInput) {
+    const field = document.activeElement;
+    if (replyState === null || field !== cardFor(replyState.key)?.replyInput) {
       composerClosed();
       return;
     }
-    const reading = composerReading();
+    const reading = composerReading(field);
     if (reading === caretReading) return;
     caretReading = reading;
-    caretAt = caretPointOf(chatInput);
+    caretAt = caretPointOf(field);
     paint();
   }
 
@@ -2437,11 +2834,8 @@ function petSurface(host, data) {
   on(chatInput, "pointerup", composerChanged);
   // A non-focusable desktop window can focus a DOM input without receiving any
   // keys. Request native focus only while this editor is being used.
-  const focusChat = () => {
-    if (desktop) host.setFocusable?.(true);
-  };
-  on(chatInput, "pointerdown", focusChat);
-  on(chatInput, "focus", focusChat);
+  on(chatInput, "pointerdown", focusEditor);
+  on(chatInput, "focus", focusEditor);
 
   on(chatInput, "keydown", (event) => {
     // The editor has a great many global key handlers and no reason to see a
@@ -2457,25 +2851,50 @@ function petSurface(host, data) {
 
   // Losing the caret is what lets the cluster close again, and it may already be
   // outside the pet by then.
-  on(chatInput, "blur", () => {
-    if (desktop) host.setFocusable?.(false);
-    composerClosed();
-    if (pointerAt === null) forgetPointer();
-    else updatePointer(pointerAt.x, pointerAt.y);
-  });
+  on(chatInput, "blur", editorBlur);
 
   /* ── Talking to the other half ──────────────────────────────────────────
    *
-   * Four messages in. `config` and `activity` are the sensor pushing new state;
+   * `config` and `activity` are the sensor pushing new state;
    * `at` puts the pet back where it was last left, which is how a desktop pet
-   * remembers its place across restarts; `bye` is the teardown.
+   * remembers its place across restarts; `reply-result` confirms a send or keeps
+   * a failed draft in its card; `bye` is the teardown.
    */
 
   track(
     host.onMessage((message) => {
       if (message === null || typeof message !== "object") return;
 
+      // The native window also samples the desktop cursor. This recovers hover
+      // and click-through state when Windows stops forwarding mousemove events.
+      if (message.type === "bettergravity:overlay-pointer") {
+        if (desktop && Number.isFinite(message.x) && Number.isFinite(message.y)) {
+          updatePointer(message.x, message.y);
+        }
+        return;
+      }
+      if (message.type === "bettergravity:overlay-context-menu-result") {
+        if (message.requestId !== menuRequest?.id) return;
+        const request = menuRequest;
+        menuRequest = null;
+        if (message.unsupported) showPetMenu(request.point);
+        else if (message.id === "close-pet") host.send({ t: "hide" });
+        return;
+      }
+
       switch (message.t) {
+        case "reply-result": {
+          if (replyState === null || typeof message.requestId !== "string" ||
+              replyState.key !== message.key || replyState.requestId !== message.requestId) break;
+          if (message.ok === true) closeReply();
+          else {
+            replyState.requestId = null;
+            replyState.error = true;
+            replyRevision++;
+          }
+          renderCluster();
+          break;
+        }
         case "config": {
           const before = config;
           config = { ...config, ...message.config };
@@ -2513,6 +2932,10 @@ function petSurface(host, data) {
     clearTimeout(frameTimer);
     clearTimeout(momentumTimer);
     clearTimeout(dismissTimer);
+    clearTimeout(replyLayoutTimer);
+    clearTimeout(badgeClickTimer);
+    badgeAnimation?.cancel();
+    if (replyFrame !== undefined) cancelAnimationFrame(replyFrame);
 
     for (const cleanup of cleanups.splice(0)) {
       // One teardown that throws must not strand the rest of them.
@@ -2524,6 +2947,7 @@ function petSurface(host, data) {
     pet.remove();
     tray.remove();
     chat.remove();
+    petMenu.remove();
     if (desktop) {
       host.setFocusable?.(false);
       host.setInteractive(false);
@@ -2542,7 +2966,7 @@ function petSurface(host, data) {
   function mount() {
     if (disposed) return;
 
-    document.body.append(pet, tray, chat);
+    document.body.append(pet, tray, chat, petMenu);
     applySheet();
     applySize();
 
@@ -2682,13 +3106,9 @@ const NEW_CHAT = '[data-testid="new-conversation-button"]';
  */
 const STOPPING = '[data-tooltip-id="input-send-button-cancel-tooltip"]';
 
-/**
- * How often the sidebar is read. Polling, not a MutationObserver: an observer
- * over the whole application fires thousands of times a second while a reply
- * streams in, and all this needs to know is which rows have a spinner. Two
- * seconds is the interval the presence plugin settled on for the same question.
- */
+/** Host events drive activity. The interval recovers replaced host providers. */
 const POLL_INTERVAL_MS = 2000;
+const ACTIVITY_COALESCE_MS = 50;
 
 /**
  * How long a list the tray is handed.
@@ -2913,11 +3333,11 @@ function libraryButton(text, action, quiet = false) {
 
 function libraryIcon(name) {
   const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("viewBox", name === "pet" ? "0 -960 960 960" : "0 0 24 24");
   icon.setAttribute("fill", "currentColor");
   icon.setAttribute("aria-hidden", "true");
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", PET_LIBRARY_ICONS[name]);
+  path.setAttribute("d", name === "pet" ? PAW : PET_LIBRARY_ICONS[name]);
   icon.append(path);
   return icon;
 }
@@ -3259,6 +3679,10 @@ function renderPetLibrary() {
   });
   folder.dataset.petLibraryFocus = "folder";
   folder.prepend(libraryIcon("folder"));
+  const visibility = libraryButton("", () => setShown(!shown));
+  visibility.append(libraryIcon("pet"), libraryElement("span", "", shown ? "Hide pet" : "Show pet"));
+  visibility.dataset.petLibraryFocus = "visibility";
+  visibility.setAttribute("aria-pressed", String(shown));
   const refresh = libraryButton("", refreshPetLibrary);
   refresh.classList.add("is-icon-only");
   refresh.dataset.petLibraryFocus = "refresh";
@@ -3266,7 +3690,7 @@ function renderPetLibrary() {
   refresh.title = "Refresh pets";
   refresh.append(libraryIcon("refresh"));
   refresh.disabled = libraryBusy;
-  actions.append(create, folder, refresh);
+  actions.append(create, folder, visibility, refresh);
   libraryRoot.append(actions, renderPetPreview());
   const notice = libraryError || (libraryState === null ? "Loading your pets…" : "");
   if (notice) {
@@ -3479,7 +3903,23 @@ plugin.onDispose(() => {
  * clears it in Codex.
  */
 
-const textOf = (element) => (element?.textContent ?? "").replace(/\s+/g, " ").trim();
+function textOf(element) {
+  if (!element) return "";
+  // The host embeds Markdown CSS inside replies. Reading textContent directly
+  // puts the stylesheet's opening comment in the pet card before the message.
+  // Skip non-content subtrees without changing the transcript or forcing layout.
+  const ignored = 'style, script, template, noscript, [hidden], [aria-hidden="true"]';
+  if (element.closest(ignored)) return "";
+  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+      return node.matches(ignored) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+    }
+  });
+  const text = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) text.push(node.textContent);
+  return text.join("").replace(/\s+/g, " ").trim();
+}
 
 /**
  * Which of the row's marks is showing, as one of Codex's five levels.
@@ -3885,6 +4325,10 @@ function readDetail(read) {
   if (read.onScreen && read.status === "running") {
     return summaryText();
   }
+  // A virtualized/unmounted chat still has its last known progress. Losing its
+  // DOM must not erase a long subtitle and shrink every other card in the tray.
+  const previous = seen.get(read.key);
+  if (previous?.status === read.status) return previous.subtitle ?? "";
   return "";
 }
 
@@ -3907,8 +4351,9 @@ function titleOfRow(row) {
 /**
  * What each thread was last seen doing.
  *
- * `{ status, updatedAtMs, live }` per conversation id. `updatedAtMs` is the sort
- * key and the clock the expiries run against; `live` is the answer to the
+ * Activity recency is separate from the notification's `updatedAtMs`, which
+ * controls expiry and dismissal. Streaming progress can reorder a card without
+ * resurrecting a dismissed notification. `live` is the answer to the
  * question below. It is not pruned against what the sidebar is showing, because
  * the sidebar is virtualised — a thread that scrolls out of the list has not gone
  * quiet, and coming back as an unseen row would cost it everything the pet knows
@@ -3994,6 +4439,7 @@ function findAgentStatesManager() {
     if (!anchor) continue;
     let fiber = findFiber(anchor);
     for (let depth = 0; fiber && depth < 36; depth += 1, fiber = fiber.return) {
+      if (typeof fiber.memoizedProps?.value?.getAgentStates === "function") return fiber.memoizedProps.value;
       let dep = fiber.dependencies?.firstContext;
       for (let i = 0; dep && i < 32; i += 1, dep = dep.next) {
         if (typeof dep.memoizedValue?.getAgentStates === "function") {
@@ -4082,9 +4528,33 @@ function extractActivityFromState(st) {
         }
       }
     }
+    const last = steps.at(-1);
+    const latest = last?.step?.value;
+    const active = st.fullyIdle !== true && (st.status === 2 || st.fullyIdle === false || [2, 8, 9].includes(last?.status));
+    if (active && typeof latest?.response === "string" && latest.response.trim()) {
+      return latest.response.replace(/\s+/g, " ").trim().slice(0, 160);
+    }
+    if (active && (latest?.thinking || latest?.rawThinking)) return "Thinking";
   }
 
   return null;
+}
+
+/** Include step identity: two successive commands can have the same label. */
+function activityRevision(state) {
+  if (!state) return undefined;
+  const steps = state.trajectorySlice?.stepsInSlice;
+  return JSON.stringify([
+    state.status, state.executableStatus, state.executorLoopStatus, state.fullyIdle,
+    state.trajectorySlice?.totalStepsLength,
+    Array.isArray(steps) ? steps.slice(-2).map(step => [
+      step.type, step.status, step.metadata?.executionId,
+      toTimestampMs(step.metadata?.createdAt), toTimestampMs(step.metadata?.startedAt),
+      toTimestampMs(step.metadata?.completedAt), step.metadata?.toolSummary, step.metadata?.toolAction,
+      step.step?.value?.response?.length, step.step?.value?.thinking?.length,
+      step.step?.value?.rawThinking?.length
+    ]) : null
+  ]);
 }
 
 function toTimestampMs(timeObj) {
@@ -4174,6 +4644,7 @@ function readRows() {
   const subagentActivityByRoot = new Map();
   const waitingDetailsByRoot = new Map();
   const runningDetailsByRoot = new Map();
+  const revisions = new Map();
 
   const manager = findAgentStatesManager();
   if (manager && typeof manager.getAgentStates === "function") {
@@ -4183,6 +4654,7 @@ function readRows() {
         for (const [cascadeId, item] of statesMap.entries()) {
           const st = item?.provider?.getState?.();
           if (!st) continue;
+          revisions.set(cascadeId, activityRevision(st));
           const act = extractActivityFromState(st);
           if (act) {
             runningDetailsByRoot.set(cascadeId, act);
@@ -4314,7 +4786,10 @@ function readRows() {
       place: index,
       key,
       title: titleOfRow(row) || `Thread ${index}`,
-      age: ageFromStamp(textOf(row.querySelector(ROW_STAMP)))
+      age: ageFromStamp(textOf(row.querySelector(ROW_STAMP))),
+      sortAtMs: Math.max(toTimestampMs(summaries?.[id]?.lastModifiedTime), toTimestampMs(summaries?.[id]?.lastUserInputTime)),
+      activityRevision: revisions.get(id),
+      turnStartedAtMs: toTimestampMs(summaries?.[id]?.lastUserInputTime)
     });
   }
 
@@ -4374,7 +4849,7 @@ function readRows() {
       const modTime = toTimestampMs(s.lastModifiedTime);
       const inputTime = toTimestampMs(s.lastUserInputTime);
       const age = modTime > 0 ? Math.max(0, now - modTime) : null;
-      const sortAtMs = inputTime > 0 ? inputTime : (modTime > 0 ? modTime : now);
+      const sortAtMs = Math.max(inputTime, modTime);
 
       rows.push({
         row: null,
@@ -4385,7 +4860,9 @@ function readRows() {
         key: id,
         title: title.trim(),
         age,
-        sortAtMs
+        sortAtMs,
+        activityRevision: revisions.get(id),
+        turnStartedAtMs: inputTime
       });
     }
   }
@@ -4399,80 +4876,44 @@ function readEntries() {
   const entries = [];
   found.clear();
 
-  for (const read of rows) {
+  const remember = (read) => {
     const before = seen.get(read.key);
-    const changed = before !== undefined && before.status !== read.status;
-    const live = LIVE.has(read.status) || changed || (before?.live ?? false);
-
-    // Idle is not news, in Codex either — Ei() (native-page 1461) drops it before
-    // it can become a card. The row is still written down, because a thread the
-    // pet saw go quiet and then light up again lit up under its watch, and that
-    // is the whole of what `live` means.
-    if (read.status === "idle") {
-      seen.set(read.key, {
-        status: "idle",
-        updatedAtMs: changed ? now : (before?.updatedAtMs ?? now),
-        sortAtMs: changed ? now : (before?.sortAtMs ?? datedAt(read, now)),
-        live
-      });
-      continue;
-    }
-
-    if (!live) {
-      // A dot that was already lit when the pet arrived. Written down as the
-      // baseline, so that the moment it changes the thread counts.
-      seen.set(read.key, {
-        status: read.status,
-        updatedAtMs: before?.updatedAtMs ?? now,
-        sortAtMs: before?.sortAtMs ?? datedAt(read, now),
-        live: false
-      });
-      continue;
-    }
-
-    // Codex stamps a card when its level changes and sorts on that, and runs the
-    // expiries against the conversation's own updated-at rather than against when
-    // it noticed. A row's timestamp is that same updated-at, so where a level can
-    // go stale the row's own time is the one used — which is what makes the
-    // expiries mean anything on the first poll after a launch. Where a level
-    // cannot go stale, or the row has no time to give, now will do.
+    const subtitle = readDetail(read);
+    const revision = read.activityRevision ?? before?.activityRevision;
+    const sourceAtMs = Math.max(read.sortAtMs || 0, before?.sourceAtMs || 0);
+    const turnStartedAtMs = Math.max(read.turnStartedAtMs || 0, before?.turnStartedAtMs || 0);
+    const statusChanged = before !== undefined && before.status !== read.status;
+    const newTurn = before !== undefined && turnStartedAtMs > before.turnStartedAtMs;
+    const activityChanged = before !== undefined && (
+      statusChanged || before.title !== read.title || before.subtitle !== subtitle ||
+      before.activityRevision !== revision || sourceAtMs > before.sourceAtMs
+    );
+    const live = LIVE.has(read.status) || activityChanged || (before?.live ?? false);
     const expiry = EXPIRY_MS[read.status];
     const dated = expiry !== undefined && read.age !== null ? now - read.age : now;
-    const updatedAtMs = changed || before === undefined ? dated : before.updatedAtMs;
+    const updatedAtMs = statusChanged || newTurn || before === undefined ? dated : before.updatedAtMs;
+    const sortAtMs = activityChanged ? now : (before?.sortAtMs ?? datedAt(read, now));
+    seen.set(read.key, {
+      status: read.status, title: read.title, subtitle, activityRevision: revision,
+      sourceAtMs, turnStartedAtMs, updatedAtMs, sortAtMs, live
+    });
 
-    /*
-     * When the work in this thread started, which is a different question.
-     *
-     * Kr() (frame 2511) sorts on `sortAtMs`, and that is `turnStartedAtMs ??
-     * updatedAt` — when the current turn began, not when the thread was last
-     * touched. Ai() (native-page 1522) is then priority first and `sortAtMs`
-     * descending, with `latestActivityFirst` set true at the only call site
-     * (2138), so the newest-started piece of work is the top card of its level.
-     *
-     * A level change under the pet's watch *is* a turn starting, so it stamps
-     * now. Everything else carries the stamp it already had, and a thread first
-     * seen mid-flight takes its row's own time — which is what stops a poll that
-     * finds four running threads at once from giving all four the same instant and
-     * leaving their order to a UUID comparison, the reason the list used to come
-     * out in no order at all.
-     */
-    const sortAtMs = changed || before === undefined ? datedAt(read, now) : before.sortAtMs;
-
-    seen.set(read.key, { status: read.status, updatedAtMs, sortAtMs, live: true });
-
-    if (expiry !== undefined && now - updatedAtMs >= expiry) continue;
+    // Existing unread history is the baseline; idle rows never become cards.
+    if (read.status === "idle" || !live || (expiry !== undefined && now - updatedAtMs >= expiry)) return;
 
     found.set(read.key, read.row);
     entries.push({
       key: read.key,
       status: read.status,
       title: read.title,
-      subtitle: readDetail(read),
+      subtitle,
       place: read.place,
       sortAtMs,
       updatedAtMs
     });
-  }
+  };
+
+  for (const read of rows) remember(read);
 
   // The thread in front of you does not always have a row: the sidebar can be
   // collapsed, and when it is open it is virtualised, so a thread can be on screen
@@ -4480,24 +4921,18 @@ function readEntries() {
   // bookkeeping as a row, under the same id where there is one, so that its card
   // holds its place in the sort and keeps whatever the pet knows about the thread
   // for when a row for it does appear.
-  const named = new Set(entries.map((entry) => entry.key));
+  const named = new Set(rows.map((entry) => entry.key));
   const key = current.id !== "" ? current.id : CURRENT_KEY;
   if (current.status !== "" && !named.has(key)) {
-    const before = seen.get(key);
-    const fresh = before === undefined || before.status !== current.status;
-    const updatedAtMs = fresh ? now : before.updatedAtMs;
-    const sortAtMs = fresh ? now : before.sortAtMs;
-    seen.set(key, { status: current.status, updatedAtMs, sortAtMs, live: true });
-    entries.push({
+    remember({
       key,
       status: current.status,
       title: currentTitle() || "This thread",
-      subtitle: current.status === "running" ? (getOnScreenActivityDetail() || summaryText()) : "",
-      // The thread you are looking at is the one you touched last, so it leads
-      // whatever else is at its level and has no row to be placed by.
+      onScreen: true,
+      row: null,
+      age: null,
       place: 0,
-      sortAtMs,
-      updatedAtMs
+      activityRevision: activityRevision(getProviderState(findAgentStatesManager(), key))
     });
   }
 
@@ -4605,38 +5040,8 @@ function wake() {
   };
 }
 
-/**
- * Ai() (native-page 1522), in full and in order.
- *
- *     let r = e.notificationPriority - t.notificationPriority;
- *     if (r !== 0) return r;
- *     if (n) { let n = t.sortAtMs - e.sortAtMs; if (n !== 0) return n; }
- *     if (!n) { let n = t.updatedAtMs - e.updatedAtMs; if (n !== 0) return n; }
- *     return e.key.localeCompare(t.key);
- *
- * `n` is `latestActivityFirst`, and the only call site passes true (2138) — so the
- * live comparator is level, then `sortAtMs` newest first, then the key. `sortAtMs`
- * is when the current turn started (frame 2511), which is what makes the newest
- * piece of work the top card.
- *
- * The one thing added here is the sidebar's own order, ahead of the key. Codex has
- * millisecond timestamps and never needs a tiebreak that means anything;
- * Antigravity's rows are stamped to the nearest minute, hour or day, so three
- * threads touched in the same minute genuinely tie — and `localeCompare` on a UUID
- * would then decide, which is an order with no relation to anything. The sidebar
- * has already sorted them by recency, newest first, so its order is the answer.
- *
- * Level still comes first, exactly as Ai() has it: a thread waiting on you outranks
- * a thread that is merely running, however recently the running one started. That
- * is the whole point of the ladder — the card you have to do something about is the
- * one on top.
- *
- * Codex also expires entries — a failure after an hour, a question after a day, an
- * unread reply after a week — because its tray outlives the app. Those windows are
- * EXPIRY_MS and readEntries enforces them; the greeting is the one card with an
- * expiry of its own, because it is not a thread and none of that bookkeeping has
- * anything to say about it.
- */
+/** Codex's latestActivityFirst normalizes session priority before comparing
+ * recency. Status still controls each card's tone and the attention badge. */
 function activityOf() {
   const all = readEntries();
   // Read work before hiding, dismissing, or bounding the notification list.
@@ -4660,7 +5065,7 @@ function activityOf() {
 
   entries.sort(
     (a, b) =>
-      PRIORITY[a.status] - PRIORITY[b.status] ||
+      Number(a.status === "greeting") - Number(b.status === "greeting") ||
       b.sortAtMs - a.sortAtMs ||
       a.place - b.place ||
       a.key.localeCompare(b.key)
@@ -4673,7 +5078,7 @@ function activityOf() {
 /**
  * What was sent last, as one string, so an unchanged tray is not resent.
  *
- * Order-sensitive because the front card and badge follow notification priority.
+ * Order-sensitive because the front card follows the most recent activity.
  * Work is included separately: a dismissed agent can finish while the tray stays
  * empty. Timestamps alone do not change anything the surface needs to draw.
  *
@@ -4835,6 +5240,9 @@ let playing = "idle";
 let position = plugin.storage.get("position", null);
 /** Whether the pet is out. The toolbar button flips it; it survives a restart. */
 let shown = plugin.storage.get("shown", true) !== false;
+/** The badge's hide/show choice belongs to the plugin, not one pet renderer. */
+let activityPillsVisible = plugin.storage.get("activityPillsVisible", true) !== false;
+let badgeCorner = plugin.storage.get("badgeCorner", "top-end");
 /** Why there is no pet, when there is no pet. Shown in the panel. */
 let trouble = "";
 
@@ -4846,7 +5254,7 @@ const configOf = () => ({
   bounce: settings.bounce === true
 });
 
-/** Brings Antigravity forward. A pet clicked on the desktop is a way back in. */
+/** Focus the host renderer after the desktop surface raises its native window. */
 const raise = () => {
   try {
     window.focus();
@@ -5127,20 +5535,20 @@ async function sendComposer(field, stillSelected) {
 async function askThread(key, text) {
   const followUp = typeof key === "string" && key.length > 0;
   const selected = followUp ? await selectThread(key) : await newConversation();
-  if (!selected) return;
+  if (!selected) return false;
   const expected = followUp && key !== CURRENT_KEY ? key : currentId();
   const stillSelected = () => currentId() === expected && (followUp || projectlessHome());
 
   const field = await waitForComposer(stillSelected);
   if (field === null) {
     plugin.log.warn("nowhere to put the question: no composer");
-    return;
+    return false;
   }
   if (!typeInto(field, text)) {
     plugin.log.warn("the composer would not take the question");
-    return;
+    return false;
   }
-  await sendComposer(field, stillSelected);
+  return sendComposer(field, stillSelected);
 }
 
 /** The stop control. The composer's cancel button is the only thing that can. */
@@ -5169,8 +5577,30 @@ function dismiss(key) {
 /** Everything the pet sends back. */
 function fromSurface(message) {
   if (message === null || typeof message !== "object") return;
+  // Older runtimes forward this request instead of handling a native popup.
+  // Keep their menu usable until the host's next runtime update.
+  if (message.type === "bettergravity:overlay-context-menu") {
+    surface?.send({ type: "bettergravity:overlay-context-menu-result", requestId: message.requestId, unsupported: true });
+    return;
+  }
 
   switch (message.t) {
+    case "hide": {
+      setShown(false);
+      break;
+    }
+    case "badge-corner": {
+      if (!["top-start", "top-end", "bottom-start", "bottom-end"].includes(message.corner)) break;
+      badgeCorner = message.corner;
+      plugin.storage.set("badgeCorner", badgeCorner);
+      break;
+    }
+    case "activity-visibility": {
+      if (typeof message.visible !== "boolean" || message.visible === activityPillsVisible) break;
+      activityPillsVisible = message.visible;
+      plugin.storage.set("activityPillsVisible", activityPillsVisible);
+      break;
+    }
     case "at": {
       if (!Number.isFinite(message.x) || !Number.isFinite(message.y)) break;
       position = { x: message.x, y: message.y };
@@ -5186,7 +5616,10 @@ function fromSurface(message) {
       break;
     }
     case "open": {
-      if (typeof message.key === "string") openThread(message.key);
+      if (typeof message.key === "string") {
+        raise();
+        openThread(message.key);
+      }
       break;
     }
     case "stop": {
@@ -5199,7 +5632,12 @@ function fromSurface(message) {
     }
     case "ask": {
       if (typeof message.text === "string" && message.text.length > 0) {
-        void askThread(message.key, message.text);
+        const destination = surface;
+        const respond = (ok) => {
+          if (typeof message.requestId !== "string" || destination === null || destination !== surface) return;
+          destination.send({ t: "reply-result", key: message.key, requestId: message.requestId, ok });
+        };
+        void askThread(message.key, message.text).then((ok) => respond(ok === true), () => respond(false));
       }
       break;
     }
@@ -5215,7 +5653,120 @@ const whenReady = () =>
       )
     : Promise.resolve();
 
+let activityTimer;
+let activityObserver;
+let activityMountObserver;
+let activityRoots = [];
+let activityStore = null;
+let activityManager = null;
+let storeSubscription;
+const providerSubscriptions = new Map();
+const ACTIVITY_ROOTS = `${ROW_LIST}, ${VIEW}, ${COMPOSER}, [data-testid="running-items-panel"], [data-testid="browser-agent-cursor"]`;
+
+function releaseActivitySubscription(subscription) {
+  try {
+    if (typeof subscription === "function") subscription();
+    else if (typeof subscription?.dispose === "function") subscription.dispose();
+    else subscription?.unsubscribe?.();
+  } catch {}
+}
+
+function scheduleActivity() {
+  if (surface === null || activityTimer !== undefined) return;
+  // Throttle a burst, without restarting the timer on every streamed token.
+  activityTimer = setTimeout(() => {
+    activityTimer = undefined;
+    poll();
+  }, ACTIVITY_COALESCE_MS);
+}
+
+function subscribeActivity(source, method, listener = scheduleActivity) {
+  try { return source?.[method]?.(listener); }
+  catch { return undefined; }
+}
+
+function syncActivitySources() {
+  const store = findHostStore() ?? activityStore;
+  if (store !== activityStore) {
+    releaseActivitySubscription(storeSubscription);
+    activityStore = store;
+    const readStore = () => { try { return store?.getState?.(); } catch { return undefined; } };
+    let previous = readStore();
+    storeSubscription = subscribeActivity(store, "subscribe", () => {
+      const next = readStore();
+      const changed = next?.trajectorySummaries !== previous?.trajectorySummaries ||
+        next?.conversation !== previous?.conversation;
+      previous = next;
+      if (changed) scheduleActivity();
+    });
+  }
+  const manager = findAgentStatesManager() ?? activityManager;
+  // Manager.subscribe(id) acquires a conversation; it is not an event API.
+  // Observe existing providers without keeping hidden conversations loaded.
+  activityManager = manager;
+  const providers = new Set();
+  try {
+    for (const record of manager?.getAgentStates?.()?.values?.() ?? []) {
+      const provider = record?.provider;
+      if (typeof provider?.onDidChange === "function") providers.add(provider);
+    }
+  } catch {}
+  for (const [provider, subscription] of providerSubscriptions) {
+    if (providers.has(provider)) continue;
+    releaseActivitySubscription(subscription);
+    providerSubscriptions.delete(provider);
+  }
+  for (const provider of providers) {
+    if (!providerSubscriptions.has(provider)) {
+      providerSubscriptions.set(provider, subscribeActivity(provider, "onDidChange"));
+    }
+  }
+
+  if (typeof MutationObserver !== "function" || !document.body) return;
+  const candidates = [...document.querySelectorAll(ACTIVITY_ROOTS)];
+  if (!document.querySelector(ROW_LIST)) {
+    for (const row of document.querySelectorAll(ROW)) if (row.parentElement) candidates.push(row.parentElement);
+  }
+  const roots = [...new Set(candidates)].filter(root => !candidates.some(other => other !== root && other.contains(root)));
+  if (roots.length !== activityRoots.length || roots.some((root, index) => root !== activityRoots[index])) {
+    activityRoots = roots;
+    activityObserver ??= new MutationObserver(scheduleActivity);
+    activityObserver.disconnect();
+    for (const root of roots) activityObserver.observe(root, {
+      subtree: true, childList: true, characterData: true, attributes: true,
+      attributeFilter: ["data-testid", "data-cascade-id", "data-selected", "aria-label", "class", "hidden"]
+    });
+  }
+  if (!activityMountObserver) {
+    // Only discover mounted/replaced activity roots here. Text and sprite-frame
+    // mutations elsewhere in the app never schedule a scan of conversation history.
+    activityMountObserver = new MutationObserver(changes => {
+      if (activityRoots.some(root => !root.isConnected) || changes.some(change => {
+        if (activityRoots.some(root => root.contains(change.target))) return false;
+        return [...change.addedNodes, ...change.removedNodes].some(node => node instanceof Element &&
+          (node.matches(`${ACTIVITY_ROOTS}, ${ROW}`) || node.querySelector(`${ACTIVITY_ROOTS}, ${ROW}`)));
+      })) scheduleActivity();
+    });
+    activityMountObserver.observe(document.body, { subtree: true, childList: true });
+  }
+}
+
+function stopActivitySources() {
+  clearTimeout(activityTimer);
+  activityTimer = undefined;
+  activityObserver?.disconnect();
+  activityMountObserver?.disconnect();
+  activityObserver = activityMountObserver = undefined;
+  activityRoots = [];
+  releaseActivitySubscription(storeSubscription);
+  storeSubscription = undefined;
+  activityStore = activityManager = null;
+  for (const subscription of providerSubscriptions.values()) releaseActivitySubscription(subscription);
+  providerSubscriptions.clear();
+}
+
 function stop() {
+  stopActivitySources();
   const live = surface;
   surface = null;
   if (live !== null) live.close();
@@ -5239,7 +5790,7 @@ async function start() {
   working = snapshot.working;
   signature = signatureOf(activity, working);
 
-  const data = { config: configOf(), entries: activity, working, at: position };
+  const data = { config: configOf(), entries: activity, working, at: position, activityPillsVisible, badgeCorner };
 
   const next =
     settings.home === "window"
@@ -5253,6 +5804,7 @@ async function start() {
   }
 
   surface = next;
+  poll();
   plugin.log.info(`ready: ${next.where}, ${settings.size} px, ${activity.length} in the tray`);
 
   // Ci() hands back `nextNotificationExpiresAtMs`, the earliest expiry in the
@@ -5281,6 +5833,7 @@ function begin() {
 function poll() {
   if (libraryPage && !libraryCreating && (!libraryPage.isConnected || location.href !== libraryHref)) closePetLibrary();
   if (surface === null) return;
+  syncActivitySources();
   const next = activityOf();
   const nextSignature = signatureOf(next.entries, next.working);
   if (nextSignature === signature) return;
@@ -5314,6 +5867,11 @@ function setShown(next) {
   shown = next;
   plugin.storage.set("shown", shown);
   toggle?.setActive(shown);
+  const visibility = libraryRoot?.querySelector('[data-pet-library-focus="visibility"]');
+  if (visibility) {
+    visibility.querySelector("span").textContent = shown ? "Hide pet" : "Show pet";
+    visibility.setAttribute("aria-pressed", String(shown));
+  }
   if (shown) begin();
   else { generation++; stop(); }
 }

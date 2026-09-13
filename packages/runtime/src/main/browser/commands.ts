@@ -1,5 +1,6 @@
 import type { NativeBrowserTab } from "./tab.js";
 import { finiteNumber } from "./url.js";
+import { browserCleanup } from "./execution.js";
 
 export const TAB_COMMANDS = [
   "navigate_tab_back", "navigate_tab_forward", "navigate_tab_reload", "tab_dev_logs", "tab_get_js_dialog", "tab_handle_js_dialog",
@@ -74,8 +75,9 @@ export async function executeTabCommand(command: string, args: Record<string, an
   const selector = String(args.selector ?? "");
   const query = (action: string, extra: Record<string, unknown> = {}) => tab.driver({ action, selector, ...extra });
   const point = () => until(() => query("bounds", { force: args.force === true }), assertActive, timeout);
+  const pointAtSelector = async () => { const box = await point(); assertActive(); await tab.moveAgentCursor(box.x, box.y); assertActive(); return box; };
   const keypress = (value: string | string[]) => tab.keypress(Array.isArray(value) ? value : [value]);
-  const clickSelector = async (count = 1) => { const box = await point(); assertActive(); await tab.click(box.x, box.y, mouseButton(args.button), count, modifiers(args.modifiers)); };
+  const clickSelector = async (count = 1) => { const box = await pointAtSelector(); assertActive(); await tab.click(box.x, box.y, mouseButton(args.button), count, modifiers(args.modifiers)); };
   switch (command) {
     case "navigate_tab_back": if (tab.contents.navigationHistory.canGoBack()) tab.contents.navigationHistory.goBack(); return {};
     case "navigate_tab_forward": if (tab.contents.navigationHistory.canGoForward()) tab.contents.navigationHistory.goForward(); return {};
@@ -103,7 +105,7 @@ export async function executeTabCommand(command: string, args: Record<string, an
     case "playwright_locator_click": await clickSelector(); return {};
     case "playwright_locator_dblclick": await clickSelector(2); return {};
     case "playwright_locator_fill": {
-      await point();
+      await pointAtSelector();
       if (args.replace === false) {
         await query("focus"); await keypress("End"); await tab.cdp("Input.insertText", { text: args.value });
       } else {
@@ -114,10 +116,10 @@ export async function executeTabCommand(command: string, args: Record<string, an
       }
       return {};
     }
-    case "playwright_locator_press": await query("focus"); await keypress(args.value); return {};
+    case "playwright_locator_press": await pointAtSelector(); await query("focus"); await keypress(args.value); return {};
     case "playwright_locator_press_sequentially":
-      await query("focus"); for (const character of args.value) { assertActive(); await keypress(character); } return {};
-    case "playwright_locator_select_option": await point(); await query("select", { selections: args.selections }); return {};
+      await pointAtSelector(); await query("focus"); for (const character of args.value) { assertActive(); await keypress(character); } return {};
+    case "playwright_locator_select_option": await pointAtSelector(); await query("select", { selections: args.selections }); return {};
     case "playwright_locator_set_checked": {
       const checked = await query("checked");
       if (checked !== args.checked) await clickSelector();
@@ -174,8 +176,9 @@ export async function executeTabCommand(command: string, args: Record<string, an
       const first = points[0]!;
       await tab.cdp("Input.dispatchMouseEvent", { type: "mouseMoved", ...first });
       await tab.cdp("Input.dispatchMouseEvent", { type: "mousePressed", ...first, button: "left", buttons: 1, clickCount: 1 });
-      try { for (const p of points.slice(1)) { assertActive(); await tab.cdp("Input.dispatchMouseEvent", { type: "mouseMoved", ...p, button: "left", buttons: 1 }); } }
-      finally { if (!tab.destroyed) await tab.cdp("Input.dispatchMouseEvent", { type: "mouseReleased", ...points.at(-1), button: "left", buttons: 0, clickCount: 1 }); }
+      let position = first;
+      try { for (const p of points.slice(1)) { assertActive(); await tab.cdp("Input.dispatchMouseEvent", { type: "mouseMoved", ...p, button: "left", buttons: 1 }); position = p; } }
+      finally { if (!tab.destroyed) await browserCleanup(() => tab.cdp("Input.dispatchMouseEvent", { type: "mouseReleased", ...position, button: "left", buttons: 0, clickCount: 1 })); }
       return {};
     }
     case "dom_cua_click": case "dom_cua_double_click":
