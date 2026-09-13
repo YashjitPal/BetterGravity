@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-13T08:03:11.411Z",
+  "generatedAt": "2026-09-13T08:10:38.754Z",
   "entries": [
     {
       "id": "computer-use",
@@ -429,7 +429,7 @@
       "author": "BetterGravity Community",
       "source": "https://github.com/YashjitPal/BetterGravity",
       "path": "community/plugins/in-built-browser",
-      "bytes": 802176,
+      "bytes": 801960,
       "files": [
         {
           "name": "index.js",
@@ -673,8 +673,8 @@
         },
         {
           "name": "vendor/PLAYWRIGHT-LICENSE",
-          "bytes": 11601,
-          "sha256": "45873d00a0dd243596deb4aa23b2493b3d1f0671921bf2538ea431d7380220eb"
+          "bytes": 11399,
+          "sha256": "7fab1461b41970ff376f1c9303a637076bfaaeb71cd12dd3a1c44aaf59a1a2b9"
         },
         {
           "name": "vendor/provenance.json",
@@ -688,8 +688,8 @@
         },
         {
           "name": "vendor/willow-testing-provenance.json",
-          "bytes": 706,
-          "sha256": "fb06f418a7ea5081e0d3ed1687a02d112caf75bc580dc1900b8eff69e86f14ec"
+          "bytes": 692,
+          "sha256": "e4d8feab1891a3e4b51848860b5d6d8caa955b85f01a78701175f0dee6f43bb8"
         },
         {
           "name": "vendor/ZOD-LICENSE",
