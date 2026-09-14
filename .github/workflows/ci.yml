@@ -91,7 +91,7 @@ jobs:
             tail -n 50 build.log
             exit $BUILD_STATUS
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           # Matches directories.output in apps/installer/package.json. Kept as a
@@ -144,7 +144,7 @@ jobs:
             tail -n 50 build.log
             exit $BUILD_STATUS
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.path }}
