@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@bettergravity/shared": "workspace:*",
-    "@electron/asar": "^3.4.1"
+    "@electron/asar": "^4.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
