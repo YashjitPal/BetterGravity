@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { BrowserWindow, app, ipcMain, session, shell } from "electron";
+import { app, ipcMain, session, shell } from "electron";
 import {
   CHANNEL,
   SETTING_PREFIX,
@@ -22,6 +22,7 @@ import { readAccountProfile } from "./account.js";
 import { readGeminiPlugins, readPluginPatches, readPlugins, readThemes } from "./catalog.js";
 import { importPlugin, importThemeFolder, importThemes, installThemeText, removeItem, revealItem } from "./content.js";
 import { GeminiTranslator } from "./gemini/index.js";
+import { sendToAllWindows } from "./host-contents.js";
 import { fetchCatalog, installEntry } from "./marketplace.js";
 import { logger } from "./logger.js";
 import { directoryFor, ensureDirectories, migrateLegacyContent, runtimePaths, type RuntimePaths } from "./paths.js";
@@ -63,10 +64,7 @@ function buildState(
 }
 
 function broadcast(state: RuntimeState): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    const contents = window.webContents;
-    if (!contents.isDestroyed()) contents.send(CHANNEL.stateChanged, state);
-  }
+  sendToAllWindows(CHANNEL.stateChanged, state);
 }
 
 function watchForChanges(paths: RuntimePaths, onChange: () => void): void {
@@ -93,12 +91,7 @@ function watchForChanges(paths: RuntimePaths, onChange: () => void): void {
 }
 
 function registerPresenceChannels(presence: PresenceConnection): void {
-  const push = (status: PresenceStatus) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      const contents = window.webContents;
-      if (!contents.isDestroyed()) contents.send(CHANNEL.presenceStatus, status);
-    }
-  };
+  const push = (status: PresenceStatus) => sendToAllWindows(CHANNEL.presenceStatus, status);
   presence.onStatusChanged(push);
 
   ipcMain.handle(CHANNEL.presenceOpen, (_event, clientId: string) => presence.open(clientId));
@@ -114,12 +107,7 @@ function registerPresenceChannels(presence: PresenceConnection): void {
  * opened itself, and cannot take over one already on screen.
  */
 function registerOverlayChannels(overlay: OverlayWindow): void {
-  overlay.onStatusChanged((status: OverlayStatus) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      const contents = window.webContents;
-      if (!contents.isDestroyed()) contents.send(CHANNEL.overlayStatus, status);
-    }
-  });
+  overlay.onStatusChanged((status: OverlayStatus) => sendToAllWindows(CHANNEL.overlayStatus, status));
 
   ipcMain.handle(CHANNEL.overlayOpen, (event, owner: string, surface: OverlaySurface) =>
     overlay.open(event.sender, String(owner ?? ""), surface)
@@ -146,12 +134,7 @@ function registerOverlayChannels(overlay: OverlayWindow): void {
 }
 
 function registerGeminiChannels(gemini: GeminiTranslator): void {
-  gemini.onStatusChanged((status: GeminiStatus) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      const contents = window.webContents;
-      if (!contents.isDestroyed()) contents.send(CHANNEL.geminiStatus, status);
-    }
-  });
+  gemini.onStatusChanged((status: GeminiStatus) => sendToAllWindows(CHANNEL.geminiStatus, status));
 
   ipcMain.handle(CHANNEL.geminiConfigure, (_event, config: GeminiConfig | undefined) => gemini.configure(config));
   ipcMain.handle(CHANNEL.geminiRead, () => gemini.status());
@@ -216,11 +199,7 @@ function registerChannels(
     const problem = await shell.openPath(directory);
     if (problem) throw new Error(problem);
   });
-  pets.onChanged(() => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.webContents.isDestroyed()) window.webContents.send(CHANNEL.petsChanged);
-    }
-  });
+  pets.onChanged(() => sendToAllWindows(CHANNEL.petsChanged));
 
   ipcMain.handle(CHANNEL.readStorage, () => storage.snapshot());
 

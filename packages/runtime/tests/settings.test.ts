@@ -111,6 +111,19 @@ describe("injection", () => {
     expect(hostList?.nextElementSibling?.hasAttribute("data-bettergravity-nav-group")).toBe(true);
   });
 
+  // Antigravity 2.31 wraps every nav button in a wrapper of its own. Counting
+  // items per direct parent then finds one item everywhere and the group lands
+  // after the first entry, splitting the app's own settings list in two.
+  it("puts its group after the whole list when each entry has its own wrapper", async () => {
+    install();
+    mountHostSettings(["General", "Application", "Appearance"], { wrapNavItems: true });
+    await settle();
+
+    const hostList = hostNav("General")?.parentElement?.parentElement;
+    expect(hostList?.querySelector("[data-bettergravity-nav-group]")).toBeNull();
+    expect(hostList?.nextElementSibling?.hasAttribute("data-bettergravity-nav-group")).toBe(true);
+  });
+
   // The account entry lives in its own footer list; joining that one would put
   // BetterGravity underneath the signed-in user.
   it("measures the main nav list rather than the account footer", async () => {

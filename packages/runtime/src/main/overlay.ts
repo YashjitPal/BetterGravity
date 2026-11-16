@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { BrowserWindow, Menu, screen, type Rectangle } from "electron";
 import { CHANNEL, OVERLAY_ARGUMENT, type OverlayBounds, type OverlayStatus, type OverlaySurface } from "../protocol.js";
+import { windowFor } from "./host-contents.js";
 import { logger } from "./logger.js";
 
 const TRANSPARENT_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(
@@ -387,7 +388,7 @@ export class OverlayWindow {
       "type" in message && message.type === "bettergravity:overlay-focus-owner") {
       const live = this.live;
       if (!live || live.window.isDestroyed()) return;
-      const owner = BrowserWindow.fromWebContents(page);
+      const owner = windowFor(page);
       if (!owner || owner.isDestroyed() || owner === live.window) return;
       if (owner.isMinimized()) owner.restore();
       if (!owner.isVisible()) owner.show();

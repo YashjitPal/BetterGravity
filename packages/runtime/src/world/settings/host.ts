@@ -46,6 +46,19 @@ interface Panel {
 }
 
 /**
+ * The element that is one entry of a sidebar list. Since Antigravity 2.31 each
+ * nav button sits in a wrapper of its own, so the row is the outermost ancestor
+ * that still holds only this one item; on older hosts it is the button itself.
+ */
+function navRow(item: Element, modal: Element): Element {
+  let row = item;
+  while (row.parentElement && row.parentElement !== modal && row.parentElement.querySelectorAll(SELECTOR.navItem).length === 1) {
+    row = row.parentElement;
+  }
+  return row;
+}
+
+/**
  * The list holding the most nav items is Antigravity's main one, rather than
  * the account footer or one of the smaller project groups. Our own group is
  * skipped so it cannot be mistaken for the host's once it grows.
@@ -53,7 +66,7 @@ interface Panel {
 function findNavList(modal: Element): Element | undefined {
   const byParent = new Map<Element, number>();
   for (const item of modal.querySelectorAll(SELECTOR.navItem)) {
-    const parent = item.parentElement;
+    const parent = navRow(item, modal).parentElement;
     if (!parent || parent.closest(`[${GROUP_ATTRIBUTE}]`)) continue;
     byParent.set(parent, (byParent.get(parent) ?? 0) + 1);
   }
