@@ -14,13 +14,19 @@ import type {
  * integration keys off: a nav list, a separate account footer that must not be
  * mistaken for it, and a container holding one div per screen toggled with
  * inline `display`.
+ *
+ * `wrapNavItems` reproduces Antigravity 2.31+, where every nav button sits in a
+ * `div.relative.group/nav-item` wrapper of its own instead of directly in the list.
  */
-export function mountHostSettings(screens: readonly string[] = ["General", "Appearance"]): HTMLElement {
+export function mountHostSettings(
+  screens: readonly string[] = ["General", "Appearance"],
+  options: { readonly wrapNavItems?: boolean } = {}
+): HTMLElement {
   const navButtons = screens
-    .map(
-      (name) =>
-        `<button type="button" data-testid="settings-nav-item-${name}" class="flex items-center gap-1.5 group mx-2 px-2 py-1 rounded-lg cursor-pointer border-none text-left transition-all outline-none hover:bg-sidebar-muted"><span class="text-sm transition-colors select-none truncate flex-1 text-secondary-foreground group-hover:text-foreground">${name}</span></button>`
-    )
+    .map((name) => {
+      const button = `<button type="button" data-testid="settings-nav-item-${name}" class="flex items-center gap-1.5 group mx-2 px-2 py-1 rounded-lg cursor-pointer border-none text-left transition-all outline-none hover:bg-sidebar-muted"><span class="text-sm transition-colors select-none truncate flex-1 text-secondary-foreground group-hover:text-foreground">${name}</span></button>`;
+      return options.wrapNavItems ? `<div class="relative group/nav-item mx-2">${button}</div>` : button;
+    })
     .join("");
 
   const screenDivs = screens

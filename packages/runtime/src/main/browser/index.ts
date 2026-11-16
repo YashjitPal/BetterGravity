@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { app, BrowserWindow, ipcMain, session, shell, Menu, type DownloadItem, type Session, type WebContents } from "electron";
+import { app, ipcMain, session, shell, Menu, type BaseWindow, type DownloadItem, type Session, type WebContents } from "electron";
 import { CHANNEL, type BrowserPanelState, type RuntimeSettings } from "../../protocol.js";
 import { BrowserHttpBridge } from "./bridge.js";
 import { BrowserRegistration, BROWSER_PLUGIN_ID, readObject, writeObject } from "./registration.js";
@@ -11,6 +11,7 @@ import { until, validateSchema } from "./commands.js";
 import { browserCommands, dispatchBrowserCommand } from "./dispatch.js";
 import { BrowserGuidance } from "./guidance.js";
 import { browserDeadline, browserOperation } from "./execution.js";
+import { allWindows, windowContents, windowFor } from "../host-contents.js";
 
 export interface BrowserPermission {
   id: string; origin: string; description: string;
@@ -22,7 +23,7 @@ export interface BrowserHost {
   id: string;
   context: string;
   owner: WebContents;
-  window: BrowserWindow;
+  window: BaseWindow;
   tabs: Map<string, NativeBrowserTab>;
   activeTabId: string | null;
   attachedTab: NativeBrowserTab | null;
@@ -382,10 +383,12 @@ export class InBuiltBrowserService {
     else {
       // A collapsed sidebar can leave the renderer toolbar unmounted. Bootstrap
       // the current conversation without waiting for the user to open it first.
-      const windows = BrowserWindow.getAllWindows().filter(window => !window.isDestroyed() && !window.webContents.isDestroyed() &&
-        window.webContents.session === session.defaultSession && /^https?:\/\/127\.0\.0\.1:\d+\/c\/[^/]+/.test(window.webContents.getURL()));
-      const window = windows.find(window => window.isFocused()) ?? windows.at(-1);
-      if (window) host = this.attach(window.webContents, new URL(window.webContents.getURL()).pathname.match(/\/c\/([^/]+)/)![1]!);
+      // The conversation page may sit in a WebContentsView inside the window
+      // rather than being the window's own contents (Antigravity 2.31+).
+      const pages = allWindows().flatMap(window => windowContents(window).map(contents => ({ window, contents })))
+        .filter(({ contents }) => contents.session === session.defaultSession && /^https?:\/\/127\.0\.0\.1:\d+\/c\/[^/]+/.test(contents.getURL()));
+      const page = pages.find(({ window }) => window.isFocused()) ?? pages.at(-1);
+      if (page) host = this.attach(page.contents, new URL(page.contents.getURL()).pathname.match(/\/c\/([^/]+)/)![1]!);
       else host = [...this.hosts.values()].find(h => h.window.isFocused() && this.selectedHosts.get(h.owner.id) === h.id) ?? [...this.hosts.values()].at(-1);
     }
     if (!host || host.owner.isDestroyed()) throw new Error("Open an Antigravity conversation to use the In Built Browser.");
@@ -452,7 +455,7 @@ export class InBuiltBrowserService {
   attach(owner: WebContents, context: string): BrowserHost {
     this.requireEnabled();
     this.assertOwner(owner);
-    const window = BrowserWindow.fromWebContents(owner);
+    const window = windowFor(owner);
     if (!window) throw new Error("The host window is unavailable.");
     const safeContext = context.slice(0, 250) || "default";
     if (safeContext !== this.currentContext(owner)) throw new Error("This browser request belongs to a conversation that is no longer displayed.");
