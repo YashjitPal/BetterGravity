@@ -409,7 +409,7 @@ namespace ComputerUseOverlay {
             SourceInitialized += (s, e) => {
                 hwnd = new WindowInteropHelper(this).Handle;
                 int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
+                SetWindowLong(hwnd, GWL_EXSTYLE, exStyle | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT);
                 HwndSource source = HwndSource.FromHwnd(hwnd);
                 if (source != null) {
                     source.AddHook(WndProc);

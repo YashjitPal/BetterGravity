@@ -236,5 +236,33 @@ describe("WindowsComputerUseActionHandler coordinate and UIA routing", () => {
     expect(calls.at(-1)!.args.element_index).toBe(5);
     expect(calls.at(-1)!.args.value).toBe("Antigravity");
   });
+
+  // Regression: without WS_EX_TRANSPARENT on the topmost layered overlay window,
+  // WM_NCHITTEST returning HTTRANSPARENT only passes through within the same thread,
+  // so the animated Agent Cursor sitting at the target coordinates eats SendInput clicks
+  // destined for other processes.
+  it("configures the Windows screen overlay HWND with WS_EX_TRANSPARENT for cross-process click-through", () => {
+    const overlaySource = fs.readFileSync(
+      path.resolve(import.meta.dirname, "../../../community/plugins/computer-use/bin/windows-screen-overlay.cs"),
+      "utf8"
+    );
+
+    expect(overlaySource).toMatch(/SetWindowLong\(\s*hwnd\s*,\s*GWL_EXSTYLE\s*,[^)]*WS_EX_TRANSPARENT/);
+  });
+
+  // Regression: calling ShowWindow(SW_SHOW) and deprecated SwitchToThisWindow(hwnd, true)
+  // on already-visible RAIL/WSA windows corrupts their DWM composition surface into a blank
+  // click-through frame. FocusAppWindow must only restore minimized windows and avoid SwitchToThisWindow.
+  it("focuses windows without calling SwitchToThisWindow or SW_SHOW on visible windows", () => {
+    const runnerSource = fs.readFileSync(
+      path.resolve(import.meta.dirname, "../../../community/plugins/computer-use/bin/windows-native-runner.cs"),
+      "utf8"
+    );
+
+    const focusMatch = runnerSource.match(/public static IntPtr FocusAppWindow\([\s\S]*?\n        \}/);
+    expect(focusMatch).not.toBeNull();
+    expect(focusMatch![0]).not.toContain("SwitchToThisWindow");
+    expect(focusMatch![0]).not.toMatch(/ShowWindow\([^,]+,\s*5\)/);
+  });
 });
 
