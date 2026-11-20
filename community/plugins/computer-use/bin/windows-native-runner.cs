@@ -63,6 +63,9 @@ namespace WindowsComputerUse {
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
         [DllImport("user32.dll")]
+        public static extern bool BringWindowToTop(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
         public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         [DllImport("user32.dll")]
@@ -378,12 +381,10 @@ namespace WindowsComputerUse {
                     attached = AttachThreadInput(curThread, fgThread, true);
                 }
                 if (IsIconic(matchedHwnd)) {
-                    ShowWindow(matchedHwnd, 9); // SW_RESTORE if minimized
-                } else {
-                    ShowWindow(matchedHwnd, 5); // SW_SHOW without resizing or moving
+                    ShowWindow(matchedHwnd, 9); // SW_RESTORE only if minimized
                 }
+                BringWindowToTop(matchedHwnd);
                 SetForegroundWindow(matchedHwnd);
-                SwitchToThisWindow(matchedHwnd, true);
                 if (attached) {
                     AttachThreadInput(curThread, fgThread, false);
                 }
